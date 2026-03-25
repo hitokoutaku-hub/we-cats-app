@@ -1182,4 +1182,10 @@ function resetChecklist(ck,articleId){localStorage.removeItem(ck);openArticle(ar
 async function saveFolder(){const title=document.getElementById('folderName').value.trim();if(!title){showToast('フォルダー名を入力してください');return;}await sb.from('manuals').insert({title,type:'folder',content:''});await loadFolders();closeModal('addFolder');renderFolders();showToast('✓ フォルダーを追加しました');}
 async function saveArticle(){const title=document.getElementById('articleTitle').value.trim(),content=document.getElementById('articleContent').value.trim();if(!title){showToast('タイトルを入力してください');return;}await sb.from('manuals').insert({title,type:'article',content,folder_id:currentFolderId});await loadFolders();closeModal('addArticle');renderArticles();showToast('✓ 記事を追加しました');}
 async function saveChecklist(){const title=document.getElementById('checklistTitle').value.trim(),items=document.getElementById('checklistItems').value.trim();if(!title||!items){showToast('タイトルと項目を入力してください');return;}await sb.from('manuals').insert({title,type:'checklist',content:items,folder_id:currentFolderId});await loadFolders();closeModal('addChecklist');renderArticles();showToast('✓ チェックリストを追加しました');}
-async function deleteArticle(){if(!confirm('削除しますか？'))return;await sb.from('manuals').delete().eq('id',editingArticleId);awai
+async function deleteArticle(){if(!confirm('削除しますか？'))return;await sb.from('manuals').delete().eq('id',editingArticleId);await loadFolders();goBack();showToast('削除しました');}
+async function deleteFolder(){if(!confirm('このフォルダーと中の記事を全て削除しますか？'))return;const articles=articlesCache.filter(a=>a.folder_id===currentFolderId);for(const a of articles)await sb.from('manuals').delete().eq('id',a.id);await sb.from('manuals').delete().eq('id',currentFolderId);await loadFolders();switchPage('manual');showToast('削除しました');}
+
+document.querySelectorAll('.modal-overlay').forEach(overlay=>{overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open');});});
+</script>
+</body>
+</html>
