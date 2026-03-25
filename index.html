@@ -642,6 +642,8 @@ function saveName(){const n=document.getElementById('nameInput').value.trim();if
 async function init(){
   showToast('データを読み込み中...');
   await loadCatsData();
+  // 全猫のデータを一括読み込み
+  await Promise.all(catsCache.map(cat=>loadCatDetail(cat.id)));
   await Promise.all([loadDrinks(),loadFolders()]);
   renderCatList();
   checkHospitalAlerts();
