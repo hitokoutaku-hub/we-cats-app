@@ -540,6 +540,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <div class="form-group"><label class="form-label" id="drinkAddNameLabel">ドリンク名</label><input type="text" class="form-input" id="dAddName" placeholder="例：緑茶"></div>
   <div class="form-group"><label class="form-label">アイコン（絵文字）</label><input type="text" class="form-input" id="dAddIcon" placeholder="例：🍵" maxlength="2"></div>
   <div class="form-group"><label class="form-label">初期在庫数</label><input type="number" class="form-input" id="dAddStock" value="10" min="0" max="99"></div>
+  <div class="form-group"><label class="form-label">⚠️ 注意アラートの個数（デフォルト：5）</label><input type="number" class="form-input" id="dAddWarn" value="5" min="0" max="99"></div>
   <div class="modal-btn-row">
     <button class="modal-btn cancel" onclick="closeModal('drinkAdd')">キャンセル</button>
     <button class="modal-submit" onclick="saveDrinkAdd()" style="margin-top:0">追加する</button>
@@ -548,10 +549,11 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 
 <div class="modal-overlay" id="modalDrinkEdit"><div class="modal">
   <button class="modal-close" onclick="closeModal('drinkEdit')">✕</button>
-  <h3>✏️ ドリンクを編集</h3>
+  <h3 id="drinkEditModalTitle">✏️ ドリンクを編集</h3>
   <input type="hidden" id="dEditId">
-  <div class="form-group"><label class="form-label">ドリンク名</label><input type="text" class="form-input" id="dEditName"></div>
+  <div class="form-group"><label class="form-label" id="drinkEditNameLabel">ドリンク名</label><input type="text" class="form-input" id="dEditName"></div>
   <div class="form-group"><label class="form-label">アイコン</label><input type="text" class="form-input" id="dEditIcon" maxlength="2"></div>
+  <div class="form-group"><label class="form-label">⚠️ 注意アラートの個数</label><input type="number" class="form-input" id="dEditWarn" min="0" max="99" placeholder="例：5"></div>
   <div class="modal-btn-row">
     <button class="modal-btn del" onclick="deleteDrink()">削除</button>
     <button class="modal-btn cancel" onclick="closeModal('drinkEdit')">キャンセル</button>
@@ -1095,16 +1097,17 @@ function switchDrinkTab(tab){
   if(btn)btn.textContent=isDrink?'＋ ドリンクを追加':'＋ 商品を追加';
   renderDrinks();
 }
-function getDrinkStatus(s){return s===0?'danger':s<=5?'warn':'ok';}
-function getDrinkLabel(s){return s===0?'🔴 要発注！':s<=5?'⚠️ 残り少ない':'✅ 在庫OK';}
+function getDrinkStatus(s,threshold){const t=threshold||5;return s===0?'danger':s<=t?'warn':'ok';}
+function getDrinkLabel(s,threshold){const t=threshold||5;return s===0?'🔴 要発注！':s<=t?'⚠️ 残り少ない':'✅ 在庫OK';}
 function renderDrinks(){
   const items=drinkCache[currentDrinkTab]||[];const list=document.getElementById('drinkList');list.innerHTML='';
   let ok=0,warn=0,danger=0,hasDanger=false;
   items.forEach(d=>{
-    const st=getDrinkStatus(d.stock);if(st==='ok')ok++;else if(st==='warn')warn++;else{danger++;hasDanger=true;}
+    const t=d.warn_threshold||5;
+    const st=getDrinkStatus(d.stock,t);if(st==='ok')ok++;else if(st==='warn')warn++;else{danger++;hasDanger=true;}
     let dots='';for(let i=0;i<10;i++)dots+=`<div class="bottle-dot ${i<d.stock?'filled '+st:''}"></div>`;
     const card=document.createElement('div');card.className=`drink-card ${st}`;
-    card.innerHTML=`<div class="drink-icon">${d.icon}</div><div class="drink-info"><div class="drink-name">${d.name}</div><div class="drink-status ds-${st}">${getDrinkLabel(d.stock)}</div><div class="bottle-bar">${dots}</div></div><div class="stock-area"><button class="stock-btn" onclick="changeDrinkStock('${d.id}',-1)">−</button><div class="stock-num num-${st}">${d.stock}</div><button class="stock-btn plus" onclick="changeDrinkStock('${d.id}',+1)">＋</button></div><button class="drink-edit-btn" onclick="openDrinkEdit('${d.id}')">✏️</button>`;
+    card.innerHTML=`<div class="drink-icon">${d.icon}</div><div class="drink-info"><div class="drink-name">${d.name}</div><div class="drink-status ds-${st}">${getDrinkLabel(d.stock,t)}</div><div class="bottle-bar">${dots}</div></div><div class="stock-area"><button class="stock-btn" onclick="changeDrinkStock('${d.id}',-1)">−</button><div class="stock-num num-${st}">${d.stock}</div><button class="stock-btn plus" onclick="changeDrinkStock('${d.id}',+1)">＋</button></div><button class="drink-edit-btn" onclick="openDrinkEdit('${d.id}')">✏️</button>`;
     list.appendChild(card);
   });
   document.getElementById('dSumOk').textContent=ok;document.getElementById('dSumWarn').textContent=warn;document.getElementById('dSumDanger').textContent=danger;
@@ -1121,9 +1124,36 @@ function openDrinkAdd(){
   document.getElementById('drinkAddBtn').textContent=isDrink?'＋ ドリンクを追加':'＋ 商品を追加';
   document.getElementById('modalDrinkAdd').classList.add('open');
 }
-async function saveDrinkAdd(){const name=document.getElementById('dAddName').value.trim(),icon=document.getElementById('dAddIcon').value.trim()||'🥤',stock=parseInt(document.getElementById('dAddStock').value)||10;if(!name){showToast('ドリンク名を入力してください');return;}await sb.from('drink_items').insert({category:currentDrinkTab,name,icon,stock});await loadDrinks();closeModal('drinkAdd');showToast('✓ 追加しました');}
-function openDrinkEdit(id){const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;document.getElementById('dEditId').value=id;document.getElementById('dEditName').value=item.name;document.getElementById('dEditIcon').value=item.icon;document.getElementById('modalDrinkEdit').classList.add('open');}
-async function saveDrinkEdit(){const id=document.getElementById('dEditId').value,name=document.getElementById('dEditName').value.trim(),icon=document.getElementById('dEditIcon').value.trim();await sb.from('drink_items').update({name,icon}).eq('id',id);const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(item){item.name=name;item.icon=icon;}closeModal('drinkEdit');renderDrinks();showToast('✓ 更新しました');}
+async function saveDrinkAdd(){
+  const name=document.getElementById('dAddName').value.trim();
+  const icon=document.getElementById('dAddIcon').value.trim()||'🥤';
+  const stock=parseInt(document.getElementById('dAddStock').value)||10;
+  const warn_threshold=parseInt(document.getElementById('dAddWarn').value)||5;
+  if(!name){showToast('商品名を入力してください');return;}
+  await sb.from('drink_items').insert({category:currentDrinkTab,name,icon,stock,warn_threshold});
+  await loadDrinks();closeModal('drinkAdd');showToast('✓ 追加しました');
+}
+function openDrinkEdit(id){
+  const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;
+  const isDrink=currentDrinkTab==='hot'||currentDrinkTab==='ice';
+  document.getElementById('dEditId').value=id;
+  document.getElementById('dEditName').value=item.name;
+  document.getElementById('dEditIcon').value=item.icon;
+  document.getElementById('dEditWarn').value=item.warn_threshold||5;
+  document.getElementById('drinkEditModalTitle').textContent=isDrink?'✏️ ドリンクを編集':'✏️ 商品を編集';
+  document.getElementById('drinkEditNameLabel').textContent=isDrink?'ドリンク名':'商品名';
+  document.getElementById('modalDrinkEdit').classList.add('open');
+}
+async function saveDrinkEdit(){
+  const id=document.getElementById('dEditId').value;
+  const name=document.getElementById('dEditName').value.trim();
+  const icon=document.getElementById('dEditIcon').value.trim();
+  const warn_threshold=parseInt(document.getElementById('dEditWarn').value)||5;
+  await sb.from('drink_items').update({name,icon,warn_threshold}).eq('id',id);
+  const item=drinkCache[currentDrinkTab].find(d=>d.id===id);
+  if(item){item.name=name;item.icon=icon;item.warn_threshold=warn_threshold;}
+  closeModal('drinkEdit');renderDrinks();showToast('✓ 更新しました');
+}
 async function deleteDrink(){const id=document.getElementById('dEditId').value;if(!confirm('削除しますか？'))return;await sb.from('drink_items').delete().eq('id',id);drinkCache[currentDrinkTab]=drinkCache[currentDrinkTab].filter(d=>d.id!==id);closeModal('drinkEdit');renderDrinks();showToast('削除しました');}
 
 // ===== 連絡ボード（Supabase） =====
