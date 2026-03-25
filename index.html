@@ -158,6 +158,9 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .drink-tab { flex: 1; padding: 10px; border-radius: 12px; border: 2px solid transparent; background: var(--white); font-size: 14px; font-weight: 700; cursor: pointer; color: var(--text-light); font-family: 'Zen Maru Gothic', sans-serif; box-shadow: var(--shadow); }
 .drink-tab.hot.active { border-color: #fb923c; color: #fb923c; background: rgba(251,146,60,0.1); }
 .drink-tab.ice.active { border-color: #38bdf8; color: #38bdf8; background: rgba(56,189,248,0.1); }
+.drink-tab.cat.active { border-color: #d4708a; color: #d4708a; background: rgba(212,112,138,0.1); }
+.drink-tab.supply.active { border-color: #6b8e6b; color: #6b8e6b; background: rgba(107,142,107,0.1); }
+.nav-badge { position: absolute; top: 6px; right: 6px; background: var(--danger); color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 9px; display: flex; align-items: center; justify-content: center; font-weight: 700; }
 .drink-summary { display: flex; gap: 8px; margin: 0 16px 12px; }
 .drink-sum-card { background: var(--white); border-radius: 12px; padding: 10px; text-align: center; flex: 1; box-shadow: var(--shadow); }
 .drink-sum-num { font-size: 22px; font-weight: 900; line-height: 1; }
@@ -380,9 +383,11 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 
 <!-- ドリンク在庫 -->
 <div class="page" id="page-drinks">
-  <div class="drink-tabs">
+  <div class="drink-tabs" style="flex-wrap:wrap;gap:6px">
     <button class="drink-tab hot active" onclick="switchDrinkTab('hot')">🔥 ホット</button>
     <button class="drink-tab ice" onclick="switchDrinkTab('ice')">🧊 アイス</button>
+    <button class="drink-tab cat" onclick="switchDrinkTab('cat')">🐱 猫用品</button>
+    <button class="drink-tab supply" onclick="switchDrinkTab('supply')">🧻 消耗品</button>
   </div>
   <div class="drink-alert" id="drinkAlert">⚠️ 在庫切れがあります！発注してください</div>
   <div class="drink-summary">
@@ -454,7 +459,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 <!-- ボトムナビ -->
 <div class="bottom-nav">
   <button class="nav-item active" data-page="cats" onclick="switchPage('cats')"><span class="nav-icon">🐱</span>猫管理</button>
-  <button class="nav-item" data-page="drinks" onclick="switchPage('drinks')"><span class="nav-icon">🥤</span>在庫</button>
+  <button class="nav-item" data-page="drinks" onclick="switchPage('drinks')" style="position:relative"><span class="nav-icon">🥤</span>在庫<div class="nav-badge" id="stockBadge" style="display:none">!</div></button>
   <button class="nav-item" data-page="board" onclick="switchPage('board')"><span class="nav-icon">📋</span>連絡</button>
   <button class="nav-item" data-page="manual" onclick="switchPage('manual')"><span class="nav-icon">📌</span>マニュアル</button>
 </div>
@@ -630,7 +635,7 @@ let currentDrinkTab='hot',currentPostType='report';
 let editingCatId=null,currentFolderId=null,editingArticleId=null,currentCareType=null;
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth(),calSelectedDay=null,calInputDate=null;
 let photoBuf={daily:[],hospital:[],board:[]},selectedEmoji='🐱';
-let drinkCache={hot:[],ice:[]},boardCache=[],foldersCache=[],articlesCache=[],medCheckState={};
+let drinkCache={hot:[],ice:[],cat:[],supply:[]},boardCache=[],foldersCache=[],articlesCache=[],medCheckState={};
 
 const CAT_EMOJIS=['🐱','🐈','😺','😸','⭐','🌸','🍀','🌙','🌈','🐯','💜','🍑','🤍','🧡','💛','🩷','🩵','🌻','🍃','🤎'];
 const CARE_TYPES=[{key:'nail',label:'爪切り',emoji:'✂️'},{key:'brush',label:'ブラッシング',emoji:'🪮'},{key:'hairball',label:'毛玉取り',emoji:'🧶'},{key:'ear',label:'耳掃除',emoji:'👂'},{key:'teeth',label:'歯磨き',emoji:'🦷'},{key:'shampoo',label:'シャンプー',emoji:'🛁'}];
@@ -1050,8 +1055,21 @@ async function loadDrinks(){
   const{data}=await sb.from('drink_items').select('*').order('sort_order').order('created_at');
   drinkCache.hot=(data||[]).filter(d=>d.category==='hot');
   drinkCache.ice=(data||[]).filter(d=>d.category==='ice');
+  drinkCache.cat=(data||[]).filter(d=>d.category==='cat');
+  drinkCache.supply=(data||[]).filter(d=>d.category==='supply');
   if(!data||data.length===0)await initDefaultDrinks();
+  updateStockBadge();
   if(currentPage==='drinks')renderDrinks();
+}
+function updateStockBadge(){
+  const allItems=[...drinkCache.hot,...drinkCache.ice,...drinkCache.cat,...drinkCache.supply];
+  const hasDanger=allItems.some(d=>d.stock===0);
+  const hasWarn=allItems.some(d=>d.stock<=5&&d.stock>0);
+  const badge=document.getElementById('stockBadge');
+  if(!badge)return;
+  if(hasDanger){badge.style.display='flex';badge.textContent='!';}
+  else if(hasWarn){badge.style.display='flex';badge.textContent='!';}
+  else{badge.style.display='none';}
 }
 async function initDefaultDrinks(){
   const items=[
@@ -1068,7 +1086,12 @@ async function initDefaultDrinks(){
   const{data}=await sb.from('drink_items').select('*').order('created_at');
   drinkCache.hot=(data||[]).filter(d=>d.category==='hot');drinkCache.ice=(data||[]).filter(d=>d.category==='ice');
 }
-function switchDrinkTab(tab){currentDrinkTab=tab;document.querySelectorAll('.drink-tab').forEach(t=>t.classList.remove('active'));document.querySelector(`.drink-tab.${tab}`).classList.add('active');renderDrinks();}
+function switchDrinkTab(tab){
+  currentDrinkTab=tab;
+  document.querySelectorAll('.drink-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`.drink-tab.${tab}`).classList.add('active');
+  renderDrinks();
+}
 function getDrinkStatus(s){return s===0?'danger':s<=5?'warn':'ok';}
 function getDrinkLabel(s){return s===0?'🔴 要発注！':s<=5?'⚠️ 残り少ない':'✅ 在庫OK';}
 function renderDrinks(){
@@ -1083,8 +1106,9 @@ function renderDrinks(){
   });
   document.getElementById('dSumOk').textContent=ok;document.getElementById('dSumWarn').textContent=warn;document.getElementById('dSumDanger').textContent=danger;
   document.getElementById('drinkAlert').className='drink-alert'+(hasDanger?' show':'');
+  updateStockBadge();
 }
-async function changeDrinkStock(id,delta){const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;item.stock=Math.max(0,Math.min(99,item.stock+delta));renderDrinks();await sb.from('drink_items').update({stock:item.stock}).eq('id',id);}
+async function changeDrinkStock(id,delta){const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;item.stock=Math.max(0,Math.min(99,item.stock+delta));renderDrinks();updateStockBadge();await sb.from('drink_items').update({stock:item.stock}).eq('id',id);}
 function openDrinkAdd(){['dAddName','dAddIcon'].forEach(id=>document.getElementById(id).value='');document.getElementById('dAddStock').value=10;document.getElementById('modalDrinkAdd').classList.add('open');}
 async function saveDrinkAdd(){const name=document.getElementById('dAddName').value.trim(),icon=document.getElementById('dAddIcon').value.trim()||'🥤',stock=parseInt(document.getElementById('dAddStock').value)||10;if(!name){showToast('ドリンク名を入力してください');return;}await sb.from('drink_items').insert({category:currentDrinkTab,name,icon,stock});await loadDrinks();closeModal('drinkAdd');showToast('✓ 追加しました');}
 function openDrinkEdit(id){const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;document.getElementById('dEditId').value=id;document.getElementById('dEditName').value=item.name;document.getElementById('dEditIcon').value=item.icon;document.getElementById('modalDrinkEdit').classList.add('open');}
