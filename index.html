@@ -637,7 +637,6 @@ const CARE_TYPES=[{key:'nail',label:'爪切り',emoji:'✂️'},{key:'brush',lab
 
 window.onload=()=>{
   updateHeaderDate();setInterval(updateHeaderDate,1000);
-  if(userName){document.getElementById('nameSetup').style.display='none';document.getElementById('boardAuthorName').textContent=userName;init();}
 };
 function saveName(){const n=document.getElementById('nameInput').value.trim();if(!n){showToast('名前を入力してください');return;}userName=n;localStorage.setItem('wecats_username',n);document.getElementById('nameSetup').style.display='none';document.getElementById('boardAuthorName').textContent=n;init();}
 async function init(){
