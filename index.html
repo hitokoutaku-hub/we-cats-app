@@ -590,14 +590,37 @@ const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-// LocalStorage（猫管理）
-const STORAGE_KEY='wecats_health_v2';
-function getData(){const r=localStorage.getItem(STORAGE_KEY);if(!r)return{cats:getDefaultCats(),records:{}};return JSON.parse(r);}
-function saveData(d){localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}
-function getDefaultCats(){
-  const names=['にゃあな','にゃあ','こきん','なずな','すぎな','ももりん','あおい','くう','わらび','ブラン','ハニ','ルル','とら','あさひ','まひる','ふく'];
-  const emojis=['🐱','🐈','⭐','🌸','🍀','🍑','💙','🌙','🍃','🤍','💜','🌈','🐯','☀️','🌻','🌷'];
-  return names.map((name,i)=>({id:'cat_'+i,name,emoji:emojis[i]||'🐱'}));
+// Supabase猫管理キャッシュ
+let catsCache=[],catRecordsCache={},catMedsCache={},catHospPlansCache={};
+const DEFAULT_CATS=[
+  {id:'cat_0',name:'にゃあな',emoji:'🐱'},{id:'cat_1',name:'にゃあ',emoji:'🐈'},
+  {id:'cat_2',name:'こきん',emoji:'⭐'},{id:'cat_3',name:'なずな',emoji:'🌸'},
+  {id:'cat_4',name:'すぎな',emoji:'🍀'},{id:'cat_5',name:'ももりん',emoji:'🍑'},
+  {id:'cat_6',name:'あおい',emoji:'💙'},{id:'cat_7',name:'くう',emoji:'🌙'},
+  {id:'cat_8',name:'わらび',emoji:'🍃'},{id:'cat_9',name:'ブラン',emoji:'🤍'},
+  {id:'cat_10',name:'ハニ',emoji:'💜'},{id:'cat_11',name:'ルル',emoji:'🌈'},
+  {id:'cat_12',name:'とら',emoji:'🐯'},{id:'cat_13',name:'あさひ',emoji:'☀️'},
+  {id:'cat_14',name:'まひる',emoji:'🌻'},{id:'cat_15',name:'ふく',emoji:'🌷'},
+];
+async function loadCatsData(){
+  const{data:cats}=await sb.from('wecats_cats').select('*').order('sort_order').order('created_at');
+  if(!cats||cats.length===0){
+    await sb.from('wecats_cats').insert(DEFAULT_CATS.map((c,i)=>({...c,sort_order:i})));
+    const{data:cats2}=await sb.from('wecats_cats').select('*').order('sort_order');
+    catsCache=cats2||DEFAULT_CATS;
+  } else {
+    catsCache=cats;
+  }
+}
+async function loadCatDetail(catId){
+  const[{data:records},{data:meds},{data:plans}]=await Promise.all([
+    sb.from('wecats_records').select('*').eq('cat_id',catId).order('date',{ascending:false}),
+    sb.from('wecats_medications').select('*').eq('cat_id',catId).eq('active',true),
+    sb.from('wecats_hospital_plans').select('*').eq('cat_id',catId).order('date'),
+  ]);
+  catRecordsCache[catId]=records||[];
+  catMedsCache[catId]=meds||[];
+  catHospPlansCache[catId]=plans||[];
 }
 
 // 状態
@@ -617,7 +640,13 @@ window.onload=()=>{
   if(userName){document.getElementById('nameSetup').style.display='none';document.getElementById('boardAuthorName').textContent=userName;init();}
 };
 function saveName(){const n=document.getElementById('nameInput').value.trim();if(!n){showToast('名前を入力してください');return;}userName=n;localStorage.setItem('wecats_username',n);document.getElementById('nameSetup').style.display='none';document.getElementById('boardAuthorName').textContent=n;init();}
-async function init(){renderCatList();checkHospitalAlerts();await Promise.all([loadDrinks(),loadFolders()]);}
+async function init(){
+  showToast('データを読み込み中...');
+  await loadCatsData();
+  await Promise.all([loadDrinks(),loadFolders()]);
+  renderCatList();
+  checkHospitalAlerts();
+}
 function updateHeaderDate(){const now=new Date();document.getElementById('headerDate').innerHTML=`${now.getMonth()+1}/${now.getDate()}<br>${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;}
 function today(){const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;}
 function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
@@ -652,12 +681,12 @@ function goBack(){
 }
 
 // 病院アラート
-function checkHospitalAlerts(){
-  const data=getData();const alerts=[];
-  data.cats.filter(c=>!c.archived).forEach(cat=>{
-    const plans=((data.records[cat.id]||{}).hospitalPlans||[]);
+async function checkHospitalAlerts(){
+  const alerts=[];
+  for(const cat of catsCache.filter(c=>!c.archived)){
+    const plans=catHospPlansCache[cat.id]||[];
     plans.forEach(p=>{const d=diffDays(p.date);if(d>=0&&d<=3)alerts.push(`${cat.name}：${p.date}（${d===0?'今日！':d+'日後'}`);});
-  });
+  }
   const el=document.getElementById('hospGlobalAlert');
   if(alerts.length>0){el.innerHTML='🏥 近日の病院予定：'+alerts.join(' / ');el.classList.add('show');}
   else el.classList.remove('show');
@@ -665,13 +694,13 @@ function checkHospitalAlerts(){
 
 // 猫一覧
 function renderCatList(){
-  const data=getData();const grid=document.getElementById('catGrid');grid.innerHTML='';
-  data.cats.filter(c=>!c.archived).forEach(cat=>{
-    const records=data.records[cat.id]||{};
-    const lastDaily=(records.daily||[])[0];
+  const grid=document.getElementById('catGrid');grid.innerHTML='';
+  catsCache.filter(c=>!c.archived).forEach(cat=>{
+    const records=catRecordsCache[cat.id]||[];
+    const lastDaily=records.filter(r=>r.type==='daily').sort((a,b)=>b.date.localeCompare(a.date))[0];
     const sub=lastDaily?`最終: ${lastDaily.date}`:'記録なし';
-    const hasMeds=(records.medications||[]).filter(m=>m.active!==false).length>0;
-    const hasHosp=(records.hospitalPlans||[]).some(p=>diffDays(p.date)>=0&&diffDays(p.date)<=7);
+    const hasMeds=(catMedsCache[cat.id]||[]).length>0;
+    const hasHosp=(catHospPlansCache[cat.id]||[]).some(p=>diffDays(p.date)>=0&&diffDays(p.date)<=7);
     const card=document.createElement('div');card.className='cat-card';
     let badges='';
     if(hasMeds)badges+=`<div class="cat-badge">💊</div>`;
@@ -691,18 +720,20 @@ function renderCatList(){
   grid.appendChild(ab);
 }
 
-function openCatDetail(catId){
-  currentCatId=catId;const data=getData();const cat=data.cats.find(c=>c.id===catId);
+async function openCatDetail(catId){
+  currentCatId=catId;
+  const cat=catsCache.find(c=>c.id===catId);
   document.getElementById('detailEmoji').textContent=cat.emoji;
   document.getElementById('detailName').textContent=cat.name;
-  const records=data.records[catId]||{};
-  const total=(records.daily||[]).length+(records.hospital||[]).length+(records.care||[]).length;
-  document.getElementById('detailSub').textContent=`記録 ${total}件`;
+  document.getElementById('detailSub').textContent='読み込み中...';
   currentPage='catdetail';
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-catdetail').classList.add('active');
   document.getElementById('backBtn').style.visibility='visible';
   document.getElementById('headerTitle').textContent=cat.name;
+  await loadCatDetail(catId);
+  const total=(catRecordsCache[catId]||[]).length;
+  document.getElementById('detailSub').textContent=`記録 ${total}件`;
   switchCatTab('daily');
 }
 
@@ -732,39 +763,43 @@ document.querySelectorAll('.check-options').forEach(group=>{
     e.target.classList.add('selected');
   });
 });
-function saveDailyCheck(){
+async function saveDailyCheck(){
   const values={};
   document.querySelectorAll('.check-options').forEach(group=>{const sel=group.querySelector('.selected');values[group.dataset.key]=sel?sel.dataset.val:null;});
   values.memo=document.getElementById('dailyMemo').value.trim();
-  values.photos=[...photoBuf.daily];values.date=calInputDate||today();
+  values.photos=[...photoBuf.daily];
+  const dateStr=calInputDate||today();
   calInputDate=null;document.getElementById('dailyDateLabel').style.display='none';
-  const data=getData();
-  if(!data.records[currentCatId])data.records[currentCatId]={};
-  if(!data.records[currentCatId].daily)data.records[currentCatId].daily=[];
-  const idx=data.records[currentCatId].daily.findIndex(r=>r.date===values.date);
-  if(idx>=0)data.records[currentCatId].daily[idx]=values;
-  else data.records[currentCatId].daily.unshift(values);
-  saveData(data);showToast('✓ 保存しました');
+  const existing=(catRecordsCache[currentCatId]||[]).find(r=>r.type==='daily'&&r.date===dateStr);
+  if(existing){
+    await sb.from('wecats_records').update({data:values}).eq('id',existing.id);
+  } else {
+    const id='rec_'+Date.now();
+    await sb.from('wecats_records').insert({id,cat_id:currentCatId,type:'daily',date:dateStr,data:values});
+  }
+  await loadCatDetail(currentCatId);
+  showToast('✓ 保存しました');
   photoBuf.daily=[];renderPhotoPreview('daily');resetDailyForm();renderDailyHistory();
 }
 function renderDailyHistory(){
-  const data=getData();const records=(data.records[currentCatId]||{}).daily||[];const el=document.getElementById('dailyHistory');
+  const records=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='daily').sort((a,b)=>b.date.localeCompare(a.date));
+  const el=document.getElementById('dailyHistory');
   if(!records.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>まだ記録がありません</p></div>';return;}
-  el.innerHTML=records.slice(0,20).map(r=>`
+  el.innerHTML=records.slice(0,20).map(r=>{const d=r.data||{};return`
     <div class="record-item">
-      <button class="record-delete" onclick="delLocalRecord('daily','${r.date}')">🗑</button>
+      <button class="record-delete" onclick="delRecord('${r.id}','daily')">🗑</button>
       <div class="record-date">${r.date}</div>
       <div class="record-content">
-        ${r.urine?`<span class="record-tag">🚽 尿：${r.urine}</span>`:''}
-        ${r.poop?`<span class="record-tag">💩 便：${r.poop}</span>`:''}
-        ${r.food?`<span class="record-tag">🍚 ご飯：${r.food}</span>`:''}
-        ${r.water?`<span class="record-tag">💧 水：${r.water}</span>`:''}
-        ${r.eye?`<span class="record-tag">👁️ 目ヤニ：${r.eye}</span>`:''}
-        ${r.vomit&&r.vomit!=='なし'?`<span class="record-tag">🤧 吐き戻し</span>`:''}
-        ${r.memo?`<div style="margin-top:5px;font-size:11px;color:var(--text-light)">📝 ${r.memo}</div>`:''}
+        ${d.urine?`<span class="record-tag">🚽 尿：${d.urine}</span>`:''}
+        ${d.poop?`<span class="record-tag">💩 便：${d.poop}</span>`:''}
+        ${d.food?`<span class="record-tag">🍚 ご飯：${d.food}</span>`:''}
+        ${d.water?`<span class="record-tag">💧 水：${d.water}</span>`:''}
+        ${d.eye?`<span class="record-tag">👁️ 目ヤニ：${d.eye}</span>`:''}
+        ${d.vomit&&d.vomit!=='なし'?`<span class="record-tag">🤧 吐き戻し</span>`:''}
+        ${d.memo?`<div style="margin-top:5px;font-size:11px;color:var(--text-light)">📝 ${d.memo}</div>`:''}
       </div>
-      ${r.photos&&r.photos.length?`<div class="record-photos">${r.photos.map(s=>`<img src="${s}" onclick="openViewer(this.src)" alt="">`).join('')}</div>`:''}
-    </div>`).join('');
+      ${d.photos&&d.photos.length?`<div class="record-photos">${d.photos.map(s=>`<img src="${s}" onclick="openViewer(this.src)" alt="">`).join('')}</div>`:''}
+    </div>`;}).join('');
 }
 
 // 病院予定
@@ -775,22 +810,20 @@ function openModal(type){
 }
 function closeModal(type){document.getElementById('modal'+cap(type)).classList.remove('open');}
 
-function saveHospitalPlan(){
+async function saveHospitalPlan(){
   const date=document.getElementById('hpDate').value,memo=document.getElementById('hpMemo').value.trim();
   if(!date){showToast('日付を入力してください');return;}
-  const data=getData();
-  if(!data.records[currentCatId])data.records[currentCatId]={};
-  if(!data.records[currentCatId].hospitalPlans)data.records[currentCatId].hospitalPlans=[];
-  data.records[currentCatId].hospitalPlans.unshift({id:Date.now(),date,memo});
-  data.records[currentCatId].hospitalPlans.sort((a,b)=>a.date.localeCompare(b.date));
-  saveData(data);closeModal('hospitalPlan');showToast('✓ 病院予定を追加しました');
+  const id='hp_'+Date.now();
+  await sb.from('wecats_hospital_plans').insert({id,cat_id:currentCatId,date,memo});
+  await loadCatDetail(currentCatId);
+  closeModal('hospitalPlan');showToast('✓ 病院予定を追加しました');
   renderHospPlanList();checkHospitalAlerts();
 }
 function renderHospPlanList(){
-  const data=getData();const plans=(data.records[currentCatId]||{}).hospitalPlans||[];const el=document.getElementById('hospitalPlanList');
-  const future=plans.filter(p=>diffDays(p.date)>=0);
-  if(!future.length){el.innerHTML='<div style="font-size:12px;color:var(--text-light);margin-bottom:8px">予定なし</div>';return;}
-  el.innerHTML=future.map(p=>{
+  const plans=(catHospPlansCache[currentCatId]||[]).filter(p=>diffDays(p.date)>=0);
+  const el=document.getElementById('hospitalPlanList');
+  if(!plans.length){el.innerHTML='<div style="font-size:12px;color:var(--text-light);margin-bottom:8px">予定なし</div>';return;}
+  el.innerHTML=plans.map(p=>{
     const d=diffDays(p.date);const cls=d===0?'urgent':d<=3?'soon':'';
     const dayLabel=d===0?'今日！':d===1?'明日':`${d}日後`;
     return`<div class="hosp-plan-item ${cls}">
@@ -801,41 +834,40 @@ function renderHospPlanList(){
     </div>`;
   }).join('');
 }
-function delHospPlan(id){
-  const data=getData();
-  data.records[currentCatId].hospitalPlans=data.records[currentCatId].hospitalPlans.filter(p=>String(p.id)!==String(id));
-  saveData(data);renderHospPlanList();checkHospitalAlerts();
+async function delHospPlan(id){
+  await sb.from('wecats_hospital_plans').delete().eq('id',id);
+  await loadCatDetail(currentCatId);renderHospPlanList();checkHospitalAlerts();
 }
 
-function saveHospital(){
-  const record={id:Date.now(),date:document.getElementById('hDate').value,symptom:document.getElementById('hSymptom').value.trim(),diagnosis:document.getElementById('hDiagnosis').value.trim(),medicine:document.getElementById('hMedicine').value.trim(),memo:document.getElementById('hMemo').value.trim(),photos:[...photoBuf.hospital]};
-  if(!record.date){showToast('日付を入力してください');return;}
-  const data=getData();
-  if(!data.records[currentCatId])data.records[currentCatId]={};
-  if(!data.records[currentCatId].hospital)data.records[currentCatId].hospital=[];
-  data.records[currentCatId].hospital.unshift(record);saveData(data);
+async function saveHospital(){
+  const date=document.getElementById('hDate').value;
+  if(!date){showToast('日付を入力してください');return;}
+  const data={date,symptom:document.getElementById('hSymptom').value.trim(),diagnosis:document.getElementById('hDiagnosis').value.trim(),medicine:document.getElementById('hMedicine').value.trim(),memo:document.getElementById('hMemo').value.trim(),photos:[...photoBuf.hospital]};
+  await sb.from('wecats_records').insert({id:'rec_'+Date.now(),cat_id:currentCatId,type:'hospital',date,data});
+  await loadCatDetail(currentCatId);
   photoBuf.hospital=[];closeModal('hospital');showToast('✓ 受診記録を保存しました');renderHospitalList();
 }
 function renderHospitalList(){
-  const data=getData();const records=(data.records[currentCatId]||{}).hospital||[];const el=document.getElementById('hospitalList');
+  const records=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='hospital').sort((a,b)=>b.date.localeCompare(a.date));
+  const el=document.getElementById('hospitalList');
   if(!records.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">🏥</div><p>受診記録がありません</p></div>';return;}
-  el.innerHTML=records.map(r=>`
+  el.innerHTML=records.map(r=>{const d=r.data||{};return`
     <div class="record-item">
-      <button class="record-delete" onclick="delLocalRecord('hospital','${r.id}')">🗑</button>
+      <button class="record-delete" onclick="delRecord('${r.id}','hospital')">🗑</button>
       <div class="record-date">📅 ${r.date}</div>
-      ${r.symptom?`<div class="record-content">🤒 <strong>症状：</strong>${r.symptom}</div>`:''}
-      ${r.diagnosis?`<div class="record-content">🩺 <strong>診断：</strong>${r.diagnosis}</div>`:''}
-      ${r.medicine?`<div class="record-content">💊 <strong>薬：</strong>${r.medicine}</div>`:''}
-      ${r.memo?`<div class="record-content">📝 ${r.memo}</div>`:''}
-      ${r.photos&&r.photos.length?`<div class="record-photos">${r.photos.map(s=>`<img src="${s}" onclick="openViewer(this.src)" alt="">`).join('')}</div>`:''}
-    </div>`).join('');
+      ${d.symptom?`<div class="record-content">🤒 <strong>症状：</strong>${d.symptom}</div>`:''}
+      ${d.diagnosis?`<div class="record-content">🩺 <strong>診断：</strong>${d.diagnosis}</div>`:''}
+      ${d.medicine?`<div class="record-content">💊 <strong>薬：</strong>${d.medicine}</div>`:''}
+      ${d.memo?`<div class="record-content">📝 ${d.memo}</div>`:''}
+      ${d.photos&&d.photos.length?`<div class="record-photos">${d.photos.map(s=>`<img src="${s}" onclick="openViewer(this.src)" alt="">`).join('')}</div>`:''}
+    </div>`;}).join('');
 }
 
 // ケア
 function renderCareGrid(){
-  const data=getData();const careRecords=(data.records[currentCatId]||{}).care||[];
+  const careRecords=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='care');
   document.getElementById('careGrid').innerHTML=CARE_TYPES.map(ct=>{
-    const last=careRecords.filter(r=>r.type===ct.key).sort((a,b)=>b.date.localeCompare(a.date))[0];
+    const last=careRecords.filter(r=>r.data&&r.data.careType===ct.key).sort((a,b)=>b.date.localeCompare(a.date))[0];
     return`<button class="care-btn" onclick="openCareModal('${ct.key}','${ct.label}','${ct.emoji}')">
       <span class="care-emoji">${ct.emoji}</span>${ct.label}
       <span class="care-last">最終：${last?last.date:'まだなし'}</span>
@@ -847,39 +879,36 @@ function openCareModal(key,label,emoji){
   document.getElementById('cDate').value=calInputDate||today();document.getElementById('cMemo').value='';
   document.getElementById('modalCare').classList.add('open');
 }
-function saveCare(){
-  const record={id:Date.now(),type:currentCareType,date:document.getElementById('cDate').value,memo:document.getElementById('cMemo').value.trim()};
-  if(!record.date){showToast('日付を入力してください');return;}
-  const data=getData();
-  if(!data.records[currentCatId])data.records[currentCatId]={};
-  if(!data.records[currentCatId].care)data.records[currentCatId].care=[];
-  data.records[currentCatId].care.unshift(record);saveData(data);
+async function saveCare(){
+  const date=document.getElementById('cDate').value;
+  if(!date){showToast('日付を入力してください');return;}
+  const data={careType:currentCareType,memo:document.getElementById('cMemo').value.trim()};
+  await sb.from('wecats_records').insert({id:'rec_'+Date.now(),cat_id:currentCatId,type:'care',date,data});
+  await loadCatDetail(currentCatId);
   calInputDate=null;closeModal('care');showToast('✓ ケア記録を保存しました');renderCareGrid();renderCareHistory();
 }
 function renderCareHistory(){
-  const data=getData();const records=(data.records[currentCatId]||{}).care||[];const el=document.getElementById('careHistory');
+  const records=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='care').sort((a,b)=>b.date.localeCompare(a.date));
+  const el=document.getElementById('careHistory');
   if(!records.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">✂️</div><p>ケア記録がありません</p></div>';return;}
-  el.innerHTML=records.slice(0,30).map(r=>{const ct=CARE_TYPES.find(c=>c.key===r.type);return`<div class="record-item"><button class="record-delete" onclick="delLocalRecord('care','${r.id}')">🗑</button><div class="record-date">${r.date}</div><div class="record-content">${ct?ct.emoji+' '+ct.label:r.type}${r.memo?' — '+r.memo:''}</div></div>`;}).join('');
+  el.innerHTML=records.slice(0,30).map(r=>{const d=r.data||{};const ct=CARE_TYPES.find(c=>c.key===d.careType);return`<div class="record-item"><button class="record-delete" onclick="delRecord('${r.id}','care')">🗑</button><div class="record-date">${r.date}</div><div class="record-content">${ct?ct.emoji+' '+ct.label:d.careType||''}${d.memo?' — '+d.memo:''}</div></div>`;}).join('');
 }
 
 // 投薬
-function saveMedication(){
+async function saveMedication(){
   const name=document.getElementById('medName').value.trim(),freq=document.getElementById('medFreq').value.trim();
   if(!name||!freq){showToast('薬の名前と頻度を入力してください');return;}
-  const med={id:Date.now(),name,frequency:freq,startDate:document.getElementById('medStart').value,endDate:document.getElementById('medEnd').value,memo:document.getElementById('medMemo').value.trim(),active:true};
-  const data=getData();
-  if(!data.records[currentCatId])data.records[currentCatId]={};
-  if(!data.records[currentCatId].medications)data.records[currentCatId].medications=[];
-  data.records[currentCatId].medications.unshift(med);saveData(data);
+  await sb.from('wecats_medications').insert({id:'med_'+Date.now(),cat_id:currentCatId,name,frequency:freq,start_date:document.getElementById('medStart').value,end_date:document.getElementById('medEnd').value,memo:document.getElementById('medMemo').value.trim()});
+  await loadCatDetail(currentCatId);
   closeModal('medication');showToast('✓ 投薬を追加しました');renderMedList();renderCatList();
 }
 function renderMedList(){
-  const data=getData();const meds=((data.records[currentCatId]||{}).medications||[]).filter(m=>m.active!==false);const el=document.getElementById('medList');
+  const meds=catMedsCache[currentCatId]||[];const el=document.getElementById('medList');
   if(!meds.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">💊</div><p>投薬記録がありません</p></div>';return;}
   const todayStr=today();
   el.innerHTML=meds.map(m=>{
     const ck=`${currentCatId}_${m.id}_${todayStr}`;const isDone=medCheckState[ck]||false;
-    let period='';if(m.startDate&&m.endDate)period=`${m.startDate} 〜 ${m.endDate}`;else if(m.startDate)period=`${m.startDate} 〜`;
+    let period='';if(m.start_date&&m.end_date)period=`${m.start_date} 〜 ${m.end_date}`;else if(m.start_date)period=`${m.start_date} 〜`;
     return`<div class="med-item">
       <div class="med-row">
         <div class="med-check ${isDone?'done':''}" onclick="toggleMedCheck('${ck}',this)">${isDone?'✓':''}</div>
@@ -899,45 +928,43 @@ function toggleMedCheck(key,el){
   el.classList.toggle('done',medCheckState[key]);el.textContent=medCheckState[key]?'✓':'';
   showToast(medCheckState[key]?'✓ 投薬済み！':'未投薬に戻しました');
 }
-function delMedication(id){
+async function delMedication(id){
   if(!confirm('この投薬記録を削除しますか？'))return;
-  const data=getData();
-  data.records[currentCatId].medications=data.records[currentCatId].medications.filter(m=>String(m.id)!==String(id));
-  saveData(data);renderMedList();renderCatList();showToast('削除しました');
+  await sb.from('wecats_medications').delete().eq('id',id);
+  await loadCatDetail(currentCatId);renderMedList();renderCatList();showToast('削除しました');
 }
 
-function delLocalRecord(type,id){
+async function delRecord(id,tab){
   if(!confirm('この記録を削除しますか？'))return;
-  const data=getData();
-  if(type==='daily')data.records[currentCatId].daily=data.records[currentCatId].daily.filter(r=>r.date!==String(id));
-  else data.records[currentCatId][type]=data.records[currentCatId][type].filter(r=>String(r.id)!==String(id));
-  saveData(data);showToast('削除しました');switchCatTab(currentCatTab);
+  await sb.from('wecats_records').delete().eq('id',id);
+  await loadCatDetail(currentCatId);showToast('削除しました');switchCatTab(tab||currentCatTab);
 }
 
 // 猫追加・編集
+async function reloadCatsAndRender(){await loadCatsData();renderCatList();checkHospitalAlerts();}
 function renderEmojiPicker(id){
   document.getElementById(id).innerHTML=CAT_EMOJIS.map(e=>`<span class="emoji-opt ${e===selectedEmoji?'selected':''}" onclick="selectEmoji(this,'${e}','${id}')">${e}</span>`).join('');
 }
 function selectEmoji(el,e,id){selectedEmoji=e;document.querySelectorAll(`#${id} .emoji-opt`).forEach(x=>x.classList.remove('selected'));el.classList.add('selected');}
-function addCat(){
+async function addCat(){
   const name=document.getElementById('newCatName').value.trim();if(!name){showToast('名前を入力してください');return;}
-  const data=getData();data.cats.push({id:'cat_'+Date.now(),name,emoji:selectedEmoji});saveData(data);closeModal('addCat');showToast(`✓ ${name} を追加しました`);renderCatList();
+  await sb.from('wecats_cats').insert({id:'cat_'+Date.now(),name,emoji:selectedEmoji,sort_order:catsCache.length});
+  await reloadCatsAndRender();closeModal('addCat');showToast(`✓ ${name} を追加しました`);
 }
 function openEditCat(catId){
-  editingCatId=catId;const data=getData();const cat=data.cats.find(c=>c.id===catId);
+  editingCatId=catId;const cat=catsCache.find(c=>c.id===catId);
   document.getElementById('editCatName').value=cat.name;selectedEmoji=cat.emoji;renderEmojiPicker('editEmojiPicker');
   document.getElementById('unarchiveBtn').style.display=cat.archived?'block':'none';
   document.getElementById('modalEditCat').classList.add('open');
 }
-function saveEditCat(){
+async function saveEditCat(){
   const name=document.getElementById('editCatName').value.trim();if(!name){showToast('名前を入力してください');return;}
-  const data=getData();const idx=data.cats.findIndex(c=>c.id===editingCatId);
-  if(idx>=0){data.cats[idx].name=name;data.cats[idx].emoji=selectedEmoji;}
-  saveData(data);closeModal('editCat');showToast('✓ 更新しました');renderCatList();
+  await sb.from('wecats_cats').update({name,emoji:selectedEmoji}).eq('id',editingCatId);
+  await reloadCatsAndRender();closeModal('editCat');showToast('✓ 更新しました');
 }
-function archiveCat(){const data=getData();const cat=data.cats.find(c=>c.id===editingCatId);if(!confirm(`「${cat.name}」を卒業にしますか？`))return;const idx=data.cats.findIndex(c=>c.id===editingCatId);data.cats[idx].archived=true;saveData(data);closeModal('editCat');showToast(`🎓 ${cat.name} を卒業にしました`);renderCatList();}
-function unarchiveCat(){const data=getData();const idx=data.cats.findIndex(c=>c.id===editingCatId);data.cats[idx].archived=false;saveData(data);closeModal('editCat');showToast('✓ 現役に戻しました');renderCatList();}
-function deleteCat(){const data=getData();const cat=data.cats.find(c=>c.id===editingCatId);if(!confirm(`「${cat.name}」を削除しますか？記録も全て削除されます。`))return;data.cats=data.cats.filter(c=>c.id!==editingCatId);delete data.records[editingCatId];saveData(data);closeModal('editCat');showToast('削除しました');renderCatList();}
+async function archiveCat(){const cat=catsCache.find(c=>c.id===editingCatId);if(!confirm(`「${cat.name}」を卒業にしますか？`))return;await sb.from('wecats_cats').update({archived:true}).eq('id',editingCatId);await reloadCatsAndRender();closeModal('editCat');showToast(`🎓 ${cat.name} を卒業にしました`);}
+async function unarchiveCat(){await sb.from('wecats_cats').update({archived:false}).eq('id',editingCatId);await reloadCatsAndRender();closeModal('editCat');showToast('✓ 現役に戻しました');}
+async function deleteCat(){const cat=catsCache.find(c=>c.id===editingCatId);if(!confirm(`「${cat.name}」を削除しますか？記録も全て削除されます。`))return;await sb.from('wecats_records').delete().eq('cat_id',editingCatId);await sb.from('wecats_medications').delete().eq('cat_id',editingCatId);await sb.from('wecats_hospital_plans').delete().eq('cat_id',editingCatId);await sb.from('wecats_cats').delete().eq('id',editingCatId);await reloadCatsAndRender();closeModal('editCat');showToast('削除しました');}
 
 let archiveVisible=false;
 function toggleArchive(){
@@ -945,8 +972,8 @@ function toggleArchive(){
   document.getElementById('archiveSection').style.display=archiveVisible?'block':'none';
   document.getElementById('archiveToggleBtn').textContent=archiveVisible?'🎓 卒業した子を隠す':'🎓 卒業した子を見る';
   if(archiveVisible){
-    const data=getData();const grid=document.getElementById('archiveCatGrid');
-    const archived=data.cats.filter(c=>c.archived);
+    const grid=document.getElementById('archiveCatGrid');
+    const archived=catsCache.filter(c=>c.archived);
     if(!archived.length){grid.innerHTML='<div style="font-size:12px;color:var(--text-light)">卒業した子はいません</div>';return;}
     grid.innerHTML='';
     archived.forEach(cat=>{
@@ -963,12 +990,12 @@ function toggleArchive(){
 
 // カレンダー
 function renderCalendar(){
-  const data=getData();const records=data.records[currentCatId]||{};
+  const records=catRecordsCache[currentCatId]||[];
   document.getElementById('calMonthLabel').textContent=`${calYear}年 ${calMonth+1}月`;
   const prefix=`${calYear}-${String(calMonth+1).padStart(2,'0')}`;
   const dayMap={};
   ['daily','hospital','care'].forEach(type=>{
-    (records[type]||[]).forEach(r=>{
+    records.filter(r=>r.type===type).forEach(r=>{
       const dateStr=r.date;if(!dateStr||!dateStr.startsWith(prefix))return;
       const d=parseInt(dateStr.split('-')[2]);
       if(!dayMap[d])dayMap[d]={daily:[],hospital:[],care:[]};
@@ -995,9 +1022,9 @@ function showCalDayDetail(d,recs){
   let html=`<div class="cal-day-detail"><h4>${label}の記録</h4>`;
   if(!recs||(!recs.daily.length&&!recs.hospital.length&&!recs.care.length)){html+=`<div class="cal-detail-item" style="color:var(--text-light)">記録なし</div>`;}
   else{
-    if(recs.daily.length){html+=`<div class="cal-detail-sep">📋 毎日チェック</div>`;recs.daily.forEach(r=>{html+=`<div class="cal-detail-item">`;if(r.urine)html+=`🚽 ${r.urine}　`;if(r.poop)html+=`💩 ${r.poop}　`;if(r.food)html+=`🍚 ${r.food}　`;if(r.water)html+=`💧 ${r.water}`;if(r.memo)html+=`<br>📝 ${r.memo}`;html+=`</div>`;});}
-    if(recs.hospital.length){html+=`<div class="cal-detail-sep">🏥 病院</div>`;recs.hospital.forEach(r=>{if(r.symptom)html+=`<div class="cal-detail-item">🤒 ${r.symptom}</div>`;if(r.diagnosis)html+=`<div class="cal-detail-item">🩺 ${r.diagnosis}</div>`;});}
-    if(recs.care.length){html+=`<div class="cal-detail-sep">✂️ ケア</div>`;recs.care.forEach(r=>{const ct=CARE_TYPES.find(c=>c.key===r.type);html+=`<div class="cal-detail-item">${ct?ct.emoji+' '+ct.label:r.type}</div>`;});}
+    if(recs.daily.length){html+=`<div class="cal-detail-sep">📋 毎日チェック</div>`;recs.daily.forEach(r=>{const d=r.data||{};html+=`<div class="cal-detail-item">`;if(d.urine)html+=`🚽 ${d.urine}　`;if(d.poop)html+=`💩 ${d.poop}　`;if(d.food)html+=`🍚 ${d.food}　`;if(d.water)html+=`💧 ${d.water}`;if(d.memo)html+=`<br>📝 ${d.memo}`;html+=`</div>`;});}
+    if(recs.hospital.length){html+=`<div class="cal-detail-sep">🏥 病院</div>`;recs.hospital.forEach(r=>{const d=r.data||{};if(d.symptom)html+=`<div class="cal-detail-item">🤒 ${d.symptom}</div>`;if(d.diagnosis)html+=`<div class="cal-detail-item">🩺 ${d.diagnosis}</div>`;});}
+    if(recs.care.length){html+=`<div class="cal-detail-sep">✂️ ケア</div>`;recs.care.forEach(r=>{const d=r.data||{};const ct=CARE_TYPES.find(c=>c.key===d.careType);html+=`<div class="cal-detail-item">${ct?ct.emoji+' '+ct.label:d.careType||''}</div>`;});}
   }
   html+=`<div class="cal-add-btns">`;
   if(!recs||!recs.daily.length)html+=`<button class="cal-add-btn" onclick="openCalDaily('${dateStr}','${label}')">📋 毎日チェック</button>`;
@@ -1155,10 +1182,4 @@ function resetChecklist(ck,articleId){localStorage.removeItem(ck);openArticle(ar
 async function saveFolder(){const title=document.getElementById('folderName').value.trim();if(!title){showToast('フォルダー名を入力してください');return;}await sb.from('manuals').insert({title,type:'folder',content:''});await loadFolders();closeModal('addFolder');renderFolders();showToast('✓ フォルダーを追加しました');}
 async function saveArticle(){const title=document.getElementById('articleTitle').value.trim(),content=document.getElementById('articleContent').value.trim();if(!title){showToast('タイトルを入力してください');return;}await sb.from('manuals').insert({title,type:'article',content,folder_id:currentFolderId});await loadFolders();closeModal('addArticle');renderArticles();showToast('✓ 記事を追加しました');}
 async function saveChecklist(){const title=document.getElementById('checklistTitle').value.trim(),items=document.getElementById('checklistItems').value.trim();if(!title||!items){showToast('タイトルと項目を入力してください');return;}await sb.from('manuals').insert({title,type:'checklist',content:items,folder_id:currentFolderId});await loadFolders();closeModal('addChecklist');renderArticles();showToast('✓ チェックリストを追加しました');}
-async function deleteArticle(){if(!confirm('削除しますか？'))return;await sb.from('manuals').delete().eq('id',editingArticleId);await loadFolders();goBack();showToast('削除しました');}
-async function deleteFolder(){if(!confirm('このフォルダーと中の記事を全て削除しますか？'))return;const articles=articlesCache.filter(a=>a.folder_id===currentFolderId);for(const a of articles)await sb.from('manuals').delete().eq('id',a.id);await sb.from('manuals').delete().eq('id',currentFolderId);await loadFolders();switchPage('manual');showToast('削除しました');}
-
-document.querySelectorAll('.modal-overlay').forEach(overlay=>{overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open');});});
-</script>
-</body>
-</html>
+async function deleteArticle(){if(!confirm('削除しますか？'))return;await sb.from('manuals').delete().eq('id',editingArticleId);awai
