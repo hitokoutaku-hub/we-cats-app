@@ -409,6 +409,13 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
         <button class="post-type-btn" onclick="selectPostType(this,'alert')">🚨 注意</button>
       </div>
       <textarea id="newPostContent" placeholder="内容を入力..."></textarea>
+      <div style="margin-bottom:8px">
+        <div class="photo-upload-area" onclick="document.getElementById('boardPhotoInput').click()">
+          <input type="file" id="boardPhotoInput" accept="image/*" multiple onchange="handlePhoto(event,'board')">
+          <div style="font-size:13px;color:var(--text-light)">📷 写真を追加（任意）</div>
+        </div>
+        <div class="photo-preview-grid" id="boardPhotoPreview"></div>
+      </div>
       <button class="save-btn" onclick="submitPost()">投稿する</button>
     </div>
     <div id="pinnedPosts"></div>
@@ -599,7 +606,7 @@ let currentPage='cats',currentCatId=null,currentCatTab='daily';
 let currentDrinkTab='hot',currentPostType='report';
 let editingCatId=null,currentFolderId=null,editingArticleId=null,currentCareType=null;
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth(),calSelectedDay=null,calInputDate=null;
-let photoBuf={daily:[],hospital:[]},selectedEmoji='🐱';
+let photoBuf={daily:[],hospital:[],board:[]},selectedEmoji='🐱';
 let drinkCache={hot:[],ice:[]},boardCache=[],foldersCache=[],articlesCache=[],medCheckState={};
 
 const CAT_EMOJIS=['🐱','🐈','😺','😸','⭐','🌸','🍀','🌙','🌈','🐯','💜','🍑','🤍','🧡','💛','🩷','🩵','🌻','🍃','🤎'];
@@ -1059,7 +1066,7 @@ async function deleteDrink(){const id=document.getElementById('dEditId').value;i
 // ===== 連絡ボード（Supabase） =====
 function selectPostType(el,type){currentPostType=type;document.querySelectorAll('.post-type-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
 async function loadBoard(){const{data}=await sb.from('board_posts').select('*').order('pinned',{ascending:false}).order('created_at',{ascending:false}).limit(50);boardCache=data||[];renderBoard();}
-async function submitPost(){const content=document.getElementById('newPostContent').value.trim();if(!content){showToast('内容を入力してください');return;}await sb.from('board_posts').insert({author:userName,role:currentPostType,content,pinned:false});document.getElementById('newPostContent').value='';showToast('✓ 投稿しました');await loadBoard();}
+async function submitPost(){const content=document.getElementById('newPostContent').value.trim();if(!content&&photoBuf.board.length===0){showToast('内容を入力してください');return;}const photos=[...photoBuf.board];await sb.from('board_posts').insert({author:userName,role:currentPostType,content,pinned:false,photos:JSON.stringify(photos)});document.getElementById('newPostContent').value='';photoBuf.board=[];renderPhotoPreview('board');showToast('✓ 投稿しました');await loadBoard();}
 async function deletePost(id){if(!confirm('削除しますか？'))return;await sb.from('board_posts').delete().eq('id',id);await sb.from('board_comments').delete().eq('post_id',id);await loadBoard();}
 async function togglePin(id,current){await sb.from('board_posts').update({pinned:!current}).eq('id',id);await loadBoard();showToast(current?'ピン留めを解除しました':'📌 ピン留めしました');}
 function renderBoard(){
@@ -1080,6 +1087,7 @@ function renderBoard(){
   boardCache.forEach(post=>loadComments(post.id));
 }
 function buildPostCard(post){
+  const postPhotos=post.photos?JSON.parse(post.photos||'[]'):[];
   const bCls=post.role==='owner'?'owner':post.role==='alert'?'alert':'';
   const bLabel=post.role==='owner'?'👑 オーナーより':post.role==='alert'?'🚨 注意事項':'📋 日報・報告';
   const pinIcon=post.pinned?'📌':'📍';
@@ -1092,6 +1100,7 @@ function buildPostCard(post){
       ${post.author===userName?`<button class="post-delete" onclick="deletePost('${post.id}')">🗑</button>`:''}
     </div>
     <div class="post-content">${post.content.replace(/\n/g,'<br>')}</div>
+    ${postPhotos.length?`<div class="record-photos">${postPhotos.map(s=>`<img src="${s}" onclick="openViewer(this.src)" alt="">`).join('')}</div>`:''}
     <div class="comments-area" id="comments-${post.id}"><div style="font-size:11px;color:var(--text-light);padding:4px">読み込み中...</div></div>
   </div>`;
 }
