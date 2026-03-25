@@ -396,7 +396,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
     <div class="drink-sum-card"><div class="drink-sum-num num-danger" id="dSumDanger">0</div><div class="drink-sum-label">🔴 発注</div></div>
   </div>
   <div class="drink-list" id="drinkList"></div>
-  <button class="drink-add-btn" onclick="openDrinkAdd()">＋ ドリンクを追加</button>
+  <button class="drink-add-btn" id="drinkAddBtn" onclick="openDrinkAdd()">＋ ドリンクを追加</button>
 </div>
 
 <!-- 連絡ボード -->
@@ -536,8 +536,8 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 
 <div class="modal-overlay" id="modalDrinkAdd"><div class="modal">
   <button class="modal-close" onclick="closeModal('drinkAdd')">✕</button>
-  <h3>🥤 ドリンクを追加</h3>
-  <div class="form-group"><label class="form-label">ドリンク名</label><input type="text" class="form-input" id="dAddName" placeholder="例：緑茶"></div>
+  <h3 id="drinkAddModalTitle">🥤 ドリンクを追加</h3>
+  <div class="form-group"><label class="form-label" id="drinkAddNameLabel">ドリンク名</label><input type="text" class="form-input" id="dAddName" placeholder="例：緑茶"></div>
   <div class="form-group"><label class="form-label">アイコン（絵文字）</label><input type="text" class="form-input" id="dAddIcon" placeholder="例：🍵" maxlength="2"></div>
   <div class="form-group"><label class="form-label">初期在庫数</label><input type="number" class="form-input" id="dAddStock" value="10" min="0" max="99"></div>
   <div class="modal-btn-row">
@@ -1090,6 +1090,9 @@ function switchDrinkTab(tab){
   currentDrinkTab=tab;
   document.querySelectorAll('.drink-tab').forEach(t=>t.classList.remove('active'));
   document.querySelector(`.drink-tab.${tab}`).classList.add('active');
+  const isDrink=tab==='hot'||tab==='ice';
+  const btn=document.getElementById('drinkAddBtn');
+  if(btn)btn.textContent=isDrink?'＋ ドリンクを追加':'＋ 商品を追加';
   renderDrinks();
 }
 function getDrinkStatus(s){return s===0?'danger':s<=5?'warn':'ok';}
@@ -1109,7 +1112,15 @@ function renderDrinks(){
   updateStockBadge();
 }
 async function changeDrinkStock(id,delta){const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;item.stock=Math.max(0,Math.min(99,item.stock+delta));renderDrinks();updateStockBadge();await sb.from('drink_items').update({stock:item.stock}).eq('id',id);}
-function openDrinkAdd(){['dAddName','dAddIcon'].forEach(id=>document.getElementById(id).value='');document.getElementById('dAddStock').value=10;document.getElementById('modalDrinkAdd').classList.add('open');}
+function openDrinkAdd(){
+  ['dAddName','dAddIcon'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('dAddStock').value=10;
+  const isDrink=currentDrinkTab==='hot'||currentDrinkTab==='ice';
+  document.getElementById('drinkAddModalTitle').textContent=isDrink?'🥤 ドリンクを追加':'📦 商品を追加';
+  document.getElementById('drinkAddNameLabel').textContent=isDrink?'ドリンク名':'商品名';
+  document.getElementById('drinkAddBtn').textContent=isDrink?'＋ ドリンクを追加':'＋ 商品を追加';
+  document.getElementById('modalDrinkAdd').classList.add('open');
+}
 async function saveDrinkAdd(){const name=document.getElementById('dAddName').value.trim(),icon=document.getElementById('dAddIcon').value.trim()||'🥤',stock=parseInt(document.getElementById('dAddStock').value)||10;if(!name){showToast('ドリンク名を入力してください');return;}await sb.from('drink_items').insert({category:currentDrinkTab,name,icon,stock});await loadDrinks();closeModal('drinkAdd');showToast('✓ 追加しました');}
 function openDrinkEdit(id){const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;document.getElementById('dEditId').value=id;document.getElementById('dEditName').value=item.name;document.getElementById('dEditIcon').value=item.icon;document.getElementById('modalDrinkEdit').classList.add('open');}
 async function saveDrinkEdit(){const id=document.getElementById('dEditId').value,name=document.getElementById('dEditName').value.trim(),icon=document.getElementById('dEditIcon').value.trim();await sb.from('drink_items').update({name,icon}).eq('id',id);const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(item){item.name=name;item.icon=icon;}closeModal('drinkEdit');renderDrinks();showToast('✓ 更新しました');}
