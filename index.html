@@ -263,6 +263,17 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 
 .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: var(--pink-deep); color: var(--white); padding: 10px 22px; border-radius: 24px; font-size: 13px; font-weight: 700; z-index: 500; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
 .toast.show { opacity: 1; }
+.weight-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--pink-light); }
+.weight-cat-emoji { font-size: 24px; flex-shrink: 0; }
+.weight-cat-name { font-size: 13px; font-weight: 700; min-width: 70px; }
+.weight-input { width: 80px; padding: 8px 10px; border: 1.5px solid var(--pink); border-radius: 10px; font-family: 'Zen Maru Gothic', sans-serif; font-size: 14px; color: var(--text); background: var(--pink-bg); text-align: center; outline: none; }
+.weight-input:focus { border-color: var(--pink-deep); }
+.weight-unit { font-size: 12px; color: var(--text-light); }
+.weight-prev { font-size: 11px; color: var(--text-light); margin-left: auto; }
+.weight-diff { font-size: 12px; font-weight: 700; margin-left: 4px; }
+.weight-diff.up { color: #4ade80; }
+.weight-diff.down { color: var(--danger); }
+.weight-diff.same { color: var(--text-light); }
 </style>
 </head>
 <body>
@@ -428,6 +439,28 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   </div>
 </div>
 
+<!-- 体重管理 -->
+<div class="page" id="page-weight">
+  <div style="padding:16px">
+    <div style="background:var(--white);border-radius:14px;padding:14px;margin-bottom:14px;box-shadow:var(--shadow)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <h2 style="font-size:16px;font-weight:700;color:var(--pink-deep)">⚖️ 体重記録</h2>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button onclick="changeWeightMonth(-1)" style="background:var(--pink-light);border:none;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;color:var(--pink-deep)">‹</button>
+          <span id="weightMonthLabel" style="font-size:13px;font-weight:700"></span>
+          <button onclick="changeWeightMonth(1)" style="background:var(--pink-light);border:none;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;color:var(--pink-deep)">›</button>
+        </div>
+      </div>
+      <div id="weightInputList"></div>
+      <button onclick="saveAllWeights()" style="width:100%;padding:12px;background:var(--pink-deep);color:var(--white);border:none;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-top:12px">✓ 全員分を保存する</button>
+    </div>
+    <div style="background:var(--white);border-radius:14px;padding:14px;box-shadow:var(--shadow)">
+      <div style="font-size:13px;font-weight:700;color:var(--pink-deep);margin-bottom:10px">📊 前回との比較</div>
+      <div id="weightCompareList"></div>
+    </div>
+  </div>
+</div>
+
 <!-- マニュアル フォルダー一覧 -->
 <div class="page" id="page-manual">
   <div class="manual-wrap">
@@ -460,6 +493,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 <div class="bottom-nav">
   <button class="nav-item active" data-page="cats" onclick="switchPage('cats')"><span class="nav-icon">🐱</span>猫管理</button>
   <button class="nav-item" data-page="drinks" onclick="switchPage('drinks')" style="position:relative"><span class="nav-icon">🥤</span>在庫<div class="nav-badge" id="stockBadge" style="display:none">!</div></button>
+  <button class="nav-item" data-page="weight" onclick="switchPage('weight')"><span class="nav-icon">⚖️</span>体重</button>
   <button class="nav-item" data-page="board" onclick="switchPage('board')"><span class="nav-icon">📋</span>連絡</button>
   <button class="nav-item" data-page="manual" onclick="switchPage('manual')"><span class="nav-icon">📌</span>マニュアル</button>
 </div>
@@ -674,6 +708,7 @@ function switchPage(page){
   if(page==='manual')renderFolders();
   if(page==='drinks')renderDrinks();
   if(page==='cats'){renderCatList();checkHospitalAlerts();}
+  if(page==='weight')initWeightPage();
 }
 function goBack(){
   if(currentPage==='catdetail')switchPage('cats');
@@ -1205,6 +1240,104 @@ async function loadComments(postId){
   el.innerHTML=html;
 }
 async function submitComment(postId){const input=document.getElementById('comment-input-'+postId);const content=input.value.trim();if(!content)return;await sb.from('board_comments').insert({post_id:postId,author:userName,content});input.value='';await loadComments(postId);}
+
+// ===== 体重管理（Supabase） =====
+let weightYear=new Date().getFullYear();
+let weightMonth=new Date().getMonth()+1;
+let weightCache={};
+
+async function initWeightPage(){
+  const label=`${weightYear}年 ${weightMonth}月`;
+  document.getElementById('weightMonthLabel').textContent=label;
+  await loadWeights();
+  renderWeightInputList();
+  renderWeightCompare();
+}
+
+async function loadWeights(){
+  const monthStr=`${weightYear}-${String(weightMonth).padStart(2,'0')}`;
+  const{data}=await sb.from('wecats_weights').select('*').like('date',`${monthStr}%`);
+  weightCache={};
+  (data||[]).forEach(w=>{weightCache[w.cat_id]=w;});
+  // 前月データも取得
+  const prevMonth=weightMonth===1?12:weightMonth-1;
+  const prevYear=weightMonth===1?weightYear-1:weightYear;
+  const prevMonthStr=`${prevYear}-${String(prevMonth).padStart(2,'0')}`;
+  const{data:prevData}=await sb.from('wecats_weights').select('*').like('date',`${prevMonthStr}%`);
+  weightCache._prev={};
+  (prevData||[]).forEach(w=>{weightCache._prev[w.cat_id]=w;});
+}
+
+function renderWeightInputList(){
+  const el=document.getElementById('weightInputList');
+  if(!catsCache.length){el.innerHTML='<div style="font-size:12px;color:var(--text-light)">猫データを読み込み中...</div>';return;}
+  el.innerHTML=catsCache.filter(c=>!c.archived).map(cat=>{
+    const existing=weightCache[cat.id];
+    const prev=weightCache._prev&&weightCache._prev[cat.id];
+    return`<div class="weight-row">
+      <div class="weight-cat-emoji">${cat.emoji}</div>
+      <div class="weight-cat-name">${cat.name}</div>
+      <input type="number" class="weight-input" id="w_${cat.id}" value="${existing?existing.weight:''}" placeholder="0.0" step="0.1" min="0" max="20">
+      <span class="weight-unit">kg</span>
+      ${prev?`<span class="weight-prev">前回：${prev.weight}kg</span>`:'<span class="weight-prev">前回なし</span>'}
+    </div>`;
+  }).join('');
+}
+
+function renderWeightCompare(){
+  const el=document.getElementById('weightCompareList');
+  const cats=catsCache.filter(c=>!c.archived);
+  const rows=cats.map(cat=>{
+    const curr=weightCache[cat.id];
+    const prev=weightCache._prev&&weightCache._prev[cat.id];
+    if(!curr)return null;
+    let diffHtml='';
+    if(prev){
+      const diff=(curr.weight-prev.weight).toFixed(1);
+      const cls=diff>0?'up':diff<0?'down':'same';
+      const sign=diff>0?'+':'';
+      diffHtml=`<span class="weight-diff ${cls}">${sign}${diff}</span>`;
+    }
+    return`<div class="weight-row">
+      <div class="weight-cat-emoji">${cat.emoji}</div>
+      <div class="weight-cat-name">${cat.name}</div>
+      <span style="font-size:14px;font-weight:700">${curr.weight}kg</span>
+      ${diffHtml}
+    </div>`;
+  }).filter(Boolean);
+  if(!rows.length){el.innerHTML='<div style="font-size:12px;color:var(--text-light);padding:8px 0">この月の記録がありません</div>';return;}
+  el.innerHTML=rows.join('');
+}
+
+async function saveAllWeights(){
+  const cats=catsCache.filter(c=>!c.archived);
+  const dateStr=`${weightYear}-${String(weightMonth).padStart(2,'0')}-01`;
+  let saved=0;
+  for(const cat of cats){
+    const input=document.getElementById('w_'+cat.id);
+    if(!input||!input.value)continue;
+    const weight=parseFloat(input.value);
+    if(isNaN(weight)||weight<=0)continue;
+    const existing=weightCache[cat.id];
+    if(existing){
+      await sb.from('wecats_weights').update({weight}).eq('id',existing.id);
+    }else{
+      await sb.from('wecats_weights').insert({id:`w_${cat.id}_${weightYear}_${weightMonth}`,cat_id:cat.id,weight,date:dateStr});
+    }
+    saved++;
+  }
+  await loadWeights();
+  renderWeightInputList();
+  renderWeightCompare();
+  showToast(`✓ ${saved}匹分を保存しました`);
+}
+
+function changeWeightMonth(delta){
+  weightMonth+=delta;
+  if(weightMonth>12){weightMonth=1;weightYear++;}
+  if(weightMonth<1){weightMonth=12;weightYear--;}
+  initWeightPage();
+}
 
 // ===== マニュアル（Supabase） =====
 async function loadFolders(){
