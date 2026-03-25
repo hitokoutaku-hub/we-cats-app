@@ -203,6 +203,11 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .post-time { font-size: 10px; color: var(--text-light); margin-left: auto; }
 .post-content { font-size: 13px; line-height: 1.7; margin-bottom: 10px; }
 .post-delete { background: none; border: none; font-size: 12px; cursor: pointer; color: var(--text-light); }
+.pin-btn { background: none; border: none; font-size: 14px; cursor: pointer; color: var(--text-light); transition: color 0.2s; }
+.pin-btn.pinned { color: var(--pink-deep); }
+.pinned-section { background: rgba(212,112,138,0.08); border: 1.5px solid var(--pink-dark); border-radius: 14px; padding: 10px 14px; margin-bottom: 14px; }
+.pinned-label { font-size: 10px; font-weight: 700; color: var(--pink-deep); margin-bottom: 8px; }
+.post-card.pinned-card { border-left: 4px solid var(--pink-deep); }
 .comments-area { border-top: 1px solid var(--pink-light); padding-top: 10px; }
 .comment-item { display: flex; gap: 8px; margin-bottom: 8px; }
 .comment-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--pink); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--pink-deep); flex-shrink: 0; }
@@ -406,6 +411,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
       <textarea id="newPostContent" placeholder="内容を入力..."></textarea>
       <button class="save-btn" onclick="submitPost()">投稿する</button>
     </div>
+    <div id="pinnedPosts"></div>
     <div id="boardPosts"></div>
   </div>
 </div>
@@ -1052,18 +1058,42 @@ async function deleteDrink(){const id=document.getElementById('dEditId').value;i
 
 // ===== 連絡ボード（Supabase） =====
 function selectPostType(el,type){currentPostType=type;document.querySelectorAll('.post-type-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
-async function loadBoard(){const{data}=await sb.from('board_posts').select('*').order('created_at',{ascending:false}).limit(50);boardCache=data||[];renderBoard();}
-async function submitPost(){const content=document.getElementById('newPostContent').value.trim();if(!content){showToast('内容を入力してください');return;}await sb.from('board_posts').insert({author:userName,role:currentPostType,content});document.getElementById('newPostContent').value='';showToast('✓ 投稿しました');await loadBoard();}
+async function loadBoard(){const{data}=await sb.from('board_posts').select('*').order('pinned',{ascending:false}).order('created_at',{ascending:false}).limit(50);boardCache=data||[];renderBoard();}
+async function submitPost(){const content=document.getElementById('newPostContent').value.trim();if(!content){showToast('内容を入力してください');return;}await sb.from('board_posts').insert({author:userName,role:currentPostType,content,pinned:false});document.getElementById('newPostContent').value='';showToast('✓ 投稿しました');await loadBoard();}
 async function deletePost(id){if(!confirm('削除しますか？'))return;await sb.from('board_posts').delete().eq('id',id);await sb.from('board_comments').delete().eq('post_id',id);await loadBoard();}
+async function togglePin(id,current){await sb.from('board_posts').update({pinned:!current}).eq('id',id);await loadBoard();showToast(current?'ピン留めを解除しました':'📌 ピン留めしました');}
 function renderBoard(){
+  const pinnedEl=document.getElementById('pinnedPosts');
   const el=document.getElementById('boardPosts');
-  if(!boardCache.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>まだ投稿がありません</p></div>';return;}
-  el.innerHTML=boardCache.map(post=>{
-    const bCls=post.role==='owner'?'owner':post.role==='alert'?'alert':'';
-    const bLabel=post.role==='owner'?'👑 オーナーより':post.role==='alert'?'🚨 注意事項':'📋 日報・報告';
-    return`<div class="post-card"><div class="post-header"><span class="post-badge ${bCls}">${bLabel}</span><span style="font-size:12px;font-weight:700">${post.author}</span><span class="post-time">${formatTime(post.created_at)}</span>${post.author===userName?`<button class="post-delete" onclick="deletePost('${post.id}')">🗑</button>`:''}</div><div class="post-content">${post.content.replace(/\n/g,'<br>')}</div><div class="comments-area" id="comments-${post.id}"><div style="font-size:11px;color:var(--text-light);padding:4px">読み込み中...</div></div></div>`;
-  }).join('');
+  const pinned=boardCache.filter(p=>p.pinned);
+  const normal=boardCache.filter(p=>!p.pinned);
+
+  // ピン留め投稿
+  if(pinned.length>0){
+    pinnedEl.innerHTML=`<div class="pinned-label">📌 ピン留め</div>`+pinned.map(post=>buildPostCard(post)).join('');
+  } else {
+    pinnedEl.innerHTML='';
+  }
+
+  if(!normal.length&&!pinned.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>まだ投稿がありません</p></div>';return;}
+  el.innerHTML=normal.map(post=>buildPostCard(post)).join('');
   boardCache.forEach(post=>loadComments(post.id));
+}
+function buildPostCard(post){
+  const bCls=post.role==='owner'?'owner':post.role==='alert'?'alert':'';
+  const bLabel=post.role==='owner'?'👑 オーナーより':post.role==='alert'?'🚨 注意事項':'📋 日報・報告';
+  const pinIcon=post.pinned?'📌':'📍';
+  return`<div class="post-card ${post.pinned?'pinned-card':''}">
+    <div class="post-header">
+      <span class="post-badge ${bCls}">${bLabel}</span>
+      <span style="font-size:12px;font-weight:700">${post.author}</span>
+      <span class="post-time">${formatTime(post.created_at)}</span>
+      <button class="pin-btn ${post.pinned?'pinned':''}" onclick="togglePin('${post.id}',${post.pinned})" title="ピン留め">${pinIcon}</button>
+      ${post.author===userName?`<button class="post-delete" onclick="deletePost('${post.id}')">🗑</button>`:''}
+    </div>
+    <div class="post-content">${post.content.replace(/\n/g,'<br>')}</div>
+    <div class="comments-area" id="comments-${post.id}"><div style="font-size:11px;color:var(--text-light);padding:4px">読み込み中...</div></div>
+  </div>`;
 }
 async function loadComments(postId){
   const{data:comments}=await sb.from('board_comments').select('*').eq('post_id',postId).order('created_at');
