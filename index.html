@@ -503,6 +503,47 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   </div>
 </div>
 
+<!-- 現金管理ページ -->
+<div class="page" id="page-cash">
+  <div style="padding:16px">
+    <!-- 残金表示 -->
+    <div style="background:linear-gradient(135deg,var(--pink-deep),#e8507a);border-radius:16px;padding:20px;margin-bottom:14px;color:white;text-align:center;box-shadow:var(--shadow)">
+      <div style="font-size:12px;font-weight:700;opacity:0.8;margin-bottom:4px">💰 現在の残金</div>
+      <div style="font-size:36px;font-weight:900" id="cashBalance">¥-</div>
+      <div style="font-size:11px;opacity:0.8;margin-top:4px" id="cashLastUpdate">読み込み中...</div>
+    </div>
+    <!-- ボタン -->
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button onclick="openCashModal('expense')" style="flex:1;padding:12px;background:var(--white);border:2px solid #f87171;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;color:#f87171;cursor:pointer">💸 使用する</button>
+      <button onclick="openCashModal('refill')" style="flex:1;padding:12px;background:var(--white);border:2px solid #4ade80;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;color:#16a34a;cursor:pointer">💴 補充する</button>
+    </div>
+    <!-- 履歴 -->
+    <div style="background:var(--white);border-radius:14px;padding:14px;box-shadow:var(--shadow)">
+      <div style="font-size:14px;font-weight:700;color:var(--pink-deep);margin-bottom:12px">📋 使用履歴</div>
+      <div id="cashList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 現金使用・補充モーダル -->
+<div class="modal-overlay" id="modalCash"><div class="modal">
+  <button class="modal-close" onclick="closeModal('cash')">✕</button>
+  <h3 id="cashModalTitle">💸 現金を使用する</h3>
+  <div class="form-group"><label class="form-label">日付</label><input type="date" class="form-input" id="cashDate"></div>
+  <div class="form-group"><label class="form-label" id="cashAmountLabel">使用金額</label><input type="number" class="form-input" id="cashAmount" placeholder="例：3000" min="0"></div>
+  <div class="form-group"><label class="form-label">用途・内容</label><input type="text" class="form-input" id="cashDesc" placeholder="例：猫砂購入"></div>
+  <div class="form-group"><label class="form-label">メモ（任意）</label><textarea class="form-textarea" id="cashMemo" placeholder="備考など" style="min-height:50px"></textarea></div>
+  <div class="form-group">
+    <label class="form-label">📷 領収書写真（任意）</label>
+    <div class="photo-upload-area" onclick="document.getElementById('cashReceiptInput').click()">
+      <input type="file" id="cashReceiptInput" accept="image/*" onchange="handlePhoto(event,'cash')">
+      <div style="font-size:13px;color:var(--text-light)">📷 タップして追加</div>
+    </div>
+    <div class="photo-preview-grid" id="cashPhotoPreview"></div>
+  </div>
+  <button class="modal-submit" onclick="saveCashRecord()">保存する</button>
+</div></div>
+
 <!-- ログイン履歴ページ（オーナーのみ） -->
 <div class="page" id="page-loginlog">
   <div style="padding:16px">
@@ -555,6 +596,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <button class="nav-item active" data-page="cats" onclick="switchPage('cats')"><span class="nav-icon">🐱</span>猫管理</button>
   <button class="nav-item" data-page="drinks" onclick="switchPage('drinks')" style="position:relative"><span class="nav-icon">🥤</span>在庫<div class="nav-badge" id="stockBadge" style="display:none">!</div></button>
   <button class="nav-item" data-page="weight" onclick="switchPage('weight')"><span class="nav-icon">⚖️</span>体重</button>
+  <button class="nav-item" data-page="cash" onclick="switchPage('cash')"><span class="nav-icon">💰</span>現金</button>
   <button class="nav-item" data-page="board" onclick="switchPage('board')"><span class="nav-icon">📋</span>連絡</button>
   <button class="nav-item" data-page="manual" onclick="switchPage('manual')"><span class="nav-icon">📌</span>マニュアル</button>
   <button class="nav-item" data-page="loginlog" id="navLoginLog" style="display:none" onclick="switchPage('loginlog')"><span class="nav-icon">👑</span>管理</button>
@@ -780,7 +822,7 @@ let currentPage='cats',currentCatId=null,currentCatTab='daily';
 let currentDrinkTab='hot',currentPostType='report';
 let editingCatId=null,currentFolderId=null,editingArticleId=null,currentCareType=null;
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth(),calSelectedDay=null,calInputDate=null;
-let photoBuf={daily:[],hospital:[],board:[]},selectedEmoji='🐱';
+let photoBuf={daily:[],hospital:[],board:[],cash:[]},selectedEmoji='🐱';
 let articleStepData=[];
 let drinkCache={hot:[],ice:[],cat:[],supply:[]},boardCache=[],foldersCache=[],articlesCache=[],medCheckState={};
 let currentCatLocationTab='cage';
@@ -876,6 +918,7 @@ function switchPage(page){
   if(page==='cats'){renderCatList();checkHospitalAlerts();}
   if(page==='weight')initWeightPage();
   if(page==='loginlog'){loadStaffForManage();loadLoginLogs();}
+  if(page==='cash')initCashPage();
 }
 function goBack(){
   if(currentPage==='catdetail')switchPage('cats');
@@ -1436,6 +1479,87 @@ async function loadComments(postId){
   el.innerHTML=html;
 }
 async function submitComment(postId){const input=document.getElementById('comment-input-'+postId);const content=input.value.trim();if(!content)return;await sb.from('board_comments').insert({post_id:postId,author:userName,content});input.value='';await loadComments(postId);}
+
+// ===== 現金管理（Supabase） =====
+let cashCache=[];
+let currentCashType='expense';
+
+async function initCashPage(){
+  const{data}=await sb.from('wecats_cash').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});
+  cashCache=data||[];
+  renderCashBalance();
+  renderCashList();
+}
+
+function renderCashBalance(){
+  if(!cashCache.length){
+    document.getElementById('cashBalance').textContent='¥50,000';
+    document.getElementById('cashLastUpdate').textContent='初期残高：¥50,000';
+    return;
+  }
+  const latest=cashCache[0];
+  document.getElementById('cashBalance').textContent='¥'+latest.balance.toLocaleString();
+  document.getElementById('cashLastUpdate').textContent=`最終更新：${latest.date}`;
+}
+
+function renderCashList(){
+  const el=document.getElementById('cashList');
+  if(!cashCache.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">💰</div><p>記録がありません</p></div>';
+    return;
+  }
+  el.innerHTML=cashCache.map(r=>{
+    const isExpense=r.type==='expense';
+    return`<div style="background:var(--pink-light);border-radius:12px;padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-size:16px">${isExpense?'💸':'💴'}</span>
+        <span style="font-size:12px;font-weight:700;color:var(--text-light)">${r.date}</span>
+        <span style="font-size:13px;font-weight:700;color:${isExpense?'#dc2626':'#16a34a'};margin-left:auto">${isExpense?'-':'+'} ¥${r.amount.toLocaleString()}</span>
+      </div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:2px">${r.description||''}</div>
+      ${r.memo?`<div style="font-size:11px;color:var(--text-light)">📝 ${r.memo}</div>`:''}
+      <div style="font-size:11px;color:var(--text-light);margin-top:4px">残金：¥${r.balance.toLocaleString()}</div>
+      ${r.receipt_photo?`<img src="${r.receipt_photo}" style="width:100%;border-radius:8px;margin-top:6px;max-height:200px;object-fit:cover" onclick="openViewer(this.src)" alt="領収書">`:''}
+    </div>`;
+  }).join('');
+}
+
+function openCashModal(type){
+  currentCashType=type;
+  const isExpense=type==='expense';
+  document.getElementById('cashModalTitle').textContent=isExpense?'💸 現金を使用する':'💴 現金を補充する';
+  document.getElementById('cashAmountLabel').textContent=isExpense?'使用金額':'補充金額';
+  document.getElementById('cashDate').value=today();
+  document.getElementById('cashAmount').value='';
+  document.getElementById('cashDesc').value='';
+  document.getElementById('cashMemo').value='';
+  photoBuf.cash=[];renderPhotoPreview('cash');
+  document.getElementById('modalCash').classList.add('open');
+}
+
+async function saveCashRecord(){
+  const date=document.getElementById('cashDate').value;
+  const amount=parseInt(document.getElementById('cashAmount').value);
+  const description=document.getElementById('cashDesc').value.trim();
+  if(!date||!amount||amount<=0){showToast('日付と金額を入力してください');return;}
+  const currentBalance=cashCache.length?cashCache[0].balance:50000;
+  const newBalance=currentCashType==='expense'?currentBalance-amount:currentBalance+amount;
+  if(newBalance<0){showToast('残金が不足しています');return;}
+  const receipt_photo=photoBuf.cash[0]||'';
+  await sb.from('wecats_cash').insert({
+    id:'cash_'+Date.now(),
+    date,type:currentCashType,
+    description,
+    amount,
+    balance:newBalance,
+    receipt_photo,
+    memo:document.getElementById('cashMemo').value.trim()
+  });
+  photoBuf.cash=[];
+  closeModal('cash');
+  showToast('✓ 保存しました');
+  await initCashPage();
+}
 
 // ===== マニュアル ステップ記事 =====
 function initAddArticleModal(){
