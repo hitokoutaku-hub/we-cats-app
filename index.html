@@ -728,7 +728,9 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 <script>
 const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+  auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}
+});
 
 // Supabase猫管理キャッシュ
 let catsCache=[],catRecordsCache={},catMedsCache={},catHospPlansCache={};
