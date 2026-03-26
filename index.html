@@ -281,9 +281,12 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 <div class="name-setup" id="nameSetup">
   <div style="font-size:48px;margin-bottom:16px">🐱</div>
   <h2>WE CATS スタッフアプリ</h2>
-  <p>はじめに名前を入力してください</p>
-  <input type="text" id="nameInput" placeholder="例：りっけ" maxlength="10">
-  <button onclick="saveName()">はじめる</button>
+  <p style="margin-bottom:16px">名前を選んでPINコードを入力してください</p>
+  <div id="staffSelectArea">
+    <div id="staffList" style="width:100%;margin-bottom:14px"></div>
+    <input type="password" id="pinInput" placeholder="PINコード（数字4桁）" maxlength="4" pattern="[0-9]*" inputmode="numeric" style="width:100%;padding:14px;border-radius:12px;border:2px solid var(--pink-dark);background:var(--white);font-family:'Zen Maru Gothic',sans-serif;font-size:18px;color:var(--text);margin-bottom:14px;outline:none;text-align:center;letter-spacing:8px">
+    <button onclick="doLogin()" style="width:100%;padding:14px;background:var(--pink-deep);color:var(--white);border:none;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:16px;font-weight:700;cursor:pointer">ログイン</button>
+  </div>
 </div>
 
 <div class="header">
@@ -499,6 +502,53 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   </div>
 </div>
 
+<!-- ログイン履歴ページ（オーナーのみ） -->
+<div class="page" id="page-loginlog" style="display:none">
+  <div style="padding:16px">
+    <div style="background:var(--white);border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700;color:var(--pink-deep);margin-bottom:12px">👥 スタッフ管理</div>
+      <div id="staffManageList"></div>
+      <button onclick="openAddStaff()" style="width:100%;padding:11px;background:var(--pink-light);border:2px dashed var(--pink-dark);border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;color:var(--pink-deep);font-weight:700;cursor:pointer;margin-top:10px">＋ スタッフを追加</button>
+    </div>
+    <div style="background:var(--white);border-radius:14px;padding:14px;box-shadow:var(--shadow)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:15px;font-weight:700;color:var(--pink-deep)">📋 ログイン履歴</div>
+        <select id="logFilterStaff" onchange="renderLoginLogs()" style="padding:6px 10px;border-radius:8px;border:1.5px solid var(--pink);font-family:'Zen Maru Gothic',sans-serif;font-size:12px;background:var(--pink-bg)">
+          <option value="">全員</option>
+        </select>
+      </div>
+      <div id="loginLogList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- スタッフ追加モーダル -->
+<div class="modal-overlay" id="modalAddStaff"><div class="modal">
+  <button class="modal-close" onclick="closeModal('addStaff')">✕</button>
+  <h3>👤 スタッフを追加</h3>
+  <div class="form-group"><label class="form-label">名前</label><input type="text" class="form-input" id="newStaffName" placeholder="例：ヨシムラ"></div>
+  <div class="form-group"><label class="form-label">PINコード（4桁）</label><input type="password" class="form-input" id="newStaffPin" placeholder="例：1234" maxlength="4" pattern="[0-9]*" inputmode="numeric"></div>
+  <div class="form-group" style="display:flex;align-items:center;gap:10px">
+    <input type="checkbox" id="newStaffIsOwner" style="width:18px;height:18px">
+    <label for="newStaffIsOwner" style="font-size:13px">👑 オーナー権限を付与</label>
+  </div>
+  <button class="modal-submit" onclick="saveNewStaff()">追加する</button>
+</div></div>
+
+<!-- スタッフ編集モーダル -->
+<div class="modal-overlay" id="modalEditStaff"><div class="modal">
+  <button class="modal-close" onclick="closeModal('editStaff')">✕</button>
+  <h3>✏️ スタッフを編集</h3>
+  <input type="hidden" id="editStaffId">
+  <div class="form-group"><label class="form-label">名前</label><input type="text" class="form-input" id="editStaffName"></div>
+  <div class="form-group"><label class="form-label">PINコードを変更（空白で変更なし）</label><input type="password" class="form-input" id="editStaffPin" placeholder="新しいPIN（4桁）" maxlength="4" pattern="[0-9]*" inputmode="numeric"></div>
+  <div class="modal-btn-row">
+    <button class="modal-btn del" onclick="deleteStaff()">削除</button>
+    <button class="modal-btn cancel" onclick="closeModal('editStaff')">キャンセル</button>
+    <button class="modal-submit" onclick="saveEditStaff()" style="margin-top:0">保存</button>
+  </div>
+</div></div>
+
 <!-- ボトムナビ -->
 <div class="bottom-nav">
   <button class="nav-item active" data-page="cats" onclick="switchPage('cats')"><span class="nav-icon">🐱</span>猫管理</button>
@@ -506,6 +556,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <button class="nav-item" data-page="weight" onclick="switchPage('weight')"><span class="nav-icon">⚖️</span>体重</button>
   <button class="nav-item" data-page="board" onclick="switchPage('board')"><span class="nav-icon">📋</span>連絡</button>
   <button class="nav-item" data-page="manual" onclick="switchPage('manual')"><span class="nav-icon">📌</span>マニュアル</button>
+  <button class="nav-item" data-page="loginlog" id="navLoginLog" style="display:none" onclick="switchPage('loginlog')"><span class="nav-icon">👑</span>管理</button>
 </div>
 
 <!-- モーダル群 -->
@@ -722,14 +773,67 @@ let photoBuf={daily:[],hospital:[],board:[]},selectedEmoji='🐱';
 let drinkCache={hot:[],ice:[],cat:[],supply:[]},boardCache=[],foldersCache=[],articlesCache=[],medCheckState={};
 let currentCatLocationTab='cage';
 let floorOpts={toilet:null,food:null};
+let staffCache=[];
+let loginLogsCache=[];
+let selectedStaffId=null;
+let currentStaffIsOwner=false;
 
 const CAT_EMOJIS=['🐱','🐈','😺','😸','⭐','🌸','🍀','🌙','🌈','🐯','💜','🍑','🤍','🧡','💛','🩷','🩵','🌻','🍃','🤎'];
 const CARE_TYPES=[{key:'nail',label:'爪切り',emoji:'✂️'},{key:'brush',label:'ブラッシング',emoji:'🪮'},{key:'hairball',label:'毛玉取り',emoji:'🧶'},{key:'ear',label:'耳掃除',emoji:'👂'},{key:'teeth',label:'歯磨き',emoji:'🦷'},{key:'shampoo',label:'シャンプー',emoji:'🛁'}];
 
 window.onload=()=>{
   updateHeaderDate();setInterval(updateHeaderDate,1000);
+  loadStaffList();
 };
-function saveName(){const n=document.getElementById('nameInput').value.trim();if(!n){showToast('名前を入力してください');return;}userName=n;localStorage.setItem('wecats_username',n);document.getElementById('nameSetup').style.display='none';document.getElementById('boardAuthorName').textContent=n;init();}
+async function loadStaffList(){
+  const{data}=await sb.from('wecats_staff').select('*').order('created_at');
+  staffCache=data||[];
+  renderStaffButtons();
+}
+
+function renderStaffButtons(){
+  const el=document.getElementById('staffList');
+  if(!staffCache.length){
+    el.innerHTML=`<div style="font-size:12px;color:var(--text-light);text-align:center;margin-bottom:8px">スタッフが登録されていません</div>`;
+    return;
+  }
+  el.innerHTML=`<div style="font-size:12px;color:var(--text-light);margin-bottom:8px;text-align:center">名前を選んでください</div>`+
+  staffCache.map(s=>`
+    <button onclick="selectStaff('${s.id}')" id="staffBtn_${s.id}" style="width:100%;padding:12px;margin-bottom:8px;border-radius:12px;border:2px solid var(--pink-dark);background:var(--white);font-family:'Zen Maru Gothic',sans-serif;font-size:15px;font-weight:700;color:var(--text);cursor:pointer;transition:all 0.2s">
+      ${s.is_owner?'👑 ':''}${s.name}
+    </button>
+  `).join('');
+}
+
+function selectStaff(id){
+  selectedStaffId=id;
+  document.querySelectorAll('[id^="staffBtn_"]').forEach(b=>{
+    b.style.background='var(--white)';b.style.borderColor='var(--pink-dark)';b.style.color='var(--text)';
+  });
+  const btn=document.getElementById('staffBtn_'+id);
+  if(btn){btn.style.background='var(--pink-deep)';btn.style.borderColor='var(--pink-deep)';btn.style.color='white';}
+  document.getElementById('pinInput').focus();
+}
+
+async function doLogin(){
+  if(!selectedStaffId){showToast('名前を選んでください');return;}
+  const pin=document.getElementById('pinInput').value.trim();
+  if(!pin){showToast('PINコードを入力してください');return;}
+  const staff=staffCache.find(s=>s.id===selectedStaffId);
+  if(!staff||staff.pin!==pin){showToast('PINコードが違います');document.getElementById('pinInput').value='';return;}
+  // ログイン成功
+  userName=staff.name;
+  currentStaffIsOwner=staff.is_owner||false;
+  localStorage.setItem('wecats_username',staff.name);
+  // ログイン記録
+  await sb.from('wecats_login_logs').insert({id:'log_'+Date.now(),staff_id:staff.id,staff_name:staff.name});
+  // オーナータブ表示
+  const navLog=document.getElementById('navLoginLog');
+  if(navLog)navLog.style.display=currentStaffIsOwner?'flex':'none';
+  document.getElementById('nameSetup').style.display='none';
+  document.getElementById('boardAuthorName').textContent=userName;
+  init();
+}
 async function init(){
   showToast('データを読み込み中...');
   await loadCatsData();
@@ -759,6 +863,7 @@ function switchPage(page){
   if(page==='drinks')renderDrinks();
   if(page==='cats'){renderCatList();checkHospitalAlerts();}
   if(page==='weight')initWeightPage();
+  if(page==='loginlog'){loadStaffForManage();loadLoginLogs();}
 }
 function goBack(){
   if(currentPage==='catdetail')switchPage('cats');
@@ -1319,6 +1424,99 @@ async function loadComments(postId){
   el.innerHTML=html;
 }
 async function submitComment(postId){const input=document.getElementById('comment-input-'+postId);const content=input.value.trim();if(!content)return;await sb.from('board_comments').insert({post_id:postId,author:userName,content});input.value='';await loadComments(postId);}
+
+// ===== スタッフ管理・ログイン履歴 =====
+function openAddStaff(){
+  document.getElementById('newStaffName').value='';
+  document.getElementById('newStaffPin').value='';
+  document.getElementById('newStaffIsOwner').checked=false;
+  document.getElementById('modalAddStaff').classList.add('open');
+}
+async function saveNewStaff(){
+  const name=document.getElementById('newStaffName').value.trim();
+  const pin=document.getElementById('newStaffPin').value.trim();
+  const isOwner=document.getElementById('newStaffIsOwner').checked;
+  if(!name||!pin){showToast('名前とPINコードを入力してください');return;}
+  if(pin.length!==4||!/^\d+$/.test(pin)){showToast('PINコードは数字4桁で入力してください');return;}
+  await sb.from('wecats_staff').insert({id:'staff_'+Date.now(),name,pin,is_owner:isOwner});
+  await loadStaffForManage();
+  closeModal('addStaff');
+  showToast('✓ スタッフを追加しました');
+}
+async function loadStaffForManage(){
+  const{data}=await sb.from('wecats_staff').select('*').order('created_at');
+  staffCache=data||[];
+  renderStaffManageList();
+  // フィルター更新
+  const sel=document.getElementById('logFilterStaff');
+  if(sel){
+    sel.innerHTML='<option value="">全員</option>'+staffCache.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  }
+}
+function renderStaffManageList(){
+  const el=document.getElementById('staffManageList');
+  if(!staffCache.length){el.innerHTML='<div style="font-size:12px;color:var(--text-light)">スタッフが登録されていません</div>';return;}
+  el.innerHTML=staffCache.map(s=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--pink-light)">
+      <div style="flex:1;font-size:13px;font-weight:700">${s.is_owner?'👑 ':'👤 '}${s.name}</div>
+      <div style="font-size:11px;color:var(--text-light)">PIN：${s.pin}</div>
+      <button onclick="openEditStaff('${s.id}')" style="background:var(--pink-light);border:none;border-radius:8px;padding:6px 10px;font-family:'Zen Maru Gothic',sans-serif;font-size:11px;color:var(--pink-deep);cursor:pointer">編集</button>
+    </div>
+  `).join('');
+}
+function openEditStaff(id){
+  const staff=staffCache.find(s=>s.id===id);
+  if(!staff)return;
+  document.getElementById('editStaffId').value=id;
+  document.getElementById('editStaffName').value=staff.name;
+  document.getElementById('editStaffPin').value='';
+  document.getElementById('modalEditStaff').classList.add('open');
+}
+async function saveEditStaff(){
+  const id=document.getElementById('editStaffId').value;
+  const name=document.getElementById('editStaffName').value.trim();
+  const pin=document.getElementById('editStaffPin').value.trim();
+  if(!name){showToast('名前を入力してください');return;}
+  const updateData={name};
+  if(pin){
+    if(pin.length!==4||!/^\d+$/.test(pin)){showToast('PINコードは数字4桁で入力してください');return;}
+    updateData.pin=pin;
+  }
+  await sb.from('wecats_staff').update(updateData).eq('id',id);
+  await loadStaffForManage();
+  closeModal('editStaff');
+  showToast('✓ 更新しました');
+}
+async function deleteStaff(){
+  const id=document.getElementById('editStaffId').value;
+  const staff=staffCache.find(s=>s.id===id);
+  if(!confirm(`「${staff.name}」を削除しますか？`))return;
+  await sb.from('wecats_staff').delete().eq('id',id);
+  await loadStaffForManage();
+  closeModal('editStaff');
+  showToast('削除しました');
+}
+async function loadLoginLogs(){
+  const{data}=await sb.from('wecats_login_logs').select('*').order('logged_in_at',{ascending:false}).limit(200);
+  loginLogsCache=data||[];
+  renderLoginLogs();
+}
+function renderLoginLogs(){
+  const el=document.getElementById('loginLogList');
+  const filterStaff=document.getElementById('logFilterStaff')?.value||'';
+  let logs=loginLogsCache;
+  if(filterStaff)logs=logs.filter(l=>l.staff_id===filterStaff);
+  if(!logs.length){el.innerHTML='<div style="font-size:12px;color:var(--text-light);padding:8px 0">ログイン記録がありません</div>';return;}
+  el.innerHTML=logs.slice(0,100).map(l=>{
+    const d=new Date(l.logged_in_at);
+    const dateStr=`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+    const timeStr=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--pink-light)">
+      <div style="font-size:13px;font-weight:700;flex:1">${l.staff_name}</div>
+      <div style="font-size:11px;color:var(--text-light)">${dateStr} ${timeStr}</div>
+    </div>`;
+  }).join('');
+}
 
 // ===== フロア全体チェック =====
 function openFloorCheck(){
