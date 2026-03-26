@@ -301,7 +301,8 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 <div class="page active" id="page-cats">
   <!-- フロア全体チェックボタン -->
   <div style="padding:12px 16px 0">
-    <button onclick="openFloorCheck()" style="width:100%;padding:11px;background:linear-gradient(135deg,var(--pink-deep),#e8507a);color:white;border:none;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px">🏠 フロア全体チェックを入力</button>
+    <button onclick="openFloorCheck()" style="width:100%;padding:11px;background:linear-gradient(135deg,var(--pink-deep),#e8507a);color:white;border:none;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:6px">🏠 フロア全体チェックを入力</button>
+    <button onclick="openFloorHistory()" style="width:100%;padding:9px;background:var(--white);border:1.5px solid var(--pink-dark);border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;color:var(--pink-deep);cursor:pointer;margin-bottom:10px">📋 フロア履歴を見る</button>
   </div>
   <!-- ケージ/フロア切り替えタブ -->
   <div style="display:flex;gap:8px;padding:0 16px 8px">
@@ -611,6 +612,13 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 </div></div>
 
 <!-- フロア全体チェックモーダル -->
+<!-- フロア履歴モーダル -->
+<div class="modal-overlay" id="modalFloorHistory"><div class="modal">
+  <button class="modal-close" onclick="closeModal('floorHistory')">✕</button>
+  <h3>📋 フロア履歴</h3>
+  <div id="floorHistoryList"></div>
+</div></div>
+
 <div class="modal-overlay" id="modalFloorCheck"><div class="modal">
   <button class="modal-close" onclick="closeModal('floorCheck')">✕</button>
   <h3>🏠 フロア全体チェック</h3>
@@ -1553,6 +1561,28 @@ async function saveFloorCheck(){
   }
   closeModal('floorCheck');
   showToast('✓ フロアチェックを保存しました');
+}
+
+async function openFloorHistory(){
+  const{data}=await sb.from('wecats_records').select('*').eq('cat_id','floor').eq('type','floor_check').order('date',{ascending:false}).limit(30);
+  const el=document.getElementById('floorHistoryList');
+  if(!data||!data.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>まだ記録がありません</p></div>';
+  } else {
+    el.innerHTML=data.map(r=>{
+      const d=r.data||{};
+      return`<div class="record-item">
+        <div class="record-date">📅 ${r.date}</div>
+        <div class="record-content">
+          ${d.toilet?`<span class="record-tag">🚽 ${d.toilet}</span>`:''}
+          ${d.food?`<span class="record-tag">🍚 ${d.food}</span>`:''}
+          ${d.concern?`<div style="margin-top:5px;font-size:11px;color:var(--pink-deep)">😟 ${d.concern}</div>`:''}
+          ${d.memo?`<div style="margin-top:3px;font-size:11px;color:var(--text-light)">📝 ${d.memo}</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('modalFloorHistory').classList.add('open');
 }
 
 // ===== 体重管理（Supabase） =====
