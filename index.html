@@ -338,6 +338,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
         <div class="check-row"><span class="check-label">🍚 ご飯</span><div class="check-options" data-key="food"><button class="check-opt" data-val="完食">完食</button><button class="check-opt" data-val="残し">残し</button><button class="check-opt" data-val="食べず">食べず</button></div></div>
         <div class="check-row"><span class="check-label">💧 水</span><div class="check-options" data-key="water"><button class="check-opt" data-val="普通">普通</button><button class="check-opt" data-val="多め">多め</button><button class="check-opt" data-val="少なめ">少なめ</button><button class="check-opt" data-val="飲まず">飲まず</button></div></div>
         <div class="check-row"><span class="check-label">👁️ 目ヤニ</span><div class="check-options" data-key="eye"><button class="check-opt" data-val="なし">なし</button><button class="check-opt" data-val="少し">少し</button><button class="check-opt" data-val="多め">多め</button></div></div>
+        <div class="check-row"><span class="check-label">👁️ 種類</span><div class="check-options" data-key="eyetype"><button class="check-opt" data-val="黒っぽい">黒っぽい</button><button class="check-opt" data-val="膿っぽい">膿っぽい</button></div></div>
         <div class="check-row"><span class="check-label">🤧 吐き戻し</span><div class="check-options" data-key="vomit"><button class="check-opt" data-val="なし">なし</button><button class="check-opt" data-val="あり">あり</button></div></div>
         <div class="form-group" style="margin-top:8px;margin-bottom:0">
           <label class="form-label">メモ</label>
@@ -902,7 +903,7 @@ function renderDailyHistory(){
         ${d.poop?`<span class="record-tag">💩 便：${d.poop}</span>`:''}
         ${d.food?`<span class="record-tag">🍚 ご飯：${d.food}</span>`:''}
         ${d.water?`<span class="record-tag">💧 水：${d.water}</span>`:''}
-        ${d.eye?`<span class="record-tag">👁️ 目ヤニ：${d.eye}</span>`:''}
+        ${d.eye?`<span class="record-tag">👁️ 目ヤニ：${d.eye}${d.eyetype?' ('+d.eyetype+')':''}</span>`:''}
         ${d.vomit&&d.vomit!=='なし'?`<span class="record-tag">🤧 吐き戻し</span>`:''}
         ${d.memo?`<div style="margin-top:5px;font-size:11px;color:var(--text-light)">📝 ${d.memo}</div>`:''}
       </div>
