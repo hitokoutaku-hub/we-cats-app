@@ -1445,12 +1445,17 @@ function initAddArticleModal(){
 }
 
 function addArticleStep(){
-  articleStepData.push({text:'',photo:null});
+  articleStepData.push({text:'',photos:[]});
   renderArticleSteps();
 }
 
 function removeArticleStep(idx){
   articleStepData.splice(idx,1);
+  renderArticleSteps();
+}
+
+function removeStepPhoto(stepIdx,photoIdx){
+  articleStepData[stepIdx].photos.splice(photoIdx,1);
   renderArticleSteps();
 }
 
@@ -1460,26 +1465,35 @@ function renderArticleSteps(){
     el.innerHTML='<div style="font-size:12px;color:var(--text-light);text-align:center;padding:10px 0;margin-bottom:8px">「＋ ステップを追加」でステップを作成してください</div>';
     return;
   }
-  el.innerHTML=articleStepData.map((step,i)=>`
-    <div style="background:var(--pink-light);border-radius:10px;padding:12px;margin-bottom:8px">
+  el.innerHTML=articleStepData.map((step,i)=>{
+    const photosHtml=(step.photos||[]).map((p,pi)=>`
+      <div style="position:relative;flex-shrink:0">
+        <img src="${p}" style="width:90px;height:90px;object-fit:cover;border-radius:8px">
+        <button onclick="removeStepPhoto(${i},${pi})" style="position:absolute;top:2px;right:2px;background:rgba(74,45,53,0.7);color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:9px;cursor:pointer;line-height:18px;text-align:center;padding:0">✕</button>
+      </div>`).join('');
+    return`<div style="background:var(--pink-light);border-radius:10px;padding:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <div style="width:24px;height:24px;border-radius:50%;background:var(--pink-deep);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</div>
         <textarea placeholder="説明を入力..." onchange="articleStepData[${i}].text=this.value" style="flex:1;padding:6px 8px;border:1.5px solid var(--pink);border-radius:8px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;background:var(--white);resize:none;min-height:50px;outline:none">${step.text||''}</textarea>
         <button onclick="removeArticleStep(${i})" style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--text-light);flex-shrink:0">🗑</button>
       </div>
-      ${step.photo
-        ?`<div style="position:relative"><img src="${step.photo}" style="width:100%;border-radius:8px;max-height:160px;object-fit:cover"><button onclick="articleStepData[${i}].photo=null;renderArticleSteps()" style="position:absolute;top:4px;right:4px;background:rgba(74,45,53,0.7);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:10px;cursor:pointer">✕</button></div>`
-        :`<div onclick="document.getElementById('stepPhoto_${i}').click()" style="border:2px dashed var(--pink-dark);border-radius:8px;padding:10px;text-align:center;cursor:pointer;font-size:12px;color:var(--text-light)">📷 写真を追加<input type="file" id="stepPhoto_${i}" accept="image/*" style="display:none" onchange="handleStepPhoto(event,${i})"></div>`
-      }
-    </div>
-  `).join('');
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${photosHtml}</div>
+      <div onclick="document.getElementById('stepPhoto_${i}').click()" style="border:2px dashed var(--pink-dark);border-radius:8px;padding:8px;text-align:center;cursor:pointer;font-size:12px;color:var(--text-light)">📷 写真を追加（複数可）<input type="file" id="stepPhoto_${i}" accept="image/*" multiple style="display:none" onchange="handleStepPhoto(event,${i})"></div>
+    </div>`;
+  }).join('');
 }
 
 function handleStepPhoto(event,idx){
-  const file=event.target.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=e=>{articleStepData[idx].photo=e.target.result;renderArticleSteps();};
-  reader.readAsDataURL(file);
+  Array.from(event.target.files).forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      if(!articleStepData[idx].photos)articleStepData[idx].photos=[];
+      articleStepData[idx].photos.push(e.target.result);
+      renderArticleSteps();
+    };
+    reader.readAsDataURL(file);
+  });
+  event.target.value='';
 }
 
 // ===== スタッフ管理・ログイン履歴 =====
@@ -1767,15 +1781,17 @@ function openArticle(articleId){
   } else if(article.type==='step_article'){
     try{
       const steps=JSON.parse(article.content||'[]');
-      html+=steps.map((step,i)=>`
-        <div style="margin-bottom:20px;border-bottom:1px solid var(--pink-light);padding-bottom:16px">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-            <div style="width:28px;height:28px;border-radius:50%;background:var(--pink-deep);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">${i+1}</div>
-            <div style="font-size:14px;font-weight:700;line-height:1.5">${step.text||''}</div>
+      html+=steps.map((step,i)=>{
+        const photos=step.photos||[];
+        const photosHtml=photos.map(p=>`<img src="${p}" style="width:100%;border-radius:10px;object-fit:cover;max-height:260px;margin-bottom:6px;display:block" onclick="openViewer(this.src)" alt="">`).join('');
+        return`<div style="margin-bottom:20px;border-bottom:1px solid var(--pink-light);padding-bottom:16px">
+          ${photosHtml}
+          <div style="display:flex;align-items:flex-start;gap:10px;margin-top:${photos.length?'8':'0'}px">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--pink-deep);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;margin-top:2px">${i+1}</div>
+            <div style="font-size:14px;line-height:1.7;flex:1">${step.text||''}</div>
           </div>
-          ${step.photo?`<img src="${step.photo}" style="width:100%;border-radius:10px;object-fit:cover;max-height:240px" onclick="openViewer(this.src)" alt="">`:``}
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     }catch(e){html+=`<div style="font-size:13px">${article.content||''}</div>`;}
   } else {
     html+=`<div style="font-size:13px;line-height:1.9;white-space:pre-wrap">${article.content||''}</div>`;
