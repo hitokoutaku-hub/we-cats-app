@@ -535,16 +535,32 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <h3 id="cashModalTitle">💸 経費を使用する</h3>
   <div class="form-group"><label class="form-label">日付</label><input type="date" class="form-input" id="cashDate"></div>
   <div class="form-group"><label class="form-label" id="cashAmountLabel">使用金額</label><input type="number" class="form-input" id="cashAmount" placeholder="例：3000" min="0"></div>
-  <div class="form-group"><label class="form-label">用途・内容</label><input type="text" class="form-input" id="cashDesc" placeholder="例：猫砂購入"></div>
-  <div class="form-group"><label class="form-label">メモ（任意）</label><textarea class="form-textarea" id="cashMemo" placeholder="備考など" style="min-height:50px"></textarea></div>
-  <div class="form-group">
-    <label class="form-label">📷 レシート・領収書（複数枚可）</label>
-    <div class="photo-upload-area" onclick="document.getElementById('cashReceiptInput').click()">
-      <input type="file" id="cashReceiptInput" accept="image/*" multiple onchange="handlePhoto(event,'cash')">
-      <div style="font-size:13px;color:var(--text-light)">📷 タップして追加（複数可）</div>
+
+  <!-- 支出の場合のみ -->
+  <div id="cashExpenseFields">
+    <div class="form-group"><label class="form-label">用途・内容</label><input type="text" class="form-input" id="cashDesc" placeholder="例：猫砂購入"></div>
+    <div class="form-group"><label class="form-label">メモ（任意）</label><textarea class="form-textarea" id="cashMemo" placeholder="備考など" style="min-height:50px"></textarea></div>
+    <div class="form-group">
+      <label class="form-label">📷 レシート・領収書（任意）</label>
+      <div class="photo-upload-area" onclick="document.getElementById('cashReceiptInput').click()">
+        <input type="file" id="cashReceiptInput" accept="image/*" multiple onchange="handlePhoto(event,'cash')">
+        <div style="font-size:13px;color:var(--text-light)">📷 タップして追加</div>
+      </div>
+      <div class="photo-preview-grid" id="cashPhotoPreview"></div>
     </div>
-    <div class="photo-preview-grid" id="cashPhotoPreview"></div>
   </div>
+
+  <!-- 補充の場合のみ -->
+  <div id="cashRefillFields" style="display:none">
+    <div class="form-group"><label class="form-label">補充した人</label><input type="text" class="form-input" id="cashRefillBy" placeholder="例：吉村"></div>
+    <div class="form-group"><label class="form-label">補充元</label>
+      <div style="display:flex;gap:8px">
+        <button class="check-opt" id="refillSrcOwner" data-val="オーナー" onclick="selectRefillSrc(this)">👑 オーナー</button>
+        <button class="check-opt" id="refillSrcRegister" data-val="レジから移行" onclick="selectRefillSrc(this)">🏧 レジから移行</button>
+      </div>
+    </div>
+  </div>
+
   <button class="modal-submit" onclick="saveCashRecord()">保存する</button>
 </div></div>
 
@@ -1558,30 +1574,55 @@ function renderCashList(){
   }).join('');
 }
 
+let refillSrc='オーナー';
+function selectRefillSrc(el){
+  refillSrc=el.dataset.val;
+  document.querySelectorAll('#cashRefillFields .check-opt').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+}
 function openCashModal(type){
   currentCashType=type;
   const isExpense=type==='expense';
-  const isInit=type==='init';
-  document.getElementById('cashModalTitle').textContent=isInit?'⚙️ 初期残高を設定':isExpense?'💸 現金を使用する':'💴 現金を補充する';
-  document.getElementById('cashAmountLabel').textContent=isInit?'初期残高':isExpense?'使用金額':'補充金額';
+  document.getElementById('cashModalTitle').textContent=isExpense?'💸 経費を使用する':'💴 経費を補充する';
+  document.getElementById('cashAmountLabel').textContent=isExpense?'使用金額':'補充金額';
   document.getElementById('cashDate').value=today();
-  document.getElementById('cashAmount').value=isInit?'100000':'';
-  document.getElementById('cashDesc').value=isInit?'初期残高設定':'';
-  document.getElementById('cashMemo').value='';
-  photoBuf.cash=[];renderPhotoPreview('cash');
+  document.getElementById('cashAmount').value='';
+  document.getElementById('cashExpenseFields').style.display=isExpense?'block':'none';
+  document.getElementById('cashRefillFields').style.display=isExpense?'none':'block';
+  if(isExpense){
+    document.getElementById('cashDesc').value='';
+    document.getElementById('cashMemo').value='';
+    photoBuf.cash=[];renderPhotoPreview('cash');
+  } else {
+    document.getElementById('cashRefillBy').value=userName||'';
+    refillSrc='オーナー';
+    document.querySelectorAll('#cashRefillFields .check-opt').forEach(b=>b.classList.remove('selected'));
+    const ownerBtn=document.getElementById('refillSrcOwner');
+    if(ownerBtn)ownerBtn.classList.add('selected');
+  }
   document.getElementById('modalCash').classList.add('open');
 }
 
 async function saveCashRecord(){
   const date=document.getElementById('cashDate').value;
   const amount=parseInt(document.getElementById('cashAmount').value);
-  const description=document.getElementById('cashDesc').value.trim()||'記録';
   if(!date||!amount||amount<=0){showToast('日付と金額を入力してください');return;}
-  
+  const isExpense=currentCashType==='expense';
+
+  let description,memo,receipt_photo;
+  if(isExpense){
+    description=document.getElementById('cashDesc').value.trim()||'支出';
+    memo=document.getElementById('cashMemo').value.trim();
+    receipt_photo=JSON.stringify(photoBuf.cash);
+  } else {
+    const refillBy=document.getElementById('cashRefillBy').value.trim()||userName||'';
+    description=`補充（${refillBy}・${refillSrc}）`;
+    memo='';
+    receipt_photo='[]';
+  }
+
   let newBalance;
-  if(currentCashType==='init'){
-    newBalance=amount;
-  } else if(currentCashType==='expense'){
+  if(isExpense){
     const currentBalance=cashCache.length?cashCache[0].balance:0;
     newBalance=currentBalance-amount;
     if(newBalance<0){showToast('残金が不足しています');return;}
@@ -1589,19 +1630,10 @@ async function saveCashRecord(){
     const currentBalance=cashCache.length?cashCache[0].balance:0;
     newBalance=currentBalance+amount;
   }
-  
-  // レシート写真を複数枚JSON保存
-  const receipt_photo=JSON.stringify(photoBuf.cash);
-  
+
   await sb.from('wecats_cash').insert({
     id:'cash_'+Date.now(),
-    date,
-    type:currentCashType,
-    description,
-    amount,
-    balance:newBalance,
-    receipt_photo,
-    memo:document.getElementById('cashMemo').value.trim()
+    date,type:currentCashType,description,amount,balance:newBalance,receipt_photo,memo
   });
   photoBuf.cash=[];
   closeModal('cash');
