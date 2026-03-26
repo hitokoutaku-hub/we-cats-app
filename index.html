@@ -296,6 +296,15 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 
 <!-- 猫一覧 -->
 <div class="page active" id="page-cats">
+  <!-- フロア全体チェックボタン -->
+  <div style="padding:12px 16px 0">
+    <button onclick="openFloorCheck()" style="width:100%;padding:11px;background:linear-gradient(135deg,var(--pink-deep),#e8507a);color:white;border:none;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px">🏠 フロア全体チェックを入力</button>
+  </div>
+  <!-- ケージ/フロア切り替えタブ -->
+  <div style="display:flex;gap:8px;padding:0 16px 8px">
+    <button id="tabCage" onclick="switchCatLocationTab('cage')" style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--pink-deep);background:var(--pink-deep);color:white;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer">🏠 ケージ組</button>
+    <button id="tabFloor" onclick="switchCatLocationTab('floor')" style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--pink-dark);background:var(--white);color:var(--text-light);font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer">🐾 放し飼い組</button>
+  </div>
   <div class="cat-grid" id="catGrid"></div>
   <div style="text-align:center;margin-bottom:8px">
     <button class="archive-toggle-btn" id="archiveToggleBtn" onclick="toggleArchive()">🎓 卒業した子を見る</button>
@@ -549,6 +558,43 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <button class="modal-submit" onclick="saveMedication()">追加する</button>
 </div></div>
 
+<!-- フロア全体チェックモーダル -->
+<div class="modal-overlay" id="modalFloorCheck"><div class="modal">
+  <button class="modal-close" onclick="closeModal('floorCheck')">✕</button>
+  <h3>🏠 フロア全体チェック</h3>
+  <div class="form-group">
+    <label class="form-label">📅 日付</label>
+    <input type="date" class="form-input" id="floorDate">
+  </div>
+  <div class="form-group">
+    <label class="form-label">🚽 トイレ確認</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap" id="floorToiletOpts">
+      <button class="check-opt" data-val="問題なし" onclick="selectFloorOpt(this,'toilet')">問題なし</button>
+      <button class="check-opt" data-val="軟便あり" onclick="selectFloorOpt(this,'toilet')">軟便あり</button>
+      <button class="check-opt" data-val="下痢あり" onclick="selectFloorOpt(this,'toilet')">下痢あり</button>
+      <button class="check-opt" data-val="血便あり" onclick="selectFloorOpt(this,'toilet')">血便あり</button>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">🍚 ご飯の減り具合</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap" id="floorFoodOpts">
+      <button class="check-opt" data-val="完食" onclick="selectFloorOpt(this,'food')">完食</button>
+      <button class="check-opt" data-val="残し" onclick="selectFloorOpt(this,'food')">残し</button>
+      <button class="check-opt" data-val="ほぼ残し" onclick="selectFloorOpt(this,'food')">ほぼ残し</button>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">😟 気になった子（任意）</label>
+    <input type="text" class="form-input" id="floorConcern" placeholder="例：にゃあなが元気なさそう">
+  </div>
+  <div class="form-group">
+    <label class="form-label">📝 メモ（任意）</label>
+    <textarea class="form-textarea" id="floorMemo" placeholder="フロア全体で気になることがあれば..." style="min-height:60px"></textarea>
+  </div>
+  <button class="modal-submit" onclick="saveFloorCheck()">保存する</button>
+</div></div>
+
+<!-- 猫編集モーダル（location切り替えボタン追加） -->
 <div class="modal-overlay" id="modalAddCat"><div class="modal">
   <button class="modal-close" onclick="closeModal('addCat')">✕</button>
   <h3>🐱 猫を追加</h3>
@@ -563,6 +609,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <div class="form-group"><label class="form-label">名前</label><input type="text" class="form-input" id="editCatName"></div>
   <div class="form-group"><label class="form-label">アイコン</label><div class="emoji-picker" id="editEmojiPicker"></div></div>
   <button class="modal-submit" onclick="saveEditCat()" style="margin-bottom:8px">保存する</button>
+  <button id="locationToggleBtn" onclick="toggleCatLocation()" style="width:100%;padding:11px;background:none;border:1.5px solid #50a0d0;border-radius:12px;color:#50a0d0;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px">🐾 放し飼いに変更</button>
   <button onclick="archiveCat()" style="width:100%;padding:11px;background:none;border:1.5px solid var(--pink-deep);border-radius:12px;color:var(--pink-deep);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px">🎓 卒業（アーカイブ）</button>
   <button id="unarchiveBtn" onclick="unarchiveCat()" style="display:none;width:100%;padding:11px;background:none;border:1.5px solid #50a050;border-radius:12px;color:#50a050;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px">🔄 現役に戻す</button>
   <button onclick="deleteCat()" style="width:100%;padding:11px;background:none;border:1.5px solid #e05050;border-radius:12px;color:#e05050;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🗑 削除</button>
@@ -672,6 +719,8 @@ let editingCatId=null,currentFolderId=null,editingArticleId=null,currentCareType
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth(),calSelectedDay=null,calInputDate=null;
 let photoBuf={daily:[],hospital:[],board:[]},selectedEmoji='🐱';
 let drinkCache={hot:[],ice:[],cat:[],supply:[]},boardCache=[],foldersCache=[],articlesCache=[],medCheckState={};
+let currentCatLocationTab='cage';
+let floorOpts={toilet:null,food:null};
 
 const CAT_EMOJIS=['🐱','🐈','😺','😸','⭐','🌸','🍀','🌙','🌈','🐯','💜','🍑','🤍','🧡','💛','🩷','🩵','🌻','🍃','🤎'];
 const CARE_TYPES=[{key:'nail',label:'爪切り',emoji:'✂️'},{key:'brush',label:'ブラッシング',emoji:'🪮'},{key:'hairball',label:'毛玉取り',emoji:'🧶'},{key:'ear',label:'耳掃除',emoji:'👂'},{key:'teeth',label:'歯磨き',emoji:'🦷'},{key:'shampoo',label:'シャンプー',emoji:'🛁'}];
@@ -736,9 +785,25 @@ async function checkHospitalAlerts(){
 }
 
 // 猫一覧
+function switchCatLocationTab(tab){
+  currentCatLocationTab=tab;
+  const cageBtn=document.getElementById('tabCage');
+  const floorBtn=document.getElementById('tabFloor');
+  if(cageBtn&&floorBtn){
+    if(tab==='cage'){
+      cageBtn.style.background='var(--pink-deep)';cageBtn.style.color='white';cageBtn.style.borderColor='var(--pink-deep)';
+      floorBtn.style.background='var(--white)';floorBtn.style.color='var(--text-light)';floorBtn.style.borderColor='var(--pink-dark)';
+    } else {
+      floorBtn.style.background='var(--pink-deep)';floorBtn.style.color='white';floorBtn.style.borderColor='var(--pink-deep)';
+      cageBtn.style.background='var(--white)';cageBtn.style.color='var(--text-light)';cageBtn.style.borderColor='var(--pink-dark)';
+    }
+  }
+  renderCatList();
+}
+
 function renderCatList(){
   const grid=document.getElementById('catGrid');grid.innerHTML='';
-  catsCache.filter(c=>!c.archived).forEach(cat=>{
+  catsCache.filter(c=>!c.archived&&(c.location||'cage')===currentCatLocationTab).forEach(cat=>{
     const records=catRecordsCache[cat.id]||[];
     const lastDaily=records.filter(r=>r.type==='daily').sort((a,b)=>b.date.localeCompare(a.date))[0];
     const sub=lastDaily?`最終: ${lastDaily.date}`:'記録なし';
@@ -998,7 +1063,20 @@ function openEditCat(catId){
   editingCatId=catId;const cat=catsCache.find(c=>c.id===catId);
   document.getElementById('editCatName').value=cat.name;selectedEmoji=cat.emoji;renderEmojiPicker('editEmojiPicker');
   document.getElementById('unarchiveBtn').style.display=cat.archived?'block':'none';
+  const locBtn=document.getElementById('locationToggleBtn');
+  if(locBtn){
+    const isFloor=(cat.location||'cage')==='floor';
+    locBtn.textContent=isFloor?'🏠 ケージに変更':'🐾 放し飼いに変更';
+  }
   document.getElementById('modalEditCat').classList.add('open');
+}
+async function toggleCatLocation(){
+  const cat=catsCache.find(c=>c.id===editingCatId);
+  const newLoc=(cat.location||'cage')==='cage'?'floor':'cage';
+  await sb.from('wecats_cats').update({location:newLoc}).eq('id',editingCatId);
+  await reloadCatsAndRender();
+  closeModal('editCat');
+  showToast(newLoc==='floor'?'🐾 放し飼い組に移動しました':'🏠 ケージ組に移動しました');
 }
 async function saveEditCat(){
   const name=document.getElementById('editCatName').value.trim();if(!name){showToast('名前を入力してください');return;}
@@ -1240,6 +1318,41 @@ async function loadComments(postId){
   el.innerHTML=html;
 }
 async function submitComment(postId){const input=document.getElementById('comment-input-'+postId);const content=input.value.trim();if(!content)return;await sb.from('board_comments').insert({post_id:postId,author:userName,content});input.value='';await loadComments(postId);}
+
+// ===== フロア全体チェック =====
+function openFloorCheck(){
+  document.getElementById('floorDate').value=today();
+  floorOpts={toilet:null,food:null};
+  document.querySelectorAll('#floorToiletOpts .check-opt, #floorFoodOpts .check-opt').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('floorConcern').value='';
+  document.getElementById('floorMemo').value='';
+  document.getElementById('modalFloorCheck').classList.add('open');
+}
+function selectFloorOpt(el,type){
+  floorOpts[type]=el.dataset.val;
+  const container=type==='toilet'?document.getElementById('floorToiletOpts'):document.getElementById('floorFoodOpts');
+  container.querySelectorAll('.check-opt').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+async function saveFloorCheck(){
+  const date=document.getElementById('floorDate').value;
+  if(!date){showToast('日付を入力してください');return;}
+  const data={
+    toilet:floorOpts.toilet,
+    food:floorOpts.food,
+    concern:document.getElementById('floorConcern').value.trim(),
+    memo:document.getElementById('floorMemo').value.trim(),
+  };
+  // フロア全体チェックはcat_id='floor'で保存
+  const existing=await sb.from('wecats_records').select('*').eq('cat_id','floor').eq('type','floor_check').eq('date',date).single();
+  if(existing.data){
+    await sb.from('wecats_records').update({data}).eq('id',existing.data.id);
+  }else{
+    await sb.from('wecats_records').insert({id:'floor_'+Date.now(),cat_id:'floor',type:'floor_check',date,data});
+  }
+  closeModal('floorCheck');
+  showToast('✓ フロアチェックを保存しました');
+}
 
 // ===== 体重管理（Supabase） =====
 let weightYear=new Date().getFullYear();
