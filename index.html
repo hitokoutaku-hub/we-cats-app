@@ -583,6 +583,21 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <button class="modal-submit" onclick="saveCashRecord()">保存する</button>
 </div></div>
 
+<!-- 経費編集モーダル -->
+<div class="modal-overlay" id="modalEditCash"><div class="modal">
+  <button class="modal-close" onclick="closeModal('editCash')">✕</button>
+  <h3>✏️ 経費を編集</h3>
+  <input type="hidden" id="editCashId">
+  <div class="form-group"><label class="form-label">日付</label><input type="date" class="form-input" id="editCashDate"></div>
+  <div class="form-group"><label class="form-label">金額</label><input type="number" class="form-input" id="editCashAmount" min="0"></div>
+  <div class="form-group"><label class="form-label">内容</label><input type="text" class="form-input" id="editCashDesc"></div>
+  <div class="form-group"><label class="form-label">メモ（任意）</label><textarea class="form-textarea" id="editCashMemo" style="min-height:50px"></textarea></div>
+  <div class="modal-btn-row">
+    <button class="modal-btn cancel" onclick="closeModal('editCash')">キャンセル</button>
+    <button class="modal-submit" onclick="saveEditCashRecord()" style="margin-top:0">保存</button>
+  </div>
+</div></div>
+
 <!-- ログイン履歴ページ（オーナーのみ） -->
 <div class="page" id="page-loginlog">
   <div style="padding:16px">
@@ -1631,19 +1646,63 @@ function renderCashList(){
     const photosHtml=photos.map(p=>`<img src="${p}" style="width:100%;border-radius:8px;margin-top:6px;max-height:220px;object-fit:cover;display:block" onclick="openViewer(this.src)" alt="レシート">`).join('');
     return`<div style="background:var(--pink-light);border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:4px solid ${isExpense?'#f87171':'#4ade80'}">
       <div style="display:flex;align-items:center;margin-bottom:6px">
-        <div>
+        <div style="flex:1">
           <div style="font-size:11px;color:var(--text-light);font-weight:700">${r.date}</div>
           <div style="font-size:14px;font-weight:700">${r.description||''}</div>
         </div>
-        <div style="margin-left:auto;text-align:right">
+        <div style="text-align:right;margin-left:8px">
           <div style="font-size:16px;font-weight:900;color:${isExpense?'#dc2626':'#16a34a'}">${isExpense?'-':'+'} ¥${r.amount.toLocaleString()}</div>
           <div style="font-size:11px;color:var(--text-light)">残金 ¥${r.balance.toLocaleString()}</div>
         </div>
       </div>
       ${r.memo?`<div style="font-size:11px;color:var(--text-light);margin-bottom:4px">📝 ${r.memo}</div>`:''}
       ${photosHtml}
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button onclick="openEditCashRecord('${r.id}')" style="flex:1;padding:6px;background:var(--white);border:1.5px solid var(--pink-dark);border-radius:8px;font-family:'Zen Maru Gothic',sans-serif;font-size:11px;color:var(--pink-deep);font-weight:700;cursor:pointer">✏️ 編集</button>
+        <button onclick="deleteCashRecord('${r.id}')" style="flex:1;padding:6px;background:var(--white);border:1.5px solid #f87171;border-radius:8px;font-family:'Zen Maru Gothic',sans-serif;font-size:11px;color:#dc2626;font-weight:700;cursor:pointer">🗑 削除</button>
+      </div>
     </div>`;
   }).join('');
+}
+
+function openEditCashRecord(id){
+  const r=cashCache.find(c=>c.id===id);if(!r)return;
+  document.getElementById('editCashId').value=id;
+  document.getElementById('editCashDate').value=r.date;
+  document.getElementById('editCashAmount').value=r.amount;
+  document.getElementById('editCashDesc').value=r.description||'';
+  document.getElementById('editCashMemo').value=r.memo||'';
+  document.getElementById('modalEditCash').classList.add('open');
+}
+async function saveEditCashRecord(){
+  const id=document.getElementById('editCashId').value;
+  const date=document.getElementById('editCashDate').value;
+  const amount=parseInt(document.getElementById('editCashAmount').value);
+  const description=document.getElementById('editCashDesc').value.trim();
+  if(!date||!amount||amount<=0){showToast('日付と金額を入力してください');return;}
+  await sb.from('wecats_cash').update({date,amount,description,memo:document.getElementById('editCashMemo').value.trim()}).eq('id',id);
+  // 残金を全件再計算
+  await recalcBalances();
+  closeModal('editCash');
+  showToast('✓ 更新しました');
+  await initCashPage();
+}
+async function deleteCashRecord(id){
+  if(!confirm('この記録を削除しますか？'))return;
+  await sb.from('wecats_cash').delete().eq('id',id);
+  await recalcBalances();
+  showToast('削除しました');
+  await initCashPage();
+}
+async function recalcBalances(){
+  // 日付順に並べ直して残金を再計算
+  const{data}=await sb.from('wecats_cash').select('*').order('date').order('created_at');
+  if(!data||!data.length)return;
+  let balance=0;
+  for(const r of data){
+    balance=r.type==='expense'?balance-r.amount:balance+r.amount;
+    await sb.from('wecats_cash').update({balance}).eq('id',r.id);
+  }
 }
 
 let refillSrc='オーナー';
