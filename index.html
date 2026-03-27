@@ -359,6 +359,11 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
         <button class="save-btn" onclick="saveDailyCheck()">✓ 今日の記録を保存</button>
       </div>
       <div class="section-title">📆 過去の記録</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <button onclick="changeDailyMonth(-1)" style="background:var(--pink-light);border:none;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;color:var(--pink-deep)">‹</button>
+        <span id="dailyMonthLabel" style="font-size:13px;font-weight:700"></span>
+        <button onclick="changeDailyMonth(1)" style="background:var(--pink-light);border:none;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;color:var(--pink-deep)">›</button>
+      </div>
       <div id="dailyHistory"></div>
     </div>
 
@@ -368,14 +373,28 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
       <div id="hospitalPlanList"></div>
       <div style="margin-top:14px"></div>
       <button class="add-record-btn" onclick="openModal('hospital')">＋ 受診記録を追加</button>
-      <div class="section-title">📋 受診記録</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div class="section-title" style="margin-bottom:0">📋 受診記録</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button onclick="changeHospMonth(-1)" style="background:var(--pink-light);border:none;border-radius:50%;width:26px;height:26px;font-size:14px;cursor:pointer;color:var(--pink-deep)">‹</button>
+          <span id="hospMonthLabel" style="font-size:12px;font-weight:700"></span>
+          <button onclick="changeHospMonth(1)" style="background:var(--pink-light);border:none;border-radius:50%;width:26px;height:26px;font-size:14px;cursor:pointer;color:var(--pink-deep)">›</button>
+        </div>
+      </div>
       <div id="hospitalList"></div>
     </div>
 
     <div class="tab-panel" id="cat-tab-care">
       <div class="section-title">ケアを記録する</div>
       <div class="care-grid" id="careGrid"></div>
-      <div class="section-title">📋 ケア履歴</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div class="section-title" style="margin-bottom:0">📋 ケア履歴</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button onclick="changeCareMonth(-1)" style="background:var(--pink-light);border:none;border-radius:50%;width:26px;height:26px;font-size:14px;cursor:pointer;color:var(--pink-deep)">‹</button>
+          <span id="careMonthLabel" style="font-size:12px;font-weight:700"></span>
+          <button onclick="changeCareMonth(1)" style="background:var(--pink-light);border:none;border-radius:50%;width:26px;height:26px;font-size:14px;cursor:pointer;color:var(--pink-deep)">›</button>
+        </div>
+      </div>
       <div id="careHistory"></div>
     </div>
 
@@ -847,6 +866,14 @@ let articleStepData=[];
 let drinkCache={hot:[],ice:[],cat:[],supply:[]},boardCache=[],foldersCache=[],articlesCache=[],medCheckState={};
 let currentCatLocationTab='cage';
 let floorOpts={toilet:null,food:null};
+let dailyYear=new Date().getFullYear();
+let dailyMonth=new Date().getMonth()+1;
+let hospYear=new Date().getFullYear();
+let hospMonth=new Date().getMonth()+1;
+let careYear=new Date().getFullYear();
+let careMonth=new Date().getMonth()+1;
+let floorHistYear=new Date().getFullYear();
+let floorHistMonth=new Date().getMonth()+1;
 let staffCache=[];
 let loginLogsCache=[];
 let selectedStaffId=null;
@@ -1034,9 +1061,19 @@ function switchCatTab(tab){
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===tab));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('cat-tab-'+tab).classList.add('active');
-  if(tab==='daily'){resetDailyForm();renderDailyHistory();}
-  if(tab==='hospital'){renderHospPlanList();renderHospitalList();}
-  if(tab==='care'){renderCareGrid();renderCareHistory();}
+  if(tab==='daily'){
+    dailyYear=new Date().getFullYear();
+    dailyMonth=new Date().getMonth()+1;
+    resetDailyForm();renderDailyHistory();
+  }
+  if(tab==='hospital'){
+    hospYear=new Date().getFullYear();hospMonth=new Date().getMonth()+1;
+    renderHospPlanList();renderHospitalList();
+  }
+  if(tab==='care'){
+    careYear=new Date().getFullYear();careMonth=new Date().getMonth()+1;
+    renderCareGrid();renderCareHistory();
+  }
   if(tab==='meds')renderMedList();
   if(tab==='calendar'){calYear=new Date().getFullYear();calMonth=new Date().getMonth();calSelectedDay=null;document.getElementById('calDayDetail').innerHTML='';renderCalendar();}
 }
@@ -1072,11 +1109,26 @@ async function saveDailyCheck(){
   showToast('✓ 保存しました');
   photoBuf.daily=[];renderPhotoPreview('daily');resetDailyForm();renderDailyHistory();
 }
+function changeDailyMonth(delta){
+  dailyMonth+=delta;
+  if(dailyMonth>12){dailyMonth=1;dailyYear++;}
+  if(dailyMonth<1){dailyMonth=12;dailyYear--;}
+  renderDailyHistory();
+}
+
 function renderDailyHistory(){
-  const records=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='daily').sort((a,b)=>b.date.localeCompare(a.date));
+  // 今月に初期化（タブ切り替え時）
+  const monthStr=`${dailyYear}-${String(dailyMonth).padStart(2,'0')}`;
+  const label=document.getElementById('dailyMonthLabel');
+  if(label)label.textContent=`${dailyYear}年 ${dailyMonth}月`;
+  const allRecords=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='daily').sort((a,b)=>b.date.localeCompare(a.date));
+  const records=allRecords.filter(r=>r.date.startsWith(monthStr));
   const el=document.getElementById('dailyHistory');
-  if(!records.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>まだ記録がありません</p></div>';return;}
-  el.innerHTML=records.slice(0,20).map(r=>{const d=r.data||{};return`
+  if(!records.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>この月の記録がありません</p></div>';
+    return;
+  }
+  el.innerHTML=records.map(r=>{const d=r.data||{};return`
     <div class="record-item">
       <button class="record-delete" onclick="delRecord('${r.id}','daily')">🗑</button>
       <div class="record-date">${r.date}</div>
@@ -1138,10 +1190,20 @@ async function saveHospital(){
   await loadCatDetail(currentCatId);
   photoBuf.hospital=[];closeModal('hospital');showToast('✓ 受診記録を保存しました');renderHospitalList();
 }
+function changeHospMonth(delta){
+  hospMonth+=delta;
+  if(hospMonth>12){hospMonth=1;hospYear++;}
+  if(hospMonth<1){hospMonth=12;hospYear--;}
+  renderHospitalList();
+}
 function renderHospitalList(){
-  const records=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='hospital').sort((a,b)=>b.date.localeCompare(a.date));
+  const monthStr=`${hospYear}-${String(hospMonth).padStart(2,'0')}`;
+  const label=document.getElementById('hospMonthLabel');
+  if(label)label.textContent=`${hospYear}年 ${hospMonth}月`;
+  const allRecords=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='hospital').sort((a,b)=>b.date.localeCompare(a.date));
+  const records=allRecords.filter(r=>r.date.startsWith(monthStr));
   const el=document.getElementById('hospitalList');
-  if(!records.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">🏥</div><p>受診記録がありません</p></div>';return;}
+  if(!records.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">🏥</div><p>この月の受診記録がありません</p></div>';return;}
   el.innerHTML=records.map(r=>{const d=r.data||{};return`
     <div class="record-item">
       <button class="record-delete" onclick="delRecord('${r.id}','hospital')">🗑</button>
@@ -1178,11 +1240,21 @@ async function saveCare(){
   await loadCatDetail(currentCatId);
   calInputDate=null;closeModal('care');showToast('✓ ケア記録を保存しました');renderCareGrid();renderCareHistory();
 }
+function changeCareMonth(delta){
+  careMonth+=delta;
+  if(careMonth>12){careMonth=1;careYear++;}
+  if(careMonth<1){careMonth=12;careYear--;}
+  renderCareHistory();
+}
 function renderCareHistory(){
-  const records=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='care').sort((a,b)=>b.date.localeCompare(a.date));
+  const monthStr=`${careYear}-${String(careMonth).padStart(2,'0')}`;
+  const label=document.getElementById('careMonthLabel');
+  if(label)label.textContent=`${careYear}年 ${careMonth}月`;
+  const allRecords=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='care').sort((a,b)=>b.date.localeCompare(a.date));
+  const records=allRecords.filter(r=>r.date.startsWith(monthStr));
   const el=document.getElementById('careHistory');
-  if(!records.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">✂️</div><p>ケア記録がありません</p></div>';return;}
-  el.innerHTML=records.slice(0,30).map(r=>{const d=r.data||{};const ct=CARE_TYPES.find(c=>c.key===d.careType);return`<div class="record-item"><button class="record-delete" onclick="delRecord('${r.id}','care')">🗑</button><div class="record-date">${r.date}</div><div class="record-content">${ct?ct.emoji+' '+ct.label:d.careType||''}${d.memo?' — '+d.memo:''}</div></div>`;}).join('');
+  if(!records.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">✂️</div><p>この月のケア記録がありません</p></div>';return;}
+  el.innerHTML=records.map(r=>{const d=r.data||{};const ct=CARE_TYPES.find(c=>c.key===d.careType);return`<div class="record-item"><button class="record-delete" onclick="delRecord('${r.id}','care')">🗑</button><div class="record-date">${r.date}</div><div class="record-content">${ct?ct.emoji+' '+ct.label:d.careType||''}${d.memo?' — '+d.memo:''}</div></div>`;}).join('');
 }
 
 // 投薬
@@ -1829,12 +1901,24 @@ async function saveFloorCheck(){
 }
 
 async function openFloorHistory(){
-  const{data}=await sb.from('wecats_records').select('*').eq('cat_id','floor').eq('type','floor_check').order('date',{ascending:false}).limit(30);
+  floorHistYear=new Date().getFullYear();
+  floorHistMonth=new Date().getMonth()+1;
+  await loadAndRenderFloorHistory();
+  document.getElementById('modalFloorHistory').classList.add('open');
+}
+async function loadAndRenderFloorHistory(){
+  const monthStr=`${floorHistYear}-${String(floorHistMonth).padStart(2,'0')}`;
+  const{data}=await sb.from('wecats_records').select('*').eq('cat_id','floor').eq('type','floor_check').like('date',`${monthStr}%`).order('date',{ascending:false});
   const el=document.getElementById('floorHistoryList');
+  el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <button onclick="changeFloorHistMonth(-1)" style="background:var(--pink-light);border:none;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;color:var(--pink-deep)">‹</button>
+    <span style="font-size:13px;font-weight:700">${floorHistYear}年 ${floorHistMonth}月</span>
+    <button onclick="changeFloorHistMonth(1)" style="background:var(--pink-light);border:none;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;color:var(--pink-deep)">›</button>
+  </div>`;
   if(!data||!data.length){
-    el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>まだ記録がありません</p></div>';
+    el.innerHTML+=`<div class="empty-state"><div class="empty-icon">📋</div><p>この月の記録がありません</p></div>`;
   } else {
-    el.innerHTML=data.map(r=>{
+    el.innerHTML+=data.map(r=>{
       const d=r.data||{};
       return`<div class="record-item">
         <div class="record-date">📅 ${r.date}</div>
@@ -1847,7 +1931,12 @@ async function openFloorHistory(){
       </div>`;
     }).join('');
   }
-  document.getElementById('modalFloorHistory').classList.add('open');
+}
+async function changeFloorHistMonth(delta){
+  floorHistMonth+=delta;
+  if(floorHistMonth>12){floorHistMonth=1;floorHistYear++;}
+  if(floorHistMonth<1){floorHistMonth=12;floorHistYear--;}
+  await loadAndRenderFloorHistory();
 }
 
 // ===== 体重管理（Supabase） =====
