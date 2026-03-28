@@ -1033,6 +1033,48 @@ document.querySelectorAll('.check-options').forEach(group=>{
     e.target.classList.add('selected');
   });
 });
+function editDailyRecord(id, date){
+  // 記録を取得してフォームに読み込む
+  const cat = catsCache.find(c=>c.id===currentCatId);
+  const records = catRecordsCache[currentCatId]||[];
+  const rec = records.find(r=>r.id===id);
+  if(!rec) return;
+  const d = rec.data||{};
+  
+  // フォームの選択肢をリセット
+  document.querySelectorAll('.check-opt').forEach(b=>b.classList.remove('selected'));
+  
+  // 値をセット
+  const keys = ['urine','poop','food','water','eye','eyetype','vomit'];
+  keys.forEach(key=>{
+    if(d[key]){
+      const group = document.querySelector(`.check-options[data-key="${key}"]`);
+      if(group){
+        const btn = Array.from(group.querySelectorAll('.check-opt')).find(b=>b.dataset.val===d[key]);
+        if(btn) btn.classList.add('selected');
+      }
+    }
+  });
+  
+  // メモをセット
+  document.getElementById('dailyMemo').value = d.memo||'';
+  
+  // 日付をセット（calInputDateを使って上書き保存）
+  calInputDate = date;
+  const l = document.getElementById('dailyDateLabel');
+  l.textContent = `✏️ ${date} の記録を編集中`;
+  l.style.display = 'block';
+  l.style.color = 'var(--pink-deep)';
+  
+  // 写真もセット
+  photoBuf.daily = d.photos||[];
+  renderPhotoPreview('daily');
+  
+  // フォームまでスクロール
+  document.querySelector('.today-check').scrollIntoView({behavior:'smooth'});
+  showToast('記録をフォームに読み込みました。編集して保存してください');
+}
+
 async function saveDailyCheck(){
   const values={};
   document.querySelectorAll('.check-options').forEach(group=>{const sel=group.querySelector('.selected');values[group.dataset.key]=sel?sel.dataset.val:null;});
