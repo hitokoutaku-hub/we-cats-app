@@ -1099,7 +1099,8 @@ function renderDailyHistory(){
   if(!records.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>まだ記録がありません</p></div>';return;}
   el.innerHTML=records.slice(0,20).map(r=>{const d=r.data||{};return`
     <div class="record-item">
-      <button class="record-delete" onclick="delRecord('${r.id}','daily')">🗑</button>
+      <button class="record-delete" onclick="delRecord('${r.id}','daily')" style="float:right;margin-left:4px">🗑</button>
+      <button class="record-delete" onclick="editDailyRecord('${r.id}','${r.date}')" style="float:right;background:none;border:none;font-size:13px;cursor:pointer;color:var(--pink-deep);opacity:0.8">✏️</button>
       <div class="record-date">${r.date}</div>
       <div class="record-content">
         ${d.urine?`<span class="record-tag">🚽 尿：${d.urine}</span>`:''}
