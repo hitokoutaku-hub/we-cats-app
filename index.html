@@ -1152,11 +1152,34 @@ async function delHospPlan(id){
   await loadCatDetail(currentCatId);renderHospPlanList();checkHospitalAlerts();
 }
 
+function editHospitalRecord(id){
+  const records = catRecordsCache[currentCatId]||[];
+  const rec = records.find(r=>r.id===id);
+  if(!rec) return;
+  const d = rec.data||{};
+  document.getElementById('hDate').value = rec.date||'';
+  document.getElementById('hSymptom').value = d.symptom||'';
+  document.getElementById('hDiagnosis').value = d.diagnosis||'';
+  document.getElementById('hMedicine').value = d.medicine||'';
+  document.getElementById('hMemo').value = d.memo||'';
+  photoBuf.hospital = d.photos||[];
+  renderPhotoPreview('hospital');
+  // 編集中のIDを保持
+  document.getElementById('modalHospital').dataset.editId = id;
+  document.getElementById('modalHospital').classList.add('open');
+  showToast('受診記録を編集フォームに読み込みました');
+}
 async function saveHospital(){
   const date=document.getElementById('hDate').value;
   if(!date){showToast('日付を入力してください');return;}
   const data={date,symptom:document.getElementById('hSymptom').value.trim(),diagnosis:document.getElementById('hDiagnosis').value.trim(),medicine:document.getElementById('hMedicine').value.trim(),memo:document.getElementById('hMemo').value.trim(),photos:[...photoBuf.hospital]};
-  await sb.from('wecats_records').insert({id:'rec_'+Date.now(),cat_id:currentCatId,type:'hospital',date,data});
+  const editId=document.getElementById('modalHospital').dataset.editId;
+  if(editId){
+    await sb.from('wecats_records').update({data}).eq('id',editId);
+    document.getElementById('modalHospital').dataset.editId='';
+  } else {
+    await sb.from('wecats_records').insert({id:'rec_'+Date.now(),cat_id:currentCatId,type:'hospital',date,data});
+  }
   await loadCatDetail(currentCatId);
   photoBuf.hospital=[];closeModal('hospital');showToast('✓ 受診記録を保存しました');renderHospitalList();
 }
@@ -1166,7 +1189,8 @@ function renderHospitalList(){
   if(!records.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">🏥</div><p>受診記録がありません</p></div>';return;}
   el.innerHTML=records.map(r=>{const d=r.data||{};return`
     <div class="record-item">
-      <button class="record-delete" onclick="delRecord('${r.id}','hospital')">🗑</button>
+      <button class="record-delete" onclick="delRecord('${r.id}','hospital')" style="float:right;margin-left:4px">🗑</button>
+      <button class="record-delete" onclick="editHospitalRecord('${r.id}')" style="float:right;background:none;border:none;font-size:13px;cursor:pointer;color:var(--pink-deep);opacity:0.8">✏️</button>
       <div class="record-date">📅 ${r.date}</div>
       ${d.symptom?`<div class="record-content">🤒 <strong>症状：</strong>${d.symptom}</div>`:''}
       ${d.diagnosis?`<div class="record-content">🩺 <strong>診断：</strong>${d.diagnosis}</div>`:''}
