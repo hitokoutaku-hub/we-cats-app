@@ -590,6 +590,22 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
       <div id="staffManageList"></div>
       <button onclick="openAddStaff()" style="width:100%;padding:11px;background:var(--pink-light);border:2px dashed var(--pink-dark);border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;color:var(--pink-deep);font-weight:700;cursor:pointer;margin-top:10px">＋ スタッフを追加</button>
     </div>
+
+    <!-- 月次レポートPDF出力 -->
+    <div style="background:var(--white);border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700;color:var(--pink-deep);margin-bottom:12px">📄 月次レポート出力</div>
+      <div style="font-size:12px;color:var(--text-light);margin-bottom:12px">猫の毎日チェック記録を月ごとにPDFで出力・保管できます</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+        <select id="pdfYear" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--pink);font-family:'Zen Maru Gothic',sans-serif;font-size:14px;background:var(--pink-bg)"></select>
+        <select id="pdfMonth" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--pink);font-family:'Zen Maru Gothic',sans-serif;font-size:14px;background:var(--pink-bg)">
+          <option value="01">1月</option><option value="02">2月</option><option value="03">3月</option>
+          <option value="04">4月</option><option value="05">5月</option><option value="06">6月</option>
+          <option value="07">7月</option><option value="08">8月</option><option value="09">9月</option>
+          <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+        </select>
+      </div>
+      <button onclick="exportMonthlyPDF()" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--pink-deep),#e8507a);color:white;border:none;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:14px;font-weight:700;cursor:pointer">📄 PDFを出力する</button>
+    </div>
     <div style="background:var(--white);border-radius:14px;padding:14px;box-shadow:var(--shadow)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div style="font-size:15px;font-weight:700;color:var(--pink-deep)">📋 ログイン履歴</div>
@@ -955,7 +971,7 @@ function switchPage(page){
   if(page==='drinks')renderDrinks();
   if(page==='cats'){renderCatList();checkHospitalAlerts();}
   if(page==='weight')initWeightPage();
-  if(page==='loginlog'){loadStaffForManage();loadLoginLogs();}
+  if(page==='loginlog'){loadStaffForManage();loadLoginLogs();initPdfSelectors();}
   if(page==='cash')initCashPage();
 }
 function goBack(){
@@ -1836,6 +1852,106 @@ async function loadLoginLogs(){
   loginLogsCache=data||[];
   renderLoginLogs();
 }
+
+// ===== 月次PDF出力 =====
+function initPdfSelectors() {
+  const yearSel = document.getElementById('pdfYear');
+  if (!yearSel) return;
+  const now = new Date();
+  yearSel.innerHTML = '';
+  for (let y = now.getFullYear(); y >= now.getFullYear() - 2; y--) {
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y + '年';
+    yearSel.appendChild(opt);
+  }
+  document.getElementById('pdfMonth').value = String(now.getMonth() + 1).padStart(2, '0');
+}
+
+async function exportMonthlyPDF() {
+  const year = document.getElementById('pdfYear').value;
+  const month = document.getElementById('pdfMonth').value;
+  const monthStr = `${year}-${month}`;
+  showToast('データを取得中...');
+
+  // 全猫の該当月のdailyチェック記録を取得
+  const { data: records } = await sb.from('wecats_records')
+    .select('*')
+    .eq('type', 'daily')
+    .like('date', `${monthStr}%`)
+    .order('cat_id')
+    .order('date');
+
+  if (!records || records.length === 0) {
+    showToast('この月の記録がありません');
+    return;
+  }
+
+  // 猫ごとにグループ化
+  const byCat = {};
+  records.forEach(r => {
+    if (!byCat[r.cat_id]) byCat[r.cat_id] = [];
+    byCat[r.cat_id].push(r);
+  });
+
+  // HTML→印刷でPDF化
+  const cats = catsCache.filter(c => !c.archived);
+  let bodyHtml = `
+    <style>
+      body { font-family: 'Hiragino Kaku Gothic Pro', 'Meiryo', sans-serif; font-size: 11px; color: #333; margin: 20px; }
+      h1 { font-size: 18px; color: #d4708a; border-bottom: 2px solid #d4708a; padding-bottom: 8px; margin-bottom: 16px; }
+      h2 { font-size: 13px; color: #d4708a; background: #fce8ed; padding: 6px 10px; border-radius: 6px; margin: 16px 0 8px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10px; }
+      th { background: #f4c6d0; padding: 5px 6px; text-align: center; border: 1px solid #e8a0b0; }
+      td { padding: 4px 6px; border: 1px solid #f0d0d8; text-align: center; vertical-align: top; }
+      td.date { font-weight: 700; background: #fdf0f3; }
+      td.memo { text-align: left; max-width: 120px; font-size: 9px; }
+      .ok { color: #16a34a; } .ng { color: #dc2626; font-weight: 700; }
+      .footer { margin-top: 20px; font-size: 10px; color: #999; border-top: 1px solid #eee; padding-top: 8px; }
+      @media print { body { margin: 10px; } }
+    </style>
+    <h1>🐱 WE CATS 猫健康管理記録　${year}年${parseInt(month)}月</h1>
+    <div style="font-size:10px;color:#999;margin-bottom:16px">出力日：${new Date().toLocaleDateString('ja-JP')}</div>
+  `;
+
+  cats.forEach(cat => {
+    const catRecords = (byCat[cat.id] || []).sort((a, b) => a.date.localeCompare(b.date));
+    if (!catRecords.length) return;
+    bodyHtml += `<h2>${cat.emoji} ${cat.name}</h2>`;
+    bodyHtml += `<table>
+      <thead><tr>
+        <th>日付</th><th>尿</th><th>便</th><th>ご飯</th><th>水</th><th>目ヤニ</th><th>吐き戻し</th><th>メモ</th>
+      </tr></thead><tbody>`;
+    catRecords.forEach(r => {
+      const d = r.data || {};
+      const poopCls = d.poop === '下痢' || d.poop === '軟便' ? 'ng' : '';
+      const vomitCls = d.vomit === 'あり' ? 'ng' : '';
+      const eyeCls = d.eye === '多め' ? 'ng' : '';
+      bodyHtml += `<tr>
+        <td class="date">${r.date.slice(5)}</td>
+        <td>${d.urine || '-'}</td>
+        <td class="${poopCls}">${d.poop || '-'}</td>
+        <td>${d.food || '-'}</td>
+        <td>${d.water || '-'}</td>
+        <td class="${eyeCls}">${d.eye || '-'}${d.eyetype ? '<br><small>'+d.eyetype+'</small>' : ''}</td>
+        <td class="${vomitCls}">${d.vomit || '-'}</td>
+        <td class="memo">${d.memo || ''}</td>
+      </tr>`;
+    });
+    bodyHtml += `</tbody></table>`;
+  });
+
+  bodyHtml += `<div class="footer">WE CATS スタッフアプリ　自動出力　${year}年${parseInt(month)}月分　全${records.length}件</div>`;
+
+  // 印刷ウィンドウで出力
+  const win = window.open('', '_blank');
+  win.document.write('<html><head><title>WE CATS ' + year + '年' + parseInt(month) + '月 健康管理記録</title></head><body>' + bodyHtml + '</body></html>');
+  win.document.close();
+  win.onload = () => {
+    win.print();
+  };
+  showToast('✓ PDF出力画面を開きました');
+}
+
 function renderLoginLogs(){
   const el=document.getElementById('loginLogList');
   const filterStaff=document.getElementById('logFilterStaff')?.value||'';
