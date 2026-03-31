@@ -275,6 +275,16 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .weight-diff.up { color: #4ade80; }
 .weight-diff.down { color: var(--danger); }
 .weight-diff.same { color: var(--text-light); }
+
+/* 日報実績フィールド */
+.report-fields { background: var(--pink-light); border-radius: 10px; padding: 12px; margin-bottom: 10px; display: none; }
+.report-fields.show { display: block; }
+.report-fields-title { font-size: 12px; font-weight: 700; color: var(--pink-deep); margin-bottom: 8px; }
+.report-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.report-field-label { font-size: 10px; color: var(--text-light); font-weight: 700; margin-bottom: 4px; }
+.report-field-wrap { display: flex; align-items: center; gap: 4px; }
+.report-field-input { width: 100%; padding: 8px; border: 1.5px solid var(--pink); border-radius: 8px; font-family: 'Zen Maru Gothic', sans-serif; font-size: 14px; font-weight: 700; text-align: center; background: var(--white); color: var(--text); outline: none; }
+.report-field-unit { font-size: 11px; color: var(--text-light); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -438,6 +448,33 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
         <button class="post-type-btn active" onclick="selectPostType(this,'report')">📋 日報</button>
         <button class="post-type-btn" onclick="selectPostType(this,'owner')">👑 オーナー</button>
         <button class="post-type-btn" onclick="selectPostType(this,'alert')">🚨 注意</button>
+      </div>
+            <!-- 日報専用：実績入力フィールド -->
+      <div class="report-fields show" id="reportFields">
+        <div class="report-fields-title">📊 本日の実績</div>
+        <div class="report-grid">
+          <div>
+            <div class="report-field-label">👥 来店人数</div>
+            <div class="report-field-wrap">
+              <input type="number" class="report-field-input" id="reportVisitors" min="0" placeholder="0">
+              <span class="report-field-unit">名</span>
+            </div>
+          </div>
+          <div>
+            <div class="report-field-label">💰 売上</div>
+            <div class="report-field-wrap">
+              <input type="number" class="report-field-input" id="reportSales" min="0" placeholder="0">
+              <span class="report-field-unit">円</span>
+            </div>
+          </div>
+          <div>
+            <div class="report-field-label">⭐ 口コミ</div>
+            <div class="report-field-wrap">
+              <input type="number" class="report-field-input" id="reportReviews" min="0" placeholder="0">
+              <span class="report-field-unit">件</span>
+            </div>
+          </div>
+        </div>
       </div>
       <textarea id="newPostContent" placeholder="内容を入力..."></textarea>
       <div style="margin-bottom:8px">
@@ -1499,9 +1536,36 @@ async function saveDrinkEdit(){
 async function deleteDrink(){const id=document.getElementById('dEditId').value;if(!confirm('削除しますか？'))return;await sb.from('drink_items').delete().eq('id',id);drinkCache[currentDrinkTab]=drinkCache[currentDrinkTab].filter(d=>d.id!==id);closeModal('drinkEdit');renderDrinks();showToast('削除しました');}
 
 // ===== 連絡ボード（Supabase） =====
-function selectPostType(el,type){currentPostType=type;document.querySelectorAll('.post-type-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+function selectPostType(el, type) {
+  currentPostType = type;
+  document.querySelectorAll('.post-type-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const rf = document.getElementById('reportFields');
+  if (rf) rf.classList.toggle('show', type === 'report');
+}
 async function loadBoard(){const{data}=await sb.from('board_posts').select('*').order('pinned',{ascending:false}).order('created_at',{ascending:false}).limit(50);boardCache=data||[];renderBoard();}
-async function submitPost(){const content=document.getElementById('newPostContent').value.trim();if(!content&&photoBuf.board.length===0){showToast('内容を入力してください');return;}const photos=[...photoBuf.board];await sb.from('board_posts').insert({author:userName,role:currentPostType,content,pinned:false,photos:JSON.stringify(photos)});document.getElementById('newPostContent').value='';photoBuf.board=[];renderPhotoPreview('board');showToast('✓ 投稿しました');await loadBoard();}
+async function submitPost() {
+  const content = document.getElementById('newPostContent').value.trim();
+  if (!content && photoBuf.board.length === 0) { showToast('内容を入力してください'); return; }
+  const photos = [...photoBuf.board];
+  let finalContent = content;
+  if (currentPostType === 'report') {
+    const visitors = document.getElementById('reportVisitors').value;
+    const sales = document.getElementById('reportSales').value;
+    const reviews = document.getElementById('reportReviews').value;
+    const parts = [];
+    if (visitors) parts.push('👥 来店：' + visitors + '名');
+    if (sales) parts.push('💰 売上：' + Number(sales).toLocaleString() + '円');
+    if (reviews) parts.push('⭐ 口コミ：' + reviews + '件');
+    if (parts.length) finalContent = (parts.join('　') + '\n' + (content || '')).trim();
+    ['reportVisitors', 'reportSales', 'reportReviews'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  }
+  await sb.from('board_posts').insert({ author: userName, role: currentPostType, content: finalContent, pinned: false, photos: JSON.stringify(photos) });
+  document.getElementById('newPostContent').value = '';
+  photoBuf.board = []; renderPhotoPreview('board');
+  showToast('✓ 投稿しました');
+  await loadBoard();
+}
 async function deletePost(id){if(!confirm('削除しますか？'))return;await sb.from('board_posts').delete().eq('id',id);await sb.from('board_comments').delete().eq('post_id',id);await loadBoard();}
 async function togglePin(id,current){await sb.from('board_posts').update({pinned:!current}).eq('id',id);await loadBoard();showToast(current?'ピン留めを解除しました':'📌 ピン留めしました');}
 function renderBoard(){
