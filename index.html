@@ -32,8 +32,8 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .page.active { display: block; }
 
 /* 名前設定 */
-.name-setup { position: fixed; inset: 0; background: var(--pink-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; z-index: 200; }
-.name-setup h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; color: var(--pink-deep); }
+.name-setup { position: fixed; inset: 0; background: var(--pink-bg); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 16px 20px; z-index: 200; overflow-y: auto; }
+.name-setup h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; color: var(--pink-deep); }
 .name-setup p { font-size: 13px; color: var(--text-light); margin-bottom: 24px; text-align: center; }
 .name-setup input { width: 100%; padding: 14px; border-radius: 12px; border: 2px solid var(--pink-dark); background: var(--white); font-family: 'Zen Maru Gothic', sans-serif; font-size: 16px; color: var(--text); margin-bottom: 14px; outline: none; }
 .name-setup button { width: 100%; padding: 14px; background: var(--pink-deep); color: var(--white); border: none; border-radius: 12px; font-family: 'Zen Maru Gothic', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; }
@@ -45,8 +45,8 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .cat-emoji { font-size: 32px; margin-bottom: 6px; }
 .cat-name { font-size: 13px; font-weight: 700; }
 .cat-status { font-size: 10px; color: var(--text-light); margin-top: 2px; }
-.cat-badge { position: absolute; top: 6px; right: 6px; background: var(--pink-deep); color: white; border-radius: 8px; font-size: 9px; padding: 1px 5px; }
-.cat-badge.hosp { left: 6px; right: auto; background: #e05050; }
+.cat-badge { position: absolute; top: 6px; right: 6px; background: #50b080; color: white; border-radius: 8px; font-size: 9px; padding: 1px 5px; }
+.cat-badge.hosp { left: 6px; right: auto; background: #50a0d0; }
 .add-cat-btn { background: var(--pink-light); border: 2px dashed var(--pink-dark); border-radius: var(--radius); padding: 16px 8px; text-align: center; cursor: pointer; }
 .add-cat-btn .plus { font-size: 28px; color: var(--pink-deep); }
 .add-cat-btn span { font-size: 11px; color: var(--text-light); display: block; margin-top: 4px; }
@@ -275,22 +275,12 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .weight-diff.up { color: #4ade80; }
 .weight-diff.down { color: var(--danger); }
 .weight-diff.same { color: var(--text-light); }
-
-/* 日報実績フィールド */
-.report-fields { background: var(--pink-light); border-radius: 10px; padding: 12px; margin-bottom: 10px; display: none; }
-.report-fields.show { display: block; }
-.report-fields-title { font-size: 12px; font-weight: 700; color: var(--pink-deep); margin-bottom: 8px; }
-.report-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-.report-field-label { font-size: 10px; color: var(--text-light); font-weight: 700; margin-bottom: 4px; }
-.report-field-wrap { display: flex; align-items: center; gap: 4px; }
-.report-field-input { width: 100%; padding: 8px; border: 1.5px solid var(--pink); border-radius: 8px; font-family: 'Zen Maru Gothic', sans-serif; font-size: 14px; font-weight: 700; text-align: center; background: var(--white); color: var(--text); outline: none; }
-.report-field-unit { font-size: 11px; color: var(--text-light); white-space: nowrap; }
 </style>
 </head>
 <body>
 
 <div class="name-setup" id="nameSetup">
-  <div style="font-size:48px;margin-bottom:16px">🐱</div>
+  <div style="font-size:40px;margin-bottom:10px;margin-top:16px">🐱</div>
   <h2>WE CATS スタッフアプリ</h2>
   <p style="margin-bottom:16px">名前を選んでPINコードを入力してください</p>
   <div id="staffSelectArea">
@@ -353,7 +343,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
         <div class="check-row"><span class="check-label">🍚 ご飯</span><div class="check-options" data-key="food"><button class="check-opt" data-val="完食">完食</button><button class="check-opt" data-val="残し">残し</button><button class="check-opt" data-val="食べず">食べず</button></div></div>
         <div class="check-row"><span class="check-label">💧 水</span><div class="check-options" data-key="water"><button class="check-opt" data-val="普通">普通</button><button class="check-opt" data-val="多め">多め</button><button class="check-opt" data-val="少なめ">少なめ</button><button class="check-opt" data-val="飲まず">飲まず</button></div></div>
         <div class="check-row"><span class="check-label">👁️ 目ヤニ</span><div class="check-options" data-key="eye"><button class="check-opt" data-val="なし">なし</button><button class="check-opt" data-val="少し">少し</button><button class="check-opt" data-val="多め">多め</button></div></div>
-        <div class="check-row"><span class="check-label">👁️ 種類</span><div class="check-options" data-key="eyetype"><button class="check-opt" data-val="黒っぽい">黒っぽい</button><button class="check-opt" data-val="膿っぽい">膿っぽい</button></div></div>
+        <div class="check-row"><span class="check-label">👁️ 種類</span><div class="check-options" data-key="eyetype"><button class="check-opt" data-val="黒っぽい">黒っぽい</button><button class="check-opt" data-val="膿っぽい">膿っぽい</button><button class="check-opt" data-val="涙目">涙目</button></div></div>
         <div class="check-row"><span class="check-label">🤧 吐き戻し</span><div class="check-options" data-key="vomit"><button class="check-opt" data-val="なし">なし</button><button class="check-opt" data-val="あり">あり</button></div></div>
         <div class="form-group" style="margin-top:8px;margin-bottom:0">
           <label class="form-label">メモ</label>
@@ -448,33 +438,6 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
         <button class="post-type-btn active" onclick="selectPostType(this,'report')">📋 日報</button>
         <button class="post-type-btn" onclick="selectPostType(this,'owner')">👑 オーナー</button>
         <button class="post-type-btn" onclick="selectPostType(this,'alert')">🚨 注意</button>
-      </div>
-            <!-- 日報専用：実績入力フィールド -->
-      <div class="report-fields show" id="reportFields">
-        <div class="report-fields-title">📊 本日の実績</div>
-        <div class="report-grid">
-          <div>
-            <div class="report-field-label">👥 来店人数</div>
-            <div class="report-field-wrap">
-              <input type="number" class="report-field-input" id="reportVisitors" min="0" placeholder="0">
-              <span class="report-field-unit">名</span>
-            </div>
-          </div>
-          <div>
-            <div class="report-field-label">💰 売上</div>
-            <div class="report-field-wrap">
-              <input type="number" class="report-field-input" id="reportSales" min="0" placeholder="0">
-              <span class="report-field-unit">円</span>
-            </div>
-          </div>
-          <div>
-            <div class="report-field-label">⭐ 口コミ</div>
-            <div class="report-field-wrap">
-              <input type="number" class="report-field-input" id="reportReviews" min="0" placeholder="0">
-              <span class="report-field-unit">件</span>
-            </div>
-          </div>
-        </div>
       </div>
       <textarea id="newPostContent" placeholder="内容を入力..."></textarea>
       <div style="margin-bottom:8px">
@@ -589,22 +552,6 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
       <div style="font-size:15px;font-weight:700;color:var(--pink-deep);margin-bottom:12px">👥 スタッフ管理</div>
       <div id="staffManageList"></div>
       <button onclick="openAddStaff()" style="width:100%;padding:11px;background:var(--pink-light);border:2px dashed var(--pink-dark);border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;color:var(--pink-deep);font-weight:700;cursor:pointer;margin-top:10px">＋ スタッフを追加</button>
-    </div>
-
-    <!-- 月次レポートPDF出力 -->
-    <div style="background:var(--white);border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-bottom:14px">
-      <div style="font-size:15px;font-weight:700;color:var(--pink-deep);margin-bottom:12px">📄 月次レポート出力</div>
-      <div style="font-size:12px;color:var(--text-light);margin-bottom:12px">猫の毎日チェック記録を月ごとにPDFで出力・保管できます</div>
-      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
-        <select id="pdfYear" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--pink);font-family:'Zen Maru Gothic',sans-serif;font-size:14px;background:var(--pink-bg)"></select>
-        <select id="pdfMonth" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--pink);font-family:'Zen Maru Gothic',sans-serif;font-size:14px;background:var(--pink-bg)">
-          <option value="01">1月</option><option value="02">2月</option><option value="03">3月</option>
-          <option value="04">4月</option><option value="05">5月</option><option value="06">6月</option>
-          <option value="07">7月</option><option value="08">8月</option><option value="09">9月</option>
-          <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
-        </select>
-      </div>
-      <button onclick="exportMonthlyPDF()" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--pink-deep),#e8507a);color:white;border:none;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:14px;font-weight:700;cursor:pointer">📄 PDFを出力する</button>
     </div>
     <div style="background:var(--white);border-radius:14px;padding:14px;box-shadow:var(--shadow)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -862,7 +809,7 @@ async function loadCatsData(){
 async function loadCatDetail(catId){
   const[{data:records},{data:meds},{data:plans}]=await Promise.all([
     sb.from('wecats_records').select('*').eq('cat_id',catId).order('date',{ascending:false}),
-    sb.from('wecats_medications').select('*').eq('cat_id',catId).eq('active',true),
+    sb.from('wecats_medications').select('*').eq('cat_id',catId),
     sb.from('wecats_hospital_plans').select('*').eq('cat_id',catId).order('date'),
   ]);
   catRecordsCache[catId]=records||[];
@@ -971,7 +918,7 @@ function switchPage(page){
   if(page==='drinks')renderDrinks();
   if(page==='cats'){renderCatList();checkHospitalAlerts();}
   if(page==='weight')initWeightPage();
-  if(page==='loginlog'){loadStaffForManage();loadLoginLogs();initPdfSelectors();}
+  if(page==='loginlog'){loadStaffForManage();loadLoginLogs();}
   if(page==='cash')initCashPage();
 }
 function goBack(){
@@ -992,7 +939,7 @@ async function checkHospitalAlerts(){
   const alerts=[];
   for(const cat of catsCache.filter(c=>!c.archived)){
     const plans=catHospPlansCache[cat.id]||[];
-    plans.forEach(p=>{const d=diffDays(p.date);if(d>=0&&d<=3)alerts.push(`${cat.name}：${p.date}（${d===0?'今日！':d+'日後'}`);});
+    plans.forEach(p=>{const d=diffDays(p.date);if(d>=0&&d<=7)alerts.push(`${cat.name}：${p.date}（${d===0?'今日！':d+'日後'}`);});
   }
   const el=document.getElementById('hospGlobalAlert');
   if(alerts.length>0){el.innerHTML='🏥 近日の病院予定：'+alerts.join(' / ');el.classList.add('show');}
@@ -1293,10 +1240,13 @@ async function saveMedication(){
   closeModal('medication');showToast('✓ 投薬を追加しました');renderMedList();renderCatList();
 }
 function renderMedList(){
-  const meds=catMedsCache[currentCatId]||[];const el=document.getElementById('medList');
-  if(!meds.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">💊</div><p>投薬記録がありません</p></div>';return;}
+  const allMeds=catMedsCache[currentCatId]||[];
+  const meds=allMeds.filter(m=>m.active!==false);
+  const pastMeds=allMeds.filter(m=>m.active===false);
+  const el=document.getElementById('medList');
+  if(!meds.length&&!pastMeds.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">💊</div><p>投薬記録がありません</p></div>';return;}
   const todayStr=today();
-  el.innerHTML=meds.map(m=>{
+  let html=meds.map(m=>{
     const ck=`${currentCatId}_${m.id}_${todayStr}`;const isDone=medCheckState[ck]||false;
     let period='';if(m.start_date&&m.end_date)period=`${m.start_date} 〜 ${m.end_date}`;else if(m.start_date)period=`${m.start_date} 〜`;
     return`<div class="med-item">
@@ -1308,15 +1258,45 @@ function renderMedList(){
           ${period?`<div class="med-period">📅 ${period}</div>`:''}
           ${m.memo?`<div class="med-memo">📝 ${m.memo}</div>`:''}
         </div>
+        <button onclick="endMedication('${m.id}')" style="background:none;border:1px solid var(--pink-dark);border-radius:8px;font-size:10px;padding:3px 7px;color:var(--text-light);cursor:pointer;margin-bottom:4px;font-family:inherit">終了</button>
         <button class="med-delete" onclick="delMedication('${m.id}')">🗑</button>
       </div>
     </div>`;
   }).join('');
+  // 過去の投薬記録
+  if(pastMeds.length){
+    html+=`<div class="section-title" style="margin-top:16px">📋 過去の投薬記録</div>`;
+    html+=pastMeds.map(m=>{
+      let period='';
+      if(m.start_date&&m.end_date)period=`${m.start_date} 〜 ${m.end_date}`;
+      else if(m.start_date)period=`${m.start_date} 〜`;
+      return`<div class="med-item" style="opacity:0.7">
+        <div class="med-row">
+          <div class="med-info">
+            <div class="med-name">💊 ${m.name}</div>
+            <div class="med-freq">🕐 ${m.frequency}</div>
+            ${period?`<div class="med-period">📅 ${period}</div>`:''}
+            ${m.memo?`<div class="med-memo">📝 ${m.memo}</div>`:''}
+          </div>
+          <button class="med-delete" onclick="delMedication('${m.id}')">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  el.innerHTML=html;
 }
 function toggleMedCheck(key,el){
   medCheckState[key]=!medCheckState[key];
   el.classList.toggle('done',medCheckState[key]);el.textContent=medCheckState[key]?'✓':'';
   showToast(medCheckState[key]?'✓ 投薬済み！':'未投薬に戻しました');
+}
+async function endMedication(id){
+  const med=catMedsCache[currentCatId].find(m=>m.id===id);
+  if(!med)return;
+  const endDate=prompt('終了日を入力してください（例：2026-04-08）',today());
+  if(!endDate)return;
+  await sb.from('wecats_medications').update({active:false,end_date:endDate}).eq('id',id);
+  await loadCatDetail(currentCatId);renderMedList();renderCatList();showToast('✓ 投薬を終了しました');
 }
 async function delMedication(id){
   if(!confirm('この投薬記録を削除しますか？'))return;
@@ -1552,35 +1532,36 @@ async function saveDrinkEdit(){
 async function deleteDrink(){const id=document.getElementById('dEditId').value;if(!confirm('削除しますか？'))return;await sb.from('drink_items').delete().eq('id',id);drinkCache[currentDrinkTab]=drinkCache[currentDrinkTab].filter(d=>d.id!==id);closeModal('drinkEdit');renderDrinks();showToast('削除しました');}
 
 // ===== 連絡ボード（Supabase） =====
-function selectPostType(el, type) {
-  currentPostType = type;
-  document.querySelectorAll('.post-type-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  const rf = document.getElementById('reportFields');
-  if (rf) rf.classList.toggle('show', type === 'report');
+function selectPostType(el,type){currentPostType=type;document.querySelectorAll('.post-type-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+async function loadBoard(){const{data}=await sb.from('board_posts').select('*').order('created_at',{ascending:false});boardCache=data||[];renderBoard();}
+function openEditPost(id){
+  const post=boardCache.find(p=>p.id===id);if(!post)return;
+  document.getElementById('newPostContent').value=post.content;
+  document.getElementById('modalEditPost')||createEditPostModal();
+  // 投稿タイプを設定
+  document.querySelectorAll('.post-type-btn').forEach(b=>{
+    if((b.textContent.includes('日報')&&post.role==='report')||(b.textContent.includes('オーナー')&&post.role==='owner')||(b.textContent.includes('注意')&&post.role==='alert')){
+      b.classList.add('active');selectPostType(b,post.role);
+    }else b.classList.remove('active');
+  });
+  document.getElementById('newPostContent').dataset.editId=id;
+  document.getElementById('newPostContent').focus();
+  showToast('内容を編集して「投稿する」を押してください');
 }
-async function loadBoard(){const{data}=await sb.from('board_posts').select('*').order('pinned',{ascending:false}).order('created_at',{ascending:false}).limit(50);boardCache=data||[];renderBoard();}
-async function submitPost() {
-  const content = document.getElementById('newPostContent').value.trim();
-  if (!content && photoBuf.board.length === 0) { showToast('内容を入力してください'); return; }
-  const photos = [...photoBuf.board];
-  let finalContent = content;
-  if (currentPostType === 'report') {
-    const visitors = document.getElementById('reportVisitors').value;
-    const sales = document.getElementById('reportSales').value;
-    const reviews = document.getElementById('reportReviews').value;
-    const parts = [];
-    if (visitors) parts.push('👥 来店：' + visitors + '名');
-    if (sales) parts.push('💰 売上：' + Number(sales).toLocaleString() + '円');
-    if (reviews) parts.push('⭐ 口コミ：' + reviews + '件');
-    if (parts.length) finalContent = (parts.join('　') + '\n' + (content || '')).trim();
-    ['reportVisitors', 'reportSales', 'reportReviews'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+async function submitPost(){
+  const content=document.getElementById('newPostContent').value.trim();
+  if(!content&&photoBuf.board.length===0){showToast('内容を入力してください');return;}
+  const editId=document.getElementById('newPostContent').dataset.editId;
+  if(editId){
+    await sb.from('board_posts').update({content,role:currentPostType}).eq('id',editId);
+    document.getElementById('newPostContent').dataset.editId='';
+    showToast('✓ 編集しました');
+  } else {
+    const photos=[...photoBuf.board];
+    await sb.from('board_posts').insert({author:userName,role:currentPostType,content,pinned:false,photos:JSON.stringify(photos)});
+    showToast('✓ 投稿しました');
   }
-  await sb.from('board_posts').insert({ author: userName, role: currentPostType, content: finalContent, pinned: false, photos: JSON.stringify(photos) });
-  document.getElementById('newPostContent').value = '';
-  photoBuf.board = []; renderPhotoPreview('board');
-  showToast('✓ 投稿しました');
-  await loadBoard();
+  document.getElementById('newPostContent').value='';photoBuf.board=[];renderPhotoPreview('board');await loadBoard();
 }
 async function deletePost(id){if(!confirm('削除しますか？'))return;await sb.from('board_posts').delete().eq('id',id);await sb.from('board_comments').delete().eq('post_id',id);await loadBoard();}
 async function togglePin(id,current){await sb.from('board_posts').update({pinned:!current}).eq('id',id);await loadBoard();showToast(current?'ピン留めを解除しました':'📌 ピン留めしました');}
@@ -1598,8 +1579,45 @@ function renderBoard(){
   }
 
   if(!normal.length&&!pinned.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>まだ投稿がありません</p></div>';return;}
-  el.innerHTML=normal.map(post=>buildPostCard(post)).join('');
+
+  // 月ごとにグループ化
+  const groups={};
+  normal.forEach(post=>{
+    const d=new Date(post.created_at);
+    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if(!groups[key])groups[key]=[];
+    groups[key].push(post);
+  });
+
+  const now=new Date();
+  const thisMonthKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  let html='';
+  Object.keys(groups).sort((a,b)=>b.localeCompare(a)).forEach(key=>{
+    const [y,m]=key.split('-');
+    const label=`${y}年${parseInt(m)}月`;
+    const isThisMonth=key===thisMonthKey;
+    const posts=groups[key];
+    html+=`<div style="margin-bottom:12px">
+      <div onclick="toggleMonthGroup('mg_${key}')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--pink-light);border-radius:12px;cursor:pointer;margin-bottom:6px;font-weight:700;font-size:13px;color:var(--pink-deep)">
+        <span>📋 ${label}（${posts.length}件）</span>
+        <span id="mg_arrow_${key}">${isThisMonth?'▲':'▼'}</span>
+      </div>
+      <div id="mg_${key}" style="display:${isThisMonth?'block':'none'}">
+        ${posts.map(post=>buildPostCard(post)).join('')}
+      </div>
+    </div>`;
+  });
+  el.innerHTML=html;
   boardCache.forEach(post=>loadComments(post.id));
+}
+function toggleMonthGroup(id){
+  const el=document.getElementById(id);
+  const key=id.replace('mg_','');
+  const arrow=document.getElementById('mg_arrow_'+key);
+  const isOpen=el.style.display!=='none';
+  el.style.display=isOpen?'none':'block';
+  if(arrow)arrow.textContent=isOpen?'▼':'▲';
 }
 function buildPostCard(post){
   const postPhotos=post.photos?JSON.parse(post.photos||'[]'):[];
@@ -1612,7 +1630,7 @@ function buildPostCard(post){
       <span style="font-size:12px;font-weight:700">${post.author}</span>
       <span class="post-time">${formatTime(post.created_at)}</span>
       <button class="pin-btn ${post.pinned?'pinned':''}" onclick="togglePin('${post.id}',${post.pinned})" title="ピン留め">${pinIcon}</button>
-      ${post.author===userName?`<button class="post-delete" onclick="deletePost('${post.id}')">🗑</button>`:''}
+      ${post.author===userName||currentStaffIsOwner?`<button class="post-delete" onclick="openEditPost('${post.id}')">✏️</button><button class="post-delete" onclick="deletePost('${post.id}')">🗑</button>`:''}
     </div>
     <div class="post-content">${post.content.replace(/\n/g,'<br>')}</div>
     ${postPhotos.length?`<div class="record-photos">${postPhotos.map(s=>`<img src="${s}" onclick="openViewer(this.src)" alt="">`).join('')}</div>`:''}
@@ -1852,106 +1870,6 @@ async function loadLoginLogs(){
   loginLogsCache=data||[];
   renderLoginLogs();
 }
-
-// ===== 月次PDF出力 =====
-function initPdfSelectors() {
-  const yearSel = document.getElementById('pdfYear');
-  if (!yearSel) return;
-  const now = new Date();
-  yearSel.innerHTML = '';
-  for (let y = now.getFullYear(); y >= now.getFullYear() - 2; y--) {
-    const opt = document.createElement('option');
-    opt.value = y; opt.textContent = y + '年';
-    yearSel.appendChild(opt);
-  }
-  document.getElementById('pdfMonth').value = String(now.getMonth() + 1).padStart(2, '0');
-}
-
-async function exportMonthlyPDF() {
-  const year = document.getElementById('pdfYear').value;
-  const month = document.getElementById('pdfMonth').value;
-  const monthStr = `${year}-${month}`;
-  showToast('データを取得中...');
-
-  // 全猫の該当月のdailyチェック記録を取得
-  const { data: records } = await sb.from('wecats_records')
-    .select('*')
-    .eq('type', 'daily')
-    .like('date', `${monthStr}%`)
-    .order('cat_id')
-    .order('date');
-
-  if (!records || records.length === 0) {
-    showToast('この月の記録がありません');
-    return;
-  }
-
-  // 猫ごとにグループ化
-  const byCat = {};
-  records.forEach(r => {
-    if (!byCat[r.cat_id]) byCat[r.cat_id] = [];
-    byCat[r.cat_id].push(r);
-  });
-
-  // HTML→印刷でPDF化
-  const cats = catsCache.filter(c => !c.archived);
-  let bodyHtml = `
-    <style>
-      body { font-family: 'Hiragino Kaku Gothic Pro', 'Meiryo', sans-serif; font-size: 11px; color: #333; margin: 20px; }
-      h1 { font-size: 18px; color: #d4708a; border-bottom: 2px solid #d4708a; padding-bottom: 8px; margin-bottom: 16px; }
-      h2 { font-size: 13px; color: #d4708a; background: #fce8ed; padding: 6px 10px; border-radius: 6px; margin: 16px 0 8px; }
-      table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10px; }
-      th { background: #f4c6d0; padding: 5px 6px; text-align: center; border: 1px solid #e8a0b0; }
-      td { padding: 4px 6px; border: 1px solid #f0d0d8; text-align: center; vertical-align: top; }
-      td.date { font-weight: 700; background: #fdf0f3; }
-      td.memo { text-align: left; max-width: 120px; font-size: 9px; }
-      .ok { color: #16a34a; } .ng { color: #dc2626; font-weight: 700; }
-      .footer { margin-top: 20px; font-size: 10px; color: #999; border-top: 1px solid #eee; padding-top: 8px; }
-      @media print { body { margin: 10px; } }
-    </style>
-    <h1>🐱 WE CATS 猫健康管理記録　${year}年${parseInt(month)}月</h1>
-    <div style="font-size:10px;color:#999;margin-bottom:16px">出力日：${new Date().toLocaleDateString('ja-JP')}</div>
-  `;
-
-  cats.forEach(cat => {
-    const catRecords = (byCat[cat.id] || []).sort((a, b) => a.date.localeCompare(b.date));
-    if (!catRecords.length) return;
-    bodyHtml += `<h2>${cat.emoji} ${cat.name}</h2>`;
-    bodyHtml += `<table>
-      <thead><tr>
-        <th>日付</th><th>尿</th><th>便</th><th>ご飯</th><th>水</th><th>目ヤニ</th><th>吐き戻し</th><th>メモ</th>
-      </tr></thead><tbody>`;
-    catRecords.forEach(r => {
-      const d = r.data || {};
-      const poopCls = d.poop === '下痢' || d.poop === '軟便' ? 'ng' : '';
-      const vomitCls = d.vomit === 'あり' ? 'ng' : '';
-      const eyeCls = d.eye === '多め' ? 'ng' : '';
-      bodyHtml += `<tr>
-        <td class="date">${r.date.slice(5)}</td>
-        <td>${d.urine || '-'}</td>
-        <td class="${poopCls}">${d.poop || '-'}</td>
-        <td>${d.food || '-'}</td>
-        <td>${d.water || '-'}</td>
-        <td class="${eyeCls}">${d.eye || '-'}${d.eyetype ? '<br><small>'+d.eyetype+'</small>' : ''}</td>
-        <td class="${vomitCls}">${d.vomit || '-'}</td>
-        <td class="memo">${d.memo || ''}</td>
-      </tr>`;
-    });
-    bodyHtml += `</tbody></table>`;
-  });
-
-  bodyHtml += `<div class="footer">WE CATS スタッフアプリ　自動出力　${year}年${parseInt(month)}月分　全${records.length}件</div>`;
-
-  // 印刷ウィンドウで出力
-  const win = window.open('', '_blank');
-  win.document.write('<html><head><title>WE CATS ' + year + '年' + parseInt(month) + '月 健康管理記録</title></head><body>' + bodyHtml + '</body></html>');
-  win.document.close();
-  win.onload = () => {
-    win.print();
-  };
-  showToast('✓ PDF出力画面を開きました');
-}
-
 function renderLoginLogs(){
   const el=document.getElementById('loginLogList');
   const filterStaff=document.getElementById('logFilterStaff')?.value||'';
