@@ -134,7 +134,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .cal-month-label { font-size: 14px; font-weight: 700; }
 .cal-legend { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-light); margin-bottom: 8px; }
 .cal-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 2px; }
-.dot-daily { background: var(--pink-deep); } .dot-hospital { background: #e05050; } .dot-care { background: #50a0d0; }
+.dot-daily { background: transparent; } .dot-hospital { background: transparent; } .dot-care { background: transparent; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 .cal-dow { text-align: center; font-size: 10px; color: var(--text-light); font-weight: 700; padding: 3px 0; }
 .cal-cell { aspect-ratio: 1; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 3px; cursor: pointer; background: var(--pink-bg); font-size: 11px; font-weight: 700; color: var(--text); }
@@ -393,9 +393,9 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
         <button class="cal-nav-btn" onclick="changeMonth(1)">›</button>
       </div>
       <div class="cal-legend">
-        <span class="cal-dot dot-daily"></span>毎日
-        <span class="cal-dot dot-hospital" style="margin-left:6px"></span>病院
-        <span class="cal-dot dot-care" style="margin-left:6px"></span>ケア
+        <span style="font-size:10px">🩷</span>毎日
+        <span style="font-size:10px;margin-left:6px">🏥</span>病院
+        <span style="font-size:10px;margin-left:6px">✂️</span>ケア
       </div>
       <div class="cal-grid" style="margin-bottom:3px">
         <div class="cal-dow">日</div><div class="cal-dow">月</div><div class="cal-dow">火</div>
@@ -1392,7 +1392,7 @@ function renderCalendar(){
   for(let d=1;d<=daysInMonth;d++){
     const cell=document.createElement('div');const hasRec=dayMap[d];
     cell.className='cal-cell'+(hasRec?' has-record':'')+(d===todayNum?' today':'')+(d===calSelectedDay?' selected':'');
-    let dots='';if(hasRec){if(hasRec.daily.length)dots+=`<span class="cal-cell-dot dot-daily"></span>`;if(hasRec.hospital.length)dots+=`<span class="cal-cell-dot dot-hospital"></span>`;if(hasRec.care.length)dots+=`<span class="cal-cell-dot dot-care"></span>`;}
+    let dots='';if(hasRec){if(hasRec.daily.length)dots+=`<span style="font-size:7px">🩷</span>`;if(hasRec.hospital.length)dots+=`<span style="font-size:7px">🏥</span>`;if(hasRec.care.length)dots+=`<span style="font-size:7px">✂️</span>`;}
     cell.innerHTML=`${d}<div class="cal-dots">${dots}</div>`;
     cell.onclick=()=>{calSelectedDay=d;renderCalendar();showCalDayDetail(d,dayMap[d]);};
     grid.appendChild(cell);
