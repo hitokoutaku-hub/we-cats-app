@@ -1911,15 +1911,22 @@ async function saveFloorCheck(){
     concern:document.getElementById('floorConcern').value.trim(),
     memo:document.getElementById('floorMemo').value.trim(),
   };
-  // フロア全体チェックはcat_id='floor'で保存
-  const existing=await sb.from('wecats_records').select('*').eq('cat_id','floor').eq('type','floor_check').eq('date',date).single();
-  if(existing.data){
-    await sb.from('wecats_records').update({data}).eq('id',existing.data.id);
-  }else{
-    await sb.from('wecats_records').insert({id:'floor_'+Date.now(),cat_id:'floor',type:'floor_check',date,data});
+  const editId=document.getElementById('modalFloorCheck').dataset.editId;
+  if(editId){
+    await sb.from('wecats_records').update({date,data}).eq('id',editId);
+    document.getElementById('modalFloorCheck').dataset.editId='';
+    closeModal('floorCheck');
+    showToast('✓ 編集しました');
+  } else {
+    const existing=await sb.from('wecats_records').select('*').eq('cat_id','floor').eq('type','floor_check').eq('date',date).single();
+    if(existing.data){
+      await sb.from('wecats_records').update({data}).eq('id',existing.data.id);
+    }else{
+      await sb.from('wecats_records').insert({id:'floor_'+Date.now(),cat_id:'floor',type:'floor_check',date,data});
+    }
+    closeModal('floorCheck');
+    showToast('✓ フロアチェックを保存しました');
   }
-  closeModal('floorCheck');
-  showToast('✓ フロアチェックを保存しました');
 }
 
 async function openFloorHistory(){
@@ -1931,7 +1938,13 @@ async function openFloorHistory(){
     el.innerHTML=data.map(r=>{
       const d=r.data||{};
       return`<div class="record-item">
-        <div class="record-date">📅 ${r.date}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div class="record-date" style="margin-bottom:0">📅 ${r.date}</div>
+          <div style="display:flex;gap:6px">
+            <button onclick="openFloorEdit('${r.id}')" style="background:none;border:none;font-size:13px;cursor:pointer;color:var(--pink-deep);opacity:0.8">✏️</button>
+            <button onclick="deleteFloorRecord('${r.id}')" style="background:none;border:none;font-size:13px;cursor:pointer;color:var(--text-light);opacity:0.6">🗑</button>
+          </div>
+        </div>
         <div class="record-content">
           ${d.toilet?`<span class="record-tag">🚽 ${d.toilet}</span>`:''}
           ${d.food?`<span class="record-tag">🍚 ${d.food}</span>`:''}
@@ -1942,6 +1955,35 @@ async function openFloorHistory(){
     }).join('');
   }
   document.getElementById('modalFloorHistory').classList.add('open');
+}
+
+async function openFloorEdit(id){
+  const{data}=await sb.from('wecats_records').select('*').eq('id',id).single();
+  if(!data)return;
+  const d=data.data||{};
+  // フロアチェックモーダルに値をセット
+  document.getElementById('floorDate').value=data.date;
+  floorOpts={toilet:d.toilet||null,food:d.food||null};
+  // ボタンの選択状態を復元
+  document.querySelectorAll('#floorToiletOpts .check-opt').forEach(b=>{
+    b.classList.toggle('selected',b.dataset.val===d.toilet);
+  });
+  document.querySelectorAll('#floorFoodOpts .check-opt').forEach(b=>{
+    b.classList.toggle('selected',b.dataset.val===d.food);
+  });
+  document.getElementById('floorConcern').value=d.concern||'';
+  document.getElementById('floorMemo').value=d.memo||'';
+  // 編集中IDを保持
+  document.getElementById('modalFloorCheck').dataset.editId=id;
+  closeModal('floorHistory');
+  document.getElementById('modalFloorCheck').classList.add('open');
+}
+
+async function deleteFloorRecord(id){
+  if(!confirm('この記録を削除しますか？'))return;
+  await sb.from('wecats_records').delete().eq('id',id);
+  showToast('削除しました');
+  openFloorHistory();
 }
 
 // ===== 体重管理（Supabase） =====
@@ -2063,7 +2105,15 @@ function openFolder(folderId){
 function renderArticles(){
   const items=articlesCache.filter(a=>a.folder_id===currentFolderId);const el=document.getElementById('articleList');
   if(!items.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📄</div><p>まだ記事がありません</p></div>';return;}
-  el.innerHTML=items.map(a=>`<div class="article-card" onclick="openArticle('${a.id}')"><div class="article-type">${a.type==='checklist'?'✅ チェックリスト':a.type==='step_article'?'📸 手順書':'📄 記事'}</div><div class="article-title">${a.title}</div>${a.type!=='checklist'?`<div class="article-preview">${(a.content||'').slice(0,50)}${(a.content||'').length>50?'...':''}</div>`:''}</div>`).join('');
+  el.innerHTML=items.map(a=>{
+    let preview='';
+    if(a.type==='step_article'){
+      try{const steps=JSON.parse(a.content||'[]');preview=steps.length?`${steps.length}ステップ`:'';} catch(e){preview='';}
+    } else if(a.type!=='checklist'){
+      preview=(a.content||'').slice(0,50)+((a.content||'').length>50?'…':'');
+    }
+    return`<div class="article-card" onclick="openArticle('${a.id}')"><div class="article-type">${a.type==='checklist'?'✅ チェックリスト':a.type==='step_article'?'📸 手順書':'📄 記事'}</div><div class="article-title">${a.title}</div>${preview?`<div class="article-preview">${preview}</div>`:''}</div>`;
+  }).join('');
 }
 function openArticle(articleId){
   const article=articlesCache.find(a=>a.id===articleId);editingArticleId=articleId;
