@@ -393,9 +393,9 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
         <button class="cal-nav-btn" onclick="changeMonth(1)">›</button>
       </div>
       <div class="cal-legend">
-        <span class="cal-dot dot-daily"></span>毎日
-        <span class="cal-dot dot-hospital" style="margin-left:6px"></span>病院
-        <span class="cal-dot dot-care" style="margin-left:6px"></span>ケア
+        <span style="font-size:10px">📋</span>毎日
+        <span style="font-size:10px;margin-left:6px">🏥</span>病院
+        <span style="font-size:10px;margin-left:6px">✂️</span>ケア
       </div>
       <div class="cal-grid" style="margin-bottom:3px">
         <div class="cal-dow">日</div><div class="cal-dow">月</div><div class="cal-dow">火</div>
@@ -1449,7 +1449,7 @@ function renderCalendar(){
   for(let d=1;d<=daysInMonth;d++){
     const cell=document.createElement('div');const hasRec=dayMap[d];
     cell.className='cal-cell'+(hasRec?' has-record':'')+(d===todayNum?' today':'')+(d===calSelectedDay?' selected':'');
-    let dots='';if(hasRec){if(hasRec.daily.length)dots+=`<span class="cal-cell-dot dot-daily"></span>`;if(hasRec.hospital.length)dots+=`<span class="cal-cell-dot dot-hospital"></span>`;if(hasRec.care.length)dots+=`<span class="cal-cell-dot dot-care"></span>`;}
+    let dots='';if(hasRec){if(hasRec.daily.length)dots+=`<span style="font-size:8px">📋</span>`;if(hasRec.hospital.length)dots+=`<span style="font-size:8px">🏥</span>`;if(hasRec.care.length)dots+=`<span style="font-size:8px">✂️</span>`;}
     cell.innerHTML=`${d}<div class="cal-dots">${dots}</div>`;
     cell.onclick=()=>{calSelectedDay=d;renderCalendar();showCalDayDetail(d,dayMap[d]);};
     grid.appendChild(cell);
@@ -1728,11 +1728,53 @@ function buildPostCard(post){
 async function loadComments(postId){
   const{data:comments}=await sb.from('board_comments').select('*').eq('post_id',postId).order('created_at');
   const el=document.getElementById('comments-'+postId);if(!el)return;
-  let html=(comments||[]).map(c=>`<div class="comment-item"><div class="comment-avatar">${c.author.charAt(0)}</div><div class="comment-body"><div class="comment-author">${c.author}</div><div class="comment-text">${c.content.replace(/\n/g,'<br>')}</div><div class="comment-time">${formatTime(c.created_at)}</div></div></div>`).join('');
+  let html=(comments||[]).map(c=>{
+    const isMine=c.author===userName;
+    const editBtn=isMine?`<button onclick="editComment('${c.id}','${postId}')" style="background:none;border:none;font-size:11px;cursor:pointer;color:var(--pink-deep);opacity:0.8">✏️</button>`:'';
+    const delBtn=isMine?`<button onclick="deleteComment('${c.id}','${postId}')" style="background:none;border:none;font-size:11px;cursor:pointer;color:var(--text-light);opacity:0.6">🗑</button>`:'';
+    return`<div class="comment-item" id="comment-${c.id}">
+      <div class="comment-avatar">${c.author.charAt(0)}</div>
+      <div class="comment-body">
+        <div class="comment-author">${c.author}</div>
+        <div class="comment-text" id="comment-text-${c.id}">${c.content.replace(/\n/g,'<br>')}</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
+          <div class="comment-time">${formatTime(c.created_at)}</div>
+          ${editBtn}${delBtn}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
   html+=`<div class="comment-input-row"><input type="text" placeholder="返信する..." id="comment-input-${postId}" onkeypress="if(event.key==='Enter')submitComment('${postId}')"><button onclick="submitComment('${postId}')">送信</button></div>`;
   el.innerHTML=html;
 }
-async function submitComment(postId){const input=document.getElementById('comment-input-'+postId);const content=input.value.trim();if(!content)return;await sb.from('board_comments').insert({post_id:postId,author:userName,content});input.value='';await loadComments(postId);}
+async function submitComment(postId){
+  const input=document.getElementById('comment-input-'+postId);
+  const content=input.value.trim();if(!content)return;
+  if(!checkOnline())return;
+  const result=await sb.from('board_comments').insert({post_id:postId,author:userName,content});
+  if(result.error){showToast('⚠️ 送信失敗！もう一度試してください');return;}
+  input.value='';await loadComments(postId);
+}
+async function editComment(commentId,postId){
+  const textEl=document.getElementById('comment-text-'+commentId);
+  if(!textEl)return;
+  const current=textEl.innerText;
+  const newText=prompt('返信を編集してください',current);
+  if(!newText||newText.trim()===current)return;
+  if(!checkOnline())return;
+  const result=await sb.from('board_comments').update({content:newText.trim()}).eq('id',commentId);
+  if(result.error){showToast('⚠️ 編集失敗！もう一度試してください');return;}
+  showToast('✓ 編集しました');
+  await loadComments(postId);
+}
+async function deleteComment(commentId,postId){
+  if(!confirm('この返信を削除しますか？'))return;
+  if(!checkOnline())return;
+  const result=await sb.from('board_comments').delete().eq('id',commentId);
+  if(result.error){showToast('⚠️ 削除失敗！もう一度試してください');return;}
+  showToast('削除しました');
+  await loadComments(postId);
+}
 
 // ===== 現金管理（Supabase） =====
 let cashCache=[];
