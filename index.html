@@ -1082,23 +1082,36 @@ function editDailyRecord(id, date){
   showToast('記録をフォームに読み込みました。編集して保存してください');
 }
 
+let _savingDaily=false;
 async function saveDailyCheck(){
-  const values={};
-  document.querySelectorAll('.check-options').forEach(group=>{const sel=group.querySelector('.selected');values[group.dataset.key]=sel?sel.dataset.val:null;});
-  values.memo=document.getElementById('dailyMemo').value.trim();
-  values.photos=[...photoBuf.daily];
-  const dateStr=calInputDate||today();
-  calInputDate=null;document.getElementById('dailyDateLabel').style.display='none';
-  const existing=(catRecordsCache[currentCatId]||[]).find(r=>r.type==='daily'&&r.date===dateStr);
-  if(existing){
-    await sb.from('wecats_records').update({data:values}).eq('id',existing.id);
-  } else {
-    const id='rec_'+Date.now();
-    await sb.from('wecats_records').insert({id,cat_id:currentCatId,type:'daily',date:dateStr,data:values});
+  if(_savingDaily)return;
+  if(!checkOnline())return;
+  _savingDaily=true;
+  const btn=document.querySelector('#cat-tab-daily .save-btn');
+  if(btn){btn.disabled=true;btn.textContent='保存中...';}
+  try{
+    const values={};
+    document.querySelectorAll('.check-options').forEach(group=>{const sel=group.querySelector('.selected');values[group.dataset.key]=sel?sel.dataset.val:null;});
+    values.memo=document.getElementById('dailyMemo').value.trim();
+    values.photos=[...photoBuf.daily];
+    const dateStr=calInputDate||today();
+    calInputDate=null;document.getElementById('dailyDateLabel').style.display='none';
+    const existing=(catRecordsCache[currentCatId]||[]).find(r=>r.type==='daily'&&r.date===dateStr);
+    let result;
+    if(existing){
+      result=await sb.from('wecats_records').update({data:values}).eq('id',existing.id);
+    } else {
+      const id='rec_'+Date.now();
+      result=await sb.from('wecats_records').insert({id,cat_id:currentCatId,type:'daily',date:dateStr,data:values});
+    }
+    if(result.error){showToast('⚠️ 保存失敗！もう一度試してください');return;}
+    await loadCatDetail(currentCatId);
+    showToast('✓ 保存しました');
+    photoBuf.daily=[];renderPhotoPreview('daily');resetDailyForm();renderDailyHistory();
+  }finally{
+    _savingDaily=false;
+    if(btn){btn.disabled=false;btn.textContent='✓ 今日の記録を保存';}
   }
-  await loadCatDetail(currentCatId);
-  showToast('✓ 保存しました');
-  photoBuf.daily=[];renderPhotoPreview('daily');resetDailyForm();renderDailyHistory();
 }
 function renderDailyHistory(){
   const records=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='daily').sort((a,b)=>b.date.localeCompare(a.date));
@@ -1176,19 +1189,32 @@ function editHospitalRecord(id){
   document.getElementById('modalHospital').classList.add('open');
   showToast('受診記録を編集フォームに読み込みました');
 }
+let _savingHospital=false;
 async function saveHospital(){
-  const date=document.getElementById('hDate').value;
-  if(!date){showToast('日付を入力してください');return;}
-  const data={date,symptom:document.getElementById('hSymptom').value.trim(),diagnosis:document.getElementById('hDiagnosis').value.trim(),medicine:document.getElementById('hMedicine').value.trim(),memo:document.getElementById('hMemo').value.trim(),photos:[...photoBuf.hospital]};
-  const editId=document.getElementById('modalHospital').dataset.editId;
-  if(editId){
-    await sb.from('wecats_records').update({data}).eq('id',editId);
-    document.getElementById('modalHospital').dataset.editId='';
-  } else {
-    await sb.from('wecats_records').insert({id:'rec_'+Date.now(),cat_id:currentCatId,type:'hospital',date,data});
+  if(_savingHospital)return;
+  if(!checkOnline())return;
+  _savingHospital=true;
+  const btn=document.querySelector('#modalHospital .modal-submit');
+  if(btn){btn.disabled=true;btn.textContent='保存中...';}
+  try{
+    const date=document.getElementById('hDate').value;
+    if(!date){showToast('日付を入力してください');return;}
+    const data={date,symptom:document.getElementById('hSymptom').value.trim(),diagnosis:document.getElementById('hDiagnosis').value.trim(),medicine:document.getElementById('hMedicine').value.trim(),memo:document.getElementById('hMemo').value.trim(),photos:[...photoBuf.hospital]};
+    const editId=document.getElementById('modalHospital').dataset.editId;
+    let result;
+    if(editId){
+      result=await sb.from('wecats_records').update({data}).eq('id',editId);
+      document.getElementById('modalHospital').dataset.editId='';
+    } else {
+      result=await sb.from('wecats_records').insert({id:'rec_'+Date.now(),cat_id:currentCatId,type:'hospital',date,data});
+    }
+    if(result.error){showToast('⚠️ 保存失敗！もう一度試してください');return;}
+    await loadCatDetail(currentCatId);
+    photoBuf.hospital=[];closeModal('hospital');showToast('✓ 受診記録を保存しました');renderHospitalList();
+  }finally{
+    _savingHospital=false;
+    if(btn){btn.disabled=false;btn.textContent='保存する';}
   }
-  await loadCatDetail(currentCatId);
-  photoBuf.hospital=[];closeModal('hospital');showToast('✓ 受診記録を保存しました');renderHospitalList();
 }
 function renderHospitalList(){
   const records=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='hospital').sort((a,b)=>b.date.localeCompare(a.date));
@@ -1223,13 +1249,25 @@ function openCareModal(key,label,emoji){
   document.getElementById('cDate').value=calInputDate||today();document.getElementById('cMemo').value='';
   document.getElementById('modalCare').classList.add('open');
 }
+let _savingCare=false;
 async function saveCare(){
-  const date=document.getElementById('cDate').value;
-  if(!date){showToast('日付を入力してください');return;}
-  const data={careType:currentCareType,memo:document.getElementById('cMemo').value.trim()};
-  await sb.from('wecats_records').insert({id:'rec_'+Date.now(),cat_id:currentCatId,type:'care',date,data});
-  await loadCatDetail(currentCatId);
-  calInputDate=null;closeModal('care');showToast('✓ ケア記録を保存しました');renderCareGrid();renderCareHistory();
+  if(_savingCare)return;
+  if(!checkOnline())return;
+  _savingCare=true;
+  const btn=document.querySelector('#modalCare .modal-submit');
+  if(btn){btn.disabled=true;btn.textContent='保存中...';}
+  try{
+    const date=document.getElementById('cDate').value;
+    if(!date){showToast('日付を入力してください');return;}
+    const data={careType:currentCareType,memo:document.getElementById('cMemo').value.trim()};
+    const result=await sb.from('wecats_records').insert({id:'rec_'+Date.now(),cat_id:currentCatId,type:'care',date,data});
+    if(result.error){showToast('⚠️ 保存失敗！もう一度試してください');return;}
+    await loadCatDetail(currentCatId);
+    calInputDate=null;closeModal('care');showToast('✓ ケア記録を保存しました');renderCareGrid();renderCareHistory();
+  }finally{
+    _savingCare=false;
+    if(btn){btn.disabled=false;btn.textContent='保存する';}
+  }
 }
 function renderCareHistory(){
   const records=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='care').sort((a,b)=>b.date.localeCompare(a.date));
@@ -1239,16 +1277,28 @@ function renderCareHistory(){
 }
 
 // 投薬
+let _savingMed=false;
 async function saveMedication(){
-  const name=document.getElementById('medName').value.trim(),freq=document.getElementById('medFreq').value.trim();
-  if(!name||!freq){showToast('薬の名前と頻度を入力してください');return;}
-  await sb.from('wecats_medications').insert({id:'med_'+Date.now(),cat_id:currentCatId,name,frequency:freq,start_date:document.getElementById('medStart').value,end_date:document.getElementById('medEnd').value,memo:document.getElementById('medMemo').value.trim()});
-  await loadCatDetail(currentCatId);
-  closeModal('medication');showToast('✓ 投薬を追加しました');renderMedList();renderCatList();
+  if(_savingMed)return;
+  if(!checkOnline())return;
+  _savingMed=true;
+  const btn=document.querySelector('#modalMedication .modal-submit');
+  if(btn){btn.disabled=true;btn.textContent='保存中...';}
+  try{
+    const name=document.getElementById('medName').value.trim(),freq=document.getElementById('medFreq').value.trim();
+    if(!name||!freq){showToast('薬の名前と頻度を入力してください');return;}
+    const result=await sb.from('wecats_medications').insert({id:'med_'+Date.now(),cat_id:currentCatId,name,frequency:freq,start_date:document.getElementById('medStart').value,end_date:document.getElementById('medEnd').value,memo:document.getElementById('medMemo').value.trim(),active:true});
+    if(result.error){showToast('⚠️ 保存失敗！もう一度試してください');return;}
+    await loadCatDetail(currentCatId);
+    closeModal('medication');showToast('✓ 投薬を追加しました');renderMedList();renderCatList();
+  }finally{
+    _savingMed=false;
+    if(btn){btn.disabled=false;btn.textContent='追加する';}
+  }
 }
 function renderMedList(){
   const allMeds=catMedsCache[currentCatId]||[];
-  const meds=allMeds.filter(m=>m.active!==false);
+  const meds=allMeds.filter(m=>m.active===true||m.active===null||m.active===undefined);
   const pastMeds=allMeds.filter(m=>m.active===false);
   const el=document.getElementById('medList');
   if(!meds.length&&!pastMeds.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">💊</div><p>投薬記録がありません</p></div>';return;}
@@ -1428,7 +1478,9 @@ function openCalCare(dateStr){calInputDate=dateStr;switchCatTab('care');showToas
 function changeMonth(delta){calMonth+=delta;if(calMonth>11){calMonth=0;calYear++;}if(calMonth<0){calMonth=11;calYear--;}calSelectedDay=null;document.getElementById('calDayDetail').innerHTML='';renderCalendar();}
 
 // 写真
-function handlePhoto(event,target){Array.from(event.target.files).forEach(file=>{const reader=new FileReader();reader.onload=e=>{photoBuf[target].push(e.target.result);renderPhotoPreview(target);};reader.readAsDataURL(file);});event.target.value='';}
+function compressImage(dataUrl,maxW,maxH,quality){return new Promise(resolve=>{const img=new Image();img.onload=()=>{const canvas=document.createElement('canvas');let w=img.width,h=img.height;if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}if(h>maxH){w=Math.round(w*maxH/h);h=maxH;}canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(img,0,0,w,h);resolve(canvas.toDataURL('image/jpeg',quality));};img.src=dataUrl;});}
+function checkOnline(){if(!navigator.onLine){showToast('⚠️ オフラインです。通信を確認してください');return false;}return true;}
+function handlePhoto(event,target){Array.from(event.target.files).forEach(file=>{const reader=new FileReader();reader.onload=async e=>{const compressed=await compressImage(e.target.result,1200,1200,0.7);photoBuf[target].push(compressed);renderPhotoPreview(target);};reader.readAsDataURL(file);});event.target.value='';}
 function renderPhotoPreview(target){document.getElementById(target+'PhotoPreview').innerHTML=photoBuf[target].map((src,i)=>`<div class="photo-thumb-wrap"><img src="${src}" alt=""><button class="photo-thumb-del" onclick="removePhoto('${target}',${i})">✕</button></div>`).join('');}
 function removePhoto(target,idx){photoBuf[target].splice(idx,1);renderPhotoPreview(target);}
 function openViewer(src){document.getElementById('viewerImg').src=src;document.getElementById('photoViewer').classList.add('open');}
@@ -1496,7 +1548,7 @@ function renderDrinks(){
   document.getElementById('drinkAlert').className='drink-alert'+(hasDanger?' show':'');
   updateStockBadge();
 }
-async function changeDrinkStock(id,delta){const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;item.stock=Math.max(0,Math.min(99,item.stock+delta));renderDrinks();updateStockBadge();await sb.from('drink_items').update({stock:item.stock}).eq('id',id);}
+async function changeDrinkStock(id,delta){const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;if(!checkOnline())return;item.stock=Math.max(0,Math.min(99,item.stock+delta));renderDrinks();updateStockBadge();const result=await sb.from('drink_items').update({stock:item.stock}).eq('id',id);if(result.error){showToast('⚠️ 保存失敗！もう一度試してください');}}
 function openDrinkAdd(){
   ['dAddName','dAddIcon'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('dAddStock').value=10;
@@ -1558,35 +1610,46 @@ function openEditPost(id){
   document.getElementById('newPostContent').focus();
   showToast('内容を編集して「投稿する」を押してください');
 }
+let _savingPost=false;
 async function submitPost(){
-  let content=document.getElementById('newPostContent').value.trim();
-  // 日報の場合、来客数・口コミ・売上を追記
-  if(currentPostType==='report'){
-    const visitors=document.getElementById('reportVisitors').value;
-    const reviews=document.getElementById('reportReviews').value;
-    const sales=document.getElementById('reportSales').value;
-    let extra='';
-    if(visitors)extra+=`👥 来客数：${visitors}名\n`;
-    if(reviews)extra+=`⭐ 口コミ：${reviews}件\n`;
-    if(sales)extra+=`💰 売上：¥${parseInt(sales).toLocaleString()}\n`;
-    if(extra)content=extra+(content?'\n'+content:content);
+  if(_savingPost)return;
+  if(!checkOnline())return;
+  _savingPost=true;
+  const btn=document.querySelector('#page-board .save-btn');
+  if(btn){btn.disabled=true;btn.textContent='投稿中...';}
+  try{
+    let content=document.getElementById('newPostContent').value.trim();
+    if(currentPostType==='report'){
+      const visitors=document.getElementById('reportVisitors').value;
+      const reviews=document.getElementById('reportReviews').value;
+      const sales=document.getElementById('reportSales').value;
+      let extra='';
+      if(visitors)extra+=`👥 来客数：${visitors}名\n`;
+      if(reviews)extra+=`⭐ 口コミ：${reviews}件\n`;
+      if(sales)extra+=`💰 売上：¥${parseInt(sales).toLocaleString()}\n`;
+      if(extra)content=extra+(content?'\n'+content:content);
+    }
+    if(!content&&photoBuf.board.length===0){showToast('内容を入力してください');return;}
+    const editId=document.getElementById('newPostContent').dataset.editId;
+    let result;
+    if(editId){
+      result=await sb.from('board_posts').update({content,role:currentPostType}).eq('id',editId);
+      document.getElementById('newPostContent').dataset.editId='';
+    } else {
+      const photos=[...photoBuf.board];
+      result=await sb.from('board_posts').insert({author:userName,role:currentPostType,content,pinned:false,photos:JSON.stringify(photos)});
+    }
+    if(result.error){showToast('⚠️ 保存失敗！もう一度試してください');return;}
+    showToast(editId?'✓ 編集しました':'✓ 投稿しました');
+    document.getElementById('newPostContent').value='';
+    const rv=document.getElementById('reportVisitors');if(rv)rv.value='';
+    const rr=document.getElementById('reportReviews');if(rr)rr.value='';
+    const rs=document.getElementById('reportSales');if(rs)rs.value='';
+    photoBuf.board=[];renderPhotoPreview('board');await loadBoard();
+  }finally{
+    _savingPost=false;
+    if(btn){btn.disabled=false;btn.textContent='投稿する';}
   }
-  if(!content&&photoBuf.board.length===0){showToast('内容を入力してください');return;}
-  const editId=document.getElementById('newPostContent').dataset.editId;
-  if(editId){
-    await sb.from('board_posts').update({content,role:currentPostType}).eq('id',editId);
-    document.getElementById('newPostContent').dataset.editId='';
-    showToast('✓ 編集しました');
-  } else {
-    const photos=[...photoBuf.board];
-    await sb.from('board_posts').insert({author:userName,role:currentPostType,content,pinned:false,photos:JSON.stringify(photos)});
-    showToast('✓ 投稿しました');
-  }
-  document.getElementById('newPostContent').value='';
-  const rv=document.getElementById('reportVisitors');if(rv)rv.value='';
-  const rr=document.getElementById('reportReviews');if(rr)rr.value='';
-  const rs=document.getElementById('reportSales');if(rs)rs.value='';
-  photoBuf.board=[];renderPhotoPreview('board');await loadBoard();
 }
 async function deletePost(id){if(!confirm('削除しますか？'))return;await sb.from('board_posts').delete().eq('id',id);await sb.from('board_comments').delete().eq('post_id',id);await loadBoard();}
 async function togglePin(id,current){await sb.from('board_posts').update({pinned:!current}).eq('id',id);await loadBoard();showToast(current?'ピン留めを解除しました':'📌 ピン留めしました');}
@@ -1736,28 +1799,40 @@ function openCashModal(type){
   document.getElementById('modalCash').classList.add('open');
 }
 
+let _savingCash=false;
 async function saveCashRecord(){
-  const date=document.getElementById('cashDate').value;
-  const amount=parseInt(document.getElementById('cashAmount').value);
-  const description=document.getElementById('cashDesc').value.trim();
-  if(!date||!amount||amount<=0){showToast('日付と金額を入力してください');return;}
-  const currentBalance=cashCache.length?cashCache[0].balance:50000;
-  const newBalance=currentCashType==='expense'?currentBalance-amount:currentBalance+amount;
-  if(newBalance<0){showToast('残金が不足しています');return;}
-  const receipt_photo=photoBuf.cash[0]||'';
-  await sb.from('wecats_cash').insert({
-    id:'cash_'+Date.now(),
-    date,type:currentCashType,
-    description,
-    amount,
-    balance:newBalance,
-    receipt_photo,
-    memo:document.getElementById('cashMemo').value.trim()
-  });
-  photoBuf.cash=[];
-  closeModal('cash');
-  showToast('✓ 保存しました');
-  await initCashPage();
+  if(_savingCash)return;
+  if(!checkOnline())return;
+  _savingCash=true;
+  const btn=document.querySelector('#modalCash .modal-submit');
+  if(btn){btn.disabled=true;btn.textContent='保存中...';}
+  try{
+    const date=document.getElementById('cashDate').value;
+    const amount=parseInt(document.getElementById('cashAmount').value);
+    const description=document.getElementById('cashDesc').value.trim();
+    if(!date||!amount||amount<=0){showToast('日付と金額を入力してください');return;}
+    const currentBalance=cashCache.length?cashCache[0].balance:50000;
+    const newBalance=currentCashType==='expense'?currentBalance-amount:currentBalance+amount;
+    if(newBalance<0){showToast('残金が不足しています');return;}
+    const receipt_photo=photoBuf.cash[0]||'';
+    const result=await sb.from('wecats_cash').insert({
+      id:'cash_'+Date.now(),
+      date,type:currentCashType,
+      description,
+      amount,
+      balance:newBalance,
+      receipt_photo,
+      memo:document.getElementById('cashMemo').value.trim()
+    });
+    if(result.error){showToast('⚠️ 保存失敗！もう一度試してください');return;}
+    photoBuf.cash=[];
+    closeModal('cash');
+    showToast('✓ 保存しました');
+    await initCashPage();
+  }finally{
+    _savingCash=false;
+    if(btn){btn.disabled=false;btn.textContent='保存する';}
+  }
 }
 
 // ===== マニュアル ステップ記事 =====
@@ -2037,27 +2112,40 @@ function renderWeightCompare(){
   el.innerHTML=rows.join('');
 }
 
+let _savingWeights=false;
 async function saveAllWeights(){
-  const cats=catsCache.filter(c=>!c.archived);
-  const dateStr=`${weightYear}-${String(weightMonth).padStart(2,'0')}-01`;
-  let saved=0;
-  for(const cat of cats){
-    const input=document.getElementById('w_'+cat.id);
-    if(!input||!input.value)continue;
-    const weight=parseFloat(input.value);
-    if(isNaN(weight)||weight<=0)continue;
-    const existing=weightCache[cat.id];
-    if(existing){
-      await sb.from('wecats_weights').update({weight}).eq('id',existing.id);
-    }else{
-      await sb.from('wecats_weights').insert({id:`w_${cat.id}_${weightYear}_${weightMonth}`,cat_id:cat.id,weight,date:dateStr});
+  if(_savingWeights)return;
+  if(!checkOnline())return;
+  _savingWeights=true;
+  const btn=document.querySelector('#page-weight .save-btn, #page-weight button[onclick="saveAllWeights()"]');
+  if(btn){btn.disabled=true;btn.textContent='保存中...';}
+  try{
+    const cats=catsCache.filter(c=>!c.archived);
+    const dateStr=`${weightYear}-${String(weightMonth).padStart(2,'0')}-01`;
+    let saved=0,failed=0;
+    for(const cat of cats){
+      const input=document.getElementById('w_'+cat.id);
+      if(!input||!input.value)continue;
+      const weight=parseFloat(input.value);
+      if(isNaN(weight)||weight<=0)continue;
+      const existing=weightCache[cat.id];
+      let result;
+      if(existing){
+        result=await sb.from('wecats_weights').update({weight}).eq('id',existing.id);
+      }else{
+        result=await sb.from('wecats_weights').insert({id:`w_${cat.id}_${weightYear}_${weightMonth}`,cat_id:cat.id,weight,date:dateStr});
+      }
+      if(result.error)failed++;else saved++;
     }
-    saved++;
+    await loadWeights();
+    renderWeightInputList();
+    renderWeightCompare();
+    if(failed>0)showToast(`⚠️ ${failed}匹分の保存に失敗しました`);
+    else showToast(`✓ ${saved}匹分を保存しました`);
+  }finally{
+    _savingWeights=false;
+    if(btn){btn.disabled=false;btn.textContent='✓ 全員分を保存する';}
   }
-  await loadWeights();
-  renderWeightInputList();
-  renderWeightCompare();
-  showToast(`✓ ${saved}匹分を保存しました`);
 }
 
 function changeWeightMonth(delta){
