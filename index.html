@@ -1744,7 +1744,7 @@ async function loadComments(postId){
       </div>
     </div>`;
   }).join('');
-  html+=`<div class="comment-input-row"><input type="text" placeholder="返信する..." id="comment-input-${postId}" onkeypress="if(event.key==='Enter')submitComment('${postId}')"><button onclick="submitComment('${postId}')">送信</button></div>`;
+  html+=`<div style="margin-top:8px"><textarea placeholder="返信する..." id="comment-input-${postId}" rows="2" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;color:var(--text);background:var(--pink-bg);outline:none;resize:none;display:block;margin-bottom:6px"></textarea><button onclick="submitComment('${postId}')" style="width:100%;padding:8px;background:var(--pink-deep);color:var(--white);border:none;border-radius:20px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;cursor:pointer">送信</button></div>`;
   el.innerHTML=html;
 }
 async function submitComment(postId){
