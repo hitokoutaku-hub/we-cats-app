@@ -1853,20 +1853,30 @@ async function saveCashRecord(){
     const amount=parseInt(document.getElementById('cashAmount').value);
     const description=document.getElementById('cashDesc').value.trim();
     if(!date||!amount||amount<=0){showToast('日付と金額を入力してください');return;}
-    const currentBalance=cashCache.length?cashCache[0].balance:50000;
-    const newBalance=currentCashType==='expense'?currentBalance-amount:currentBalance+amount;
-    if(newBalance<0){showToast('残金が不足しています');return;}
+    const editId=document.getElementById('modalCash').dataset.editId||'';
     const receipt_photo=photoBuf.cash[0]||'';
-    const result=await sb.from('wecats_cash').insert({
-      id:'cash_'+Date.now(),
-      date,type:currentCashType,
-      description,
-      amount,
-      balance:newBalance,
-      receipt_photo,
-      memo:document.getElementById('cashMemo').value.trim()
-    });
-    if(result.error){showToast('⚠️ 保存失敗！もう一度試してください');return;}
+    const memo=document.getElementById('cashMemo').value.trim();
+    let result;
+    if(editId){
+      // 編集の場合：金額・内容だけ更新、残高は再計算
+      result=await sb.from('wecats_cash').update({date,type:currentCashType,description,amount,receipt_photo,memo}).eq('id',editId);
+      if(result.error){showToast('⚠️ 保存失敗！もう一度試してください');return;}
+      // 残高を全件再計算
+      const{data:allRecords}=await sb.from('wecats_cash').select('*').order('date').order('created_at');
+      let balance=50000;
+      for(const rec of(allRecords||[])){
+        balance=rec.type==='expense'?balance-rec.amount:balance+rec.amount;
+        await sb.from('wecats_cash').update({balance}).eq('id',rec.id);
+      }
+      document.getElementById('modalCash').dataset.editId='';
+    } else {
+      // 新規の場合
+      const currentBalance=cashCache.length?cashCache[0].balance:50000;
+      const newBalance=currentCashType==='expense'?currentBalance-amount:currentBalance+amount;
+      if(newBalance<0){showToast('残金が不足しています');return;}
+      result=await sb.from('wecats_cash').insert({id:'cash_'+Date.now(),date,type:currentCashType,description,amount,balance:newBalance,receipt_photo,memo});
+      if(result.error){showToast('⚠️ 保存失敗！もう一度試してください');return;}
+    }
     photoBuf.cash=[];
     closeModal('cash');
     showToast('✓ 保存しました');
@@ -1875,6 +1885,36 @@ async function saveCashRecord(){
     _savingCash=false;
     if(btn){btn.disabled=false;btn.textContent='保存する';}
   }
+}
+
+async function deleteCashRecord(id){
+  if(!confirm('この記録を削除しますか？'))return;
+  if(!checkOnline())return;
+  // 残高を再計算するため削除後に全件取得して再計算
+  const result=await sb.from('wecats_cash').delete().eq('id',id);
+  if(result.error){showToast('⚠️ 削除失敗！もう一度試してください');return;}
+  showToast('削除しました');
+  await initCashPage();
+}
+
+function openEditCashRecord(id){
+  const r=cashCache.find(c=>c.id===id);if(!r)return;
+  currentCashType=r.type;
+  document.getElementById('cashModalTitle').textContent=r.type==='expense'?'💸 現金を使用する':'💴 現金を補充する';
+  document.getElementById('cashAmountLabel').textContent=r.type==='expense'?'使用金額':'補充金額';
+  document.getElementById('cashDate').value=r.date||'';
+  document.getElementById('cashAmount').value=r.amount||'';
+  document.getElementById('cashDesc').value=r.description||'';
+  document.getElementById('cashMemo').value=r.memo||'';
+  photoBuf.cash=[];
+  if(r.receipt_photo){
+    try{const p=JSON.parse(r.receipt_photo);photoBuf.cash=Array.isArray(p)?p:(p?[p]:[]);}
+    catch(e){photoBuf.cash=r.receipt_photo?[r.receipt_photo]:[]; }
+  }
+  renderPhotoPreview('cash');
+  // 編集IDを保持
+  document.getElementById('modalCash').dataset.editId=id;
+  document.getElementById('modalCash').classList.add('open');
 }
 
 // ===== マニュアル ステップ記事 =====
