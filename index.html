@@ -1790,7 +1790,7 @@ async function initCashPage(){
 function renderCashBalance(){
   if(!cashCache.length){
     document.getElementById('cashBalance').textContent='¥50,000';
-    document.getElementById('cashLastUpdate').textContent='初期残高：¥50,000';
+    document.getElementById('cashLastUpdate').textContent='初期残高：¥0';
     return;
   }
   const latest=cashCache[0];
@@ -1863,7 +1863,7 @@ async function saveCashRecord(){
       if(result.error){showToast('⚠️ 保存失敗！もう一度試してください');return;}
       // 残高を全件再計算
       const{data:allRecords}=await sb.from('wecats_cash').select('*').order('date').order('created_at');
-      let balance=50000;
+      let balance=0;
       for(const rec of(allRecords||[])){
         balance=rec.type==='expense'?balance-rec.amount:balance+rec.amount;
         await sb.from('wecats_cash').update({balance}).eq('id',rec.id);
@@ -1871,7 +1871,7 @@ async function saveCashRecord(){
       document.getElementById('modalCash').dataset.editId='';
     } else {
       // 新規の場合
-      const currentBalance=cashCache.length?cashCache[0].balance:50000;
+      const currentBalance=cashCache.length?cashCache[0].balance:0;
       const newBalance=currentCashType==='expense'?currentBalance-amount:currentBalance+amount;
       if(newBalance<0){showToast('残金が不足しています');return;}
       result=await sb.from('wecats_cash').insert({id:'cash_'+Date.now(),date,type:currentCashType,description,amount,balance:newBalance,receipt_photo,memo});
