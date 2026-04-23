@@ -161,6 +161,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .drink-tab.ice.active { border-color: #38bdf8; color: #38bdf8; background: rgba(56,189,248,0.1); }
 .drink-tab.cat.active { border-color: #d4708a; color: #d4708a; background: rgba(212,112,138,0.1); }
 .drink-tab.supply.active { border-color: #6b8e6b; color: #6b8e6b; background: rgba(107,142,107,0.1); }
+.drink-tab.meds.active { border-color: #9b59b6; color: #9b59b6; background: rgba(155,89,182,0.1); }
 .nav-badge { position: absolute; top: 6px; right: 6px; background: var(--danger); color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 9px; display: flex; align-items: center; justify-content: center; font-weight: 700; }
 .drink-summary { display: flex; gap: 8px; margin: 0 16px 12px; }
 .drink-sum-card { background: var(--white); border-radius: 12px; padding: 10px; text-align: center; flex: 1; box-shadow: var(--shadow); }
@@ -414,6 +415,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
     <button class="drink-tab ice" onclick="switchDrinkTab('ice')">🧊 アイス</button>
     <button class="drink-tab cat" onclick="switchDrinkTab('cat')">🐱 猫用品</button>
     <button class="drink-tab supply" onclick="switchDrinkTab('supply')">🧻 消耗品</button>
+    <button class="drink-tab meds" onclick="switchDrinkTab('meds')">💊 薬</button>
   </div>
   <div class="drink-alert" id="drinkAlert">⚠️ 在庫切れがあります！発注してください</div>
   <div class="drink-summary">
@@ -839,7 +841,7 @@ let editingCatId=null,currentFolderId=null,editingArticleId=null,currentCareType
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth(),calSelectedDay=null,calInputDate=null;
 let photoBuf={daily:[],hospital:[],board:[],cash:[]},selectedEmoji='🐱';
 let articleStepData=[];
-let drinkCache={hot:[],ice:[],cat:[],supply:[]},boardCache=[],foldersCache=[],articlesCache=[],medCheckState={};
+let drinkCache={hot:[],ice:[],cat:[],supply:[],meds:[]},boardCache=[],foldersCache=[],articlesCache=[],medCheckState={};
 let currentCatLocationTab='cage';
 let floorOpts={toilet:null,food:null};
 let staffCache=[];
@@ -1448,6 +1450,7 @@ async function loadDrinks(){
   drinkCache.ice=(data||[]).filter(d=>d.category==='ice');
   drinkCache.cat=(data||[]).filter(d=>d.category==='cat');
   drinkCache.supply=(data||[]).filter(d=>d.category==='supply');
+  drinkCache.meds=(data||[]).filter(d=>d.category==='meds');
   if(!data||data.length===0)await initDefaultDrinks();
   updateStockBadge();
   if(currentPage==='drinks')renderDrinks();
@@ -1475,12 +1478,12 @@ async function initDefaultDrinks(){
   ];
   await sb.from('drink_items').insert(items);
   const{data}=await sb.from('drink_items').select('*').order('created_at');
-  drinkCache.hot=(data||[]).filter(d=>d.category==='hot');drinkCache.ice=(data||[]).filter(d=>d.category==='ice');
+  drinkCache.hot=(data||[]).filter(d=>d.category==='hot');drinkCache.ice=(data||[]).filter(d=>d.category==='ice');drinkCache.meds=(data||[]).filter(d=>d.category==='meds');
 }
 function switchDrinkTab(tab){
   currentDrinkTab=tab;
   document.querySelectorAll('.drink-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelector(`.drink-tab.${tab}`).classList.add('active');
+  document.querySelectorAll('.drink-tab').forEach(t=>{if(t.classList.contains(tab))t.classList.add('active');});
   const isDrink=tab==='hot'||tab==='ice';
   const btn=document.getElementById('drinkAddBtn');
   if(btn)btn.textContent=isDrink?'＋ ドリンクを追加':'＋ 商品を追加';
