@@ -679,6 +679,17 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
     </div>
   </div>
   <div class="form-group"><label class="form-label">電話番号</label><input type="tel" class="form-input" id="resPhone" placeholder="例：090-1234-5678" inputmode="tel"></div>
+  <div class="form-group">
+    <label class="form-label">受付経路</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap" id="resChannelOpts">
+      <button class="check-opt" data-val="📞 電話" onclick="selectResChannel(this)">📞 電話</button>
+      <button class="check-opt" data-val="💬 LINE" onclick="selectResChannel(this)">💬 LINE</button>
+      <button class="check-opt" data-val="📸 インスタ" onclick="selectResChannel(this)">📸 インスタ</button>
+      <button class="check-opt" data-val="🎵 TikTok" onclick="selectResChannel(this)">🎵 TikTok</button>
+      <button class="check-opt" data-val="🌐 その他" onclick="selectResChannel(this)">🌐 その他</button>
+    </div>
+  </div>
+  <div class="form-group"><label class="form-label">担当スタッフ</label><input type="text" class="form-input" id="resStaff" placeholder="受付したスタッフ名"></div>
   <div class="form-group"><label class="form-label">メモ（任意）</label><textarea class="form-textarea" id="resMemo" placeholder="アレルギーや要望など" style="min-height:55px"></textarea></div>
   <button class="modal-submit" onclick="saveRes()">保存する</button>
   <button id="resDeleteBtn" onclick="deleteRes()" style="display:none;width:100%;padding:11px;margin-top:8px;background:none;border:1.5px solid #f87171;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;color:#dc2626;font-weight:700;cursor:pointer">🗑 この予約を削除</button>
@@ -891,7 +902,7 @@ let currentCatLocationTab='cage';
 let floorOpts={toilet:null,food:null};
 let staffCache=[],loginLogsCache=[],selectedStaffId=null,currentStaffIsOwner=false;
 // 予約
-let resYear=new Date().getFullYear(),resMonth=new Date().getMonth(),resSelectedDay=null,resTab='calendar',resCache=[],resPax=2;
+let resYear=new Date().getFullYear(),resMonth=new Date().getMonth(),resSelectedDay=null,resTab='calendar',resCache=[],resPax=2,resChannel=null;
 // 現金
 let cashCache=[],currentCashType='expense';
 // 体重
@@ -1380,6 +1391,7 @@ function buildResCard(r){
     <div class="res-card-body">
       <div class="res-card-name">${r.customer_name}</div>
       <div class="res-card-detail">👥 ${r.pax}名${r.phone?`　📞 <a href="tel:${r.phone}" style="color:var(--pink-deep);text-decoration:none" onclick="event.stopPropagation()">${r.phone}</a>`:''}</div>
+      <div class="res-card-detail" style="margin-top:2px">${r.channel?`<span style="background:var(--pink-light);border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">${r.channel}</span>`:''} ${r.staff?`<span style="font-size:11px;color:var(--text-light)">担当：${r.staff}</span>`:''}</div>
       ${r.memo?`<div class="res-card-memo">📝 ${r.memo}</div>`:''}
     </div>
     <div style="font-size:18px;color:var(--text-light)">›</div>
@@ -1418,6 +1430,8 @@ function openResModal(dateStr){
   document.getElementById('resTime').value='10:00';
   document.getElementById('resName').value='';
   document.getElementById('resPhone').value='';
+  document.getElementById('resStaff').value=userName||'';
+  resChannel=null;document.querySelectorAll('#resChannelOpts .check-opt').forEach(b=>b.classList.remove('selected'));
   document.getElementById('resMemo').value='';
   document.getElementById('resPaxNum').textContent=resPax;
   document.getElementById('resModalTitle').textContent='📅 予約を追加';
@@ -1433,18 +1447,23 @@ function openResEdit(id){
   document.getElementById('resName').value=r.customer_name||'';
   document.getElementById('resPhone').value=r.phone||'';
   document.getElementById('resMemo').value=r.memo||'';
+  document.getElementById('resStaff').value=r.staff||'';
+  resChannel=r.channel||null;
+  document.querySelectorAll('#resChannelOpts .check-opt').forEach(b=>{b.classList.toggle('selected',b.dataset.val===resChannel);});
   document.getElementById('resPaxNum').textContent=resPax;
   document.getElementById('resModalTitle').textContent='✏️ 予約を編集';
   document.getElementById('resDeleteBtn').style.display='block';
   document.getElementById('modalRes').classList.add('open');
 }
 function changeResPax(delta){resPax=Math.max(1,Math.min(99,resPax+delta));document.getElementById('resPaxNum').textContent=resPax;}
+function selectResChannel(el){resChannel=el.dataset.val;document.querySelectorAll('#resChannelOpts .check-opt').forEach(b=>b.classList.remove('selected'));el.classList.add('selected');}
 async function saveRes(){
   const date=document.getElementById('resDate').value,name=document.getElementById('resName').value.trim();
   if(!date||!name){showToast('日付とお客様名を入力してください');return;}
   const time=document.getElementById('resTime').value,phone=document.getElementById('resPhone').value.trim(),memo=document.getElementById('resMemo').value.trim();
+  const staff=document.getElementById('resStaff').value.trim(),channel=resChannel||null;
   const editId=document.getElementById('resEditId').value;
-  const payload={date,time,customer_name:name,pax:resPax,phone,memo};
+  const payload={date,time,customer_name:name,pax:resPax,phone,memo,staff,channel};
   if(editId){await sb.from('wecats_reservations').update(payload).eq('id',editId);showToast('✓ 予約を更新しました');}
   else{await sb.from('wecats_reservations').insert({id:'res_'+Date.now(),...payload});showToast('✓ 予約を追加しました');}
   await loadReservations();closeModal('res');renderTodaySummary();
