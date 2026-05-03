@@ -236,9 +236,9 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .reset-check-btn { width: 100%; padding: 10px; background: var(--pink-light); border: none; border-radius: 10px; font-family: 'Zen Maru Gothic', sans-serif; font-size: 12px; color: var(--pink-deep); font-weight: 700; cursor: pointer; margin-top: 12px; }
 
 /* モーダル */
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(74,45,53,0.4); z-index: 200; align-items: flex-end; justify-content: center; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(74,45,53,0.4); z-index: 200; align-items: flex-end; justify-content: center; overflow-y: auto; }
 .modal-overlay.open { display: flex; }
-.modal { background: var(--white); border-radius: 24px 24px 0 0; padding: 22px 20px 32px; width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto; animation: slideUp 0.25s ease; }
+.modal { background: var(--white); border-radius: 24px 24px 0 0; padding: 22px 20px 40px; width: 100%; max-width: 480px; max-height: 92vh; overflow-y: auto; animation: slideUp 0.25s ease; }
 @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
 .modal h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; color: var(--pink-deep); }
 .modal-close { float: right; background: var(--pink-light); border: none; border-radius: 50%; width: 26px; height: 26px; font-size: 13px; cursor: pointer; line-height: 26px; text-align: center; }
@@ -666,9 +666,14 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <button class="modal-close" onclick="closeModal('res')">✕</button>
   <h3 id="resModalTitle">📅 予約を追加</h3>
   <input type="hidden" id="resEditId">
-  <div class="form-group"><label class="form-label">日付</label><input type="date" class="form-input" id="resDate"></div>
-  <div class="form-group"><label class="form-label">開始時間</label><input type="time" class="form-input" id="resTime"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+    <div class="form-group" style="margin-bottom:0"><label class="form-label">日付</label><input type="date" class="form-input" id="resDate"></div>
+    <div class="form-group" style="margin-bottom:0"><label class="form-label">時間</label><input type="time" class="form-input" id="resTime"></div>
+  </div>
+
   <div class="form-group"><label class="form-label">お客様名</label><input type="text" class="form-input" id="resName" placeholder="例：田中 様"></div>
+
   <div class="form-group">
     <label class="form-label">人数</label>
     <div class="res-pax-ctrl">
@@ -678,19 +683,24 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
       <span style="font-size:13px;color:var(--text-light)">名</span>
     </div>
   </div>
-  <div class="form-group"><label class="form-label">電話番号</label><input type="tel" class="form-input" id="resPhone" placeholder="例：090-1234-5678" inputmode="tel"></div>
+
+  <div class="form-group"><label class="form-label">📞 電話番号</label><input type="tel" class="form-input" id="resPhone" placeholder="例：090-1234-5678" inputmode="tel"></div>
+
   <div class="form-group">
-    <label class="form-label">受付経路</label>
-    <div style="display:flex;gap:6px;flex-wrap:wrap" id="resChannelOpts">
-      <button class="check-opt" data-val="📞 電話" onclick="selectResChannel(this)">📞 電話</button>
-      <button class="check-opt" data-val="💬 LINE" onclick="selectResChannel(this)">💬 LINE</button>
-      <button class="check-opt" data-val="📸 インスタ" onclick="selectResChannel(this)">📸 インスタ</button>
-      <button class="check-opt" data-val="🎵 TikTok" onclick="selectResChannel(this)">🎵 TikTok</button>
-      <button class="check-opt" data-val="🌐 その他" onclick="selectResChannel(this)">🌐 その他</button>
+    <label class="form-label">📡 受付経路</label>
+    <div id="resChannelOpts" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px">
+      <button data-val="📞 電話" onclick="selectResChannel(this)" style="padding:10px 4px;border-radius:10px;border:2px solid var(--pink-dark);background:var(--white);font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;cursor:pointer;color:var(--text)">📞 電話</button>
+      <button data-val="💬 LINE" onclick="selectResChannel(this)" style="padding:10px 4px;border-radius:10px;border:2px solid var(--pink-dark);background:var(--white);font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;cursor:pointer;color:var(--text)">💬 LINE</button>
+      <button data-val="📸 インスタ" onclick="selectResChannel(this)" style="padding:10px 4px;border-radius:10px;border:2px solid var(--pink-dark);background:var(--white);font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;cursor:pointer;color:var(--text)">📸 インスタ</button>
+      <button data-val="🎵 TikTok" onclick="selectResChannel(this)" style="padding:10px 4px;border-radius:10px;border:2px solid var(--pink-dark);background:var(--white);font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;cursor:pointer;color:var(--text)">🎵 TikTok</button>
+      <button data-val="🌐 その他" onclick="selectResChannel(this)" style="padding:10px 4px;border-radius:10px;border:2px solid var(--pink-dark);background:var(--white);font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;cursor:pointer;color:var(--text)">🌐 その他</button>
     </div>
   </div>
-  <div class="form-group"><label class="form-label">担当スタッフ</label><input type="text" class="form-input" id="resStaff" placeholder="受付したスタッフ名"></div>
-  <div class="form-group"><label class="form-label">メモ（任意）</label><textarea class="form-textarea" id="resMemo" placeholder="アレルギーや要望など" style="min-height:55px"></textarea></div>
+
+  <div class="form-group"><label class="form-label">👤 担当スタッフ</label><input type="text" class="form-input" id="resStaff" placeholder="受付したスタッフ名"></div>
+
+  <div class="form-group"><label class="form-label">📝 メモ（任意）</label><textarea class="form-textarea" id="resMemo" placeholder="アレルギーや要望など" style="min-height:55px"></textarea></div>
+
   <button class="modal-submit" onclick="saveRes()">保存する</button>
   <button id="resDeleteBtn" onclick="deleteRes()" style="display:none;width:100%;padding:11px;margin-top:8px;background:none;border:1.5px solid #f87171;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;color:#dc2626;font-weight:700;cursor:pointer">🗑 この予約を削除</button>
 </div></div>
@@ -1431,7 +1441,9 @@ function openResModal(dateStr){
   document.getElementById('resName').value='';
   document.getElementById('resPhone').value='';
   document.getElementById('resStaff').value=userName||'';
-  resChannel=null;document.querySelectorAll('#resChannelOpts .check-opt').forEach(b=>b.classList.remove('selected'));
+  resChannel=null;document.querySelectorAll('#resChannelOpts button').forEach(b=>{
+    b.style.background='var(--white)';b.style.borderColor='var(--pink-dark)';b.style.color='var(--text)';
+  });
   document.getElementById('resMemo').value='';
   document.getElementById('resPaxNum').textContent=resPax;
   document.getElementById('resModalTitle').textContent='📅 予約を追加';
@@ -1449,14 +1461,25 @@ function openResEdit(id){
   document.getElementById('resMemo').value=r.memo||'';
   document.getElementById('resStaff').value=r.staff||'';
   resChannel=r.channel||null;
-  document.querySelectorAll('#resChannelOpts .check-opt').forEach(b=>{b.classList.toggle('selected',b.dataset.val===resChannel);});
+  document.querySelectorAll('#resChannelOpts button').forEach(b=>{
+    const active=b.dataset.val===resChannel;
+    b.style.background=active?'var(--pink-deep)':'var(--white)';
+    b.style.borderColor=active?'var(--pink-deep)':'var(--pink-dark)';
+    b.style.color=active?'white':'var(--text)';
+  });
   document.getElementById('resPaxNum').textContent=resPax;
   document.getElementById('resModalTitle').textContent='✏️ 予約を編集';
   document.getElementById('resDeleteBtn').style.display='block';
   document.getElementById('modalRes').classList.add('open');
 }
 function changeResPax(delta){resPax=Math.max(1,Math.min(99,resPax+delta));document.getElementById('resPaxNum').textContent=resPax;}
-function selectResChannel(el){resChannel=el.dataset.val;document.querySelectorAll('#resChannelOpts .check-opt').forEach(b=>b.classList.remove('selected'));el.classList.add('selected');}
+function selectResChannel(el){
+  resChannel=el.dataset.val;
+  document.querySelectorAll('#resChannelOpts button').forEach(b=>{
+    b.style.background='var(--white)';b.style.borderColor='var(--pink-dark)';b.style.color='var(--text)';
+  });
+  el.style.background='var(--pink-deep)';el.style.borderColor='var(--pink-deep)';el.style.color='white';
+}
 async function saveRes(){
   const date=document.getElementById('resDate').value,name=document.getElementById('resName').value.trim();
   if(!date||!name){showToast('日付とお客様名を入力してください');return;}
