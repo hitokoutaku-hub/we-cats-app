@@ -907,7 +907,7 @@ let editingCatId=null,currentFolderId=null,editingArticleId=null,currentCareType
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth(),calSelectedDay=null,calInputDate=null;
 let photoBuf={daily:[],hospital:[],board:[],cash:[]},selectedEmoji='🐱';
 let articleStepData=[];
-let drinkCache={hot:[],ice:[],cat:[],supply:[],meds:[]},boardCache=[],foldersCache=[],articlesCache=[],medCheckState={};
+let drinkCache={hot:[],ice:[],cat:[],supply:[],meds:[]},boardCache=[],pinnedCache=[],commentsCache={},boardOffset=0,boardAllLoaded=false,foldersCache=[],articlesCache=[],medCheckState={};
 let currentCatLocationTab='cage';
 let floorOpts={toilet:null,food:null};
 let staffCache=[],loginLogsCache=[],selectedStaffId=null,currentStaffIsOwner=false;
@@ -1593,7 +1593,39 @@ async function deleteDrink(){const id=document.getElementById('dEditId').value;i
 
 // ===== 連絡ボード =====
 function selectPostType(el,type){currentPostType=type;document.querySelectorAll('.post-type-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const rf=document.getElementById('reportFields');if(rf)rf.style.display=type==='report'?'block':'none';}
-async function loadBoard(){const{data}=await sb.from('board_posts').select('*').order('created_at',{ascending:false});boardCache=data||[];renderBoard();}
+async function loadBoard(loadMore=false){
+  if(!loadMore){
+    boardOffset=0;boardCache=[];commentsCache={};boardAllLoaded=false;
+  }
+  // 直近3日前の日時を計算
+  const since=new Date();since.setDate(since.getDate()-3);const sinceStr=since.toISOString();
+  // ピン留めは常に全件取得（別クエリ）、通常投稿は直近3日分
+  const[{data:pinned},{data:recent},{data:comments}]=await Promise.all([
+    sb.from('board_posts').select('*').eq('pinned',true).order('created_at',{ascending:false}),
+    sb.from('board_posts').select('*').eq('pinned',false).gte('created_at',sinceStr).order('created_at',{ascending:false}),
+    sb.from('board_comments').select('*').gte('created_at',sinceStr).order('created_at')
+  ]);
+  pinnedCache=pinned||[];
+  if(!loadMore) boardCache=[...(recent||[])];
+  else boardCache=[...boardCache,...(recent||[])];
+  commentsCache={};
+  (comments||[]).forEach(c=>{if(!commentsCache[c.post_id])commentsCache[c.post_id]=[];commentsCache[c.post_id].push(c);});
+  renderBoard();
+}
+async function loadOlderPosts(){
+  // 現在の最古の投稿より前を7日分ずつ追加取得
+  const oldest=boardCache.length?boardCache[boardCache.length-1].created_at:new Date().toISOString();
+  const until=new Date(oldest);
+  const from=new Date(oldest);from.setDate(from.getDate()-7);
+  const[{data:older},{data:olderComments}]=await Promise.all([
+    sb.from('board_posts').select('*').eq('pinned',false).lt('created_at',until.toISOString()).gte('created_at',from.toISOString()).order('created_at',{ascending:false}),
+    sb.from('board_comments').select('*').lt('created_at',until.toISOString()).gte('created_at',from.toISOString()).order('created_at')
+  ]);
+  if(!older||older.length===0){showToast('これ以上古い投稿はありません');document.getElementById('loadMoreBtn').textContent='これ以上なし';document.getElementById('loadMoreBtn').disabled=true;return;}
+  boardCache=[...boardCache,...older];
+  (olderComments||[]).forEach(c=>{if(!commentsCache[c.post_id])commentsCache[c.post_id]=[];commentsCache[c.post_id].push(c);});
+  renderBoard();showToast(`✓ ${older.length}件読み込みました`);
+}
 async function submitPost(){
   let content=document.getElementById('newPostContent').value.trim();
   if(currentPostType==='report'){
@@ -1609,7 +1641,7 @@ async function submitPost(){
   ['reportVisitors','reportReviews','reportSales'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   photoBuf.board=[];renderPhotoPreview('board');await loadBoard();
 }
-async function deletePost(id){if(!confirm('削除しますか？'))return;await sb.from('board_posts').delete().eq('id',id);await sb.from('board_comments').delete().eq('post_id',id);await loadBoard();}
+async function deletePost(id){if(!confirm('削除しますか？'))return;await sb.from('board_posts').delete().eq('id',id);await sb.from('board_comments').delete().eq('post_id',id);delete commentsCache[id];await loadBoard();}
 async function togglePin(id,current){await sb.from('board_posts').update({pinned:!current}).eq('id',id);await loadBoard();showToast(current?'ピン留めを解除しました':'📌 ピン留めしました');}
 function openEditPost(id){
   const post=boardCache.find(p=>p.id===id);if(!post)return;
@@ -1618,25 +1650,54 @@ function openEditPost(id){
 }
 function renderBoard(){
   const pinnedEl=document.getElementById('pinnedPosts'),el=document.getElementById('boardPosts');
-  const pinned=boardCache.filter(p=>p.pinned),normal=boardCache.filter(p=>!p.pinned);
-  pinnedEl.innerHTML=pinned.length?`<div class="pinned-label">📌 ピン留め</div>`+pinned.map(p=>buildPostCard(p)).join(''):'';
-  if(!normal.length&&!pinned.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>まだ投稿がありません</p></div>';return;}
-  const groups={};normal.forEach(post=>{const d=new Date(post.created_at);const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;if(!groups[key])groups[key]=[];groups[key].push(post);});
-  const now=new Date();const thisMonthKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  pinnedEl.innerHTML=pinnedCache.length?`<div class="pinned-label">📌 ピン留め</div>`+pinnedCache.map(p=>buildPostCard(p)).join(''):'';
+  if(!boardCache.length&&!pinnedCache.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>まだ投稿がありません</p></div>';return;}
+  // 日付グループ（日単位）
+  const groups={};boardCache.forEach(post=>{const d=new Date(post.created_at);const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;if(!groups[key])groups[key]=[];groups[key].push(post);});
+  const todayStr=today();
+  const dayLabel=(key)=>{if(key===todayStr)return'今日';const y=new Date(key);const diff=Math.floor((new Date(todayStr)-y)/(1000*60*60*24));if(diff===1)return'昨日';if(diff===2)return'一昨日';const[yr,m,d]=key.split('-');return`${parseInt(m)}/${parseInt(d)}`;};
   let html='';
   Object.keys(groups).sort((a,b)=>b.localeCompare(a)).forEach(key=>{
-    const[y,m]=key.split('-');const isThisMonth=key===thisMonthKey;const posts=groups[key];
-    html+=`<div style="margin-bottom:12px"><div onclick="toggleMonthGroup('mg_${key}')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--pink-light);border-radius:12px;cursor:pointer;margin-bottom:6px;font-weight:700;font-size:13px;color:var(--pink-deep)"><span>📋 ${y}年${parseInt(m)}月（${posts.length}件）</span><span id="mg_arrow_${key}">${isThisMonth?'▲':'▼'}</span></div><div id="mg_${key}" style="display:${isThisMonth?'block':'none'}">${posts.map(p=>buildPostCard(p)).join('')}</div></div>`;
+    const posts=groups[key];const label=dayLabel(key);
+    html+=`<div style="margin-bottom:12px">
+      <div style="padding:6px 14px;background:var(--pink-light);border-radius:12px;margin-bottom:6px;font-weight:700;font-size:12px;color:var(--pink-deep)">📅 ${label}（${posts.length}件）</div>
+      ${posts.map(p=>buildPostCard(p)).join('')}
+    </div>`;
   });
-  el.innerHTML=html;boardCache.forEach(post=>loadComments(post.id));
+  html+=`<button id="loadMoreBtn" onclick="loadOlderPosts()" style="width:100%;padding:12px;background:var(--white);border:1.5px solid var(--pink-dark);border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;color:var(--text-light);font-weight:700;cursor:pointer;margin-top:4px">📂 過去の投稿を見る</button>`;
+  el.innerHTML=html;
+  [...boardCache,...pinnedCache].forEach(post=>renderComments(post.id));
 }
 function toggleMonthGroup(id){const el=document.getElementById(id);const key=id.replace('mg_','');const arrow=document.getElementById('mg_arrow_'+key);const isOpen=el.style.display!=='none';el.style.display=isOpen?'none':'block';if(arrow)arrow.textContent=isOpen?'▼':'▲';}
 function buildPostCard(post){
   const postPhotos=post.photos?JSON.parse(post.photos||'[]'):[];const bCls=post.role==='owner'?'owner':post.role==='alert'?'alert':'';const bLabel=post.role==='owner'?'👑 オーナーより':post.role==='alert'?'🚨 注意事項':'📋 日報・報告';const pinIcon=post.pinned?'📌':'📍';
-  return`<div class="post-card ${post.pinned?'pinned-card':''}"><div class="post-header"><span class="post-badge ${bCls}">${bLabel}</span><span style="font-size:12px;font-weight:700">${post.author}</span><span class="post-time">${formatTime(post.created_at)}</span><button class="pin-btn ${post.pinned?'pinned':''}" onclick="togglePin('${post.id}',${post.pinned})">${pinIcon}</button>${post.author===userName||currentStaffIsOwner?`<button class="post-delete" onclick="openEditPost('${post.id}')">✏️</button><button class="post-delete" onclick="deletePost('${post.id}')">🗑</button>`:''}</div><div class="post-content">${post.content.replace(/\n/g,'<br>')}</div>${postPhotos.length?`<div class="record-photos">${postPhotos.map(s=>`<img src="${s}" onclick="openViewer(this.src)" alt="">`).join('')}</div>`:''}<div class="comments-area" id="comments-${post.id}"><div style="font-size:11px;color:var(--text-light);padding:4px">読み込み中...</div></div></div>`;
+  return`<div class="post-card ${post.pinned?'pinned-card':''}"><div class="post-header"><span class="post-badge ${bCls}">${bLabel}</span><span style="font-size:12px;font-weight:700">${post.author}</span><span class="post-time">${formatTime(post.created_at)}</span><button class="pin-btn ${post.pinned?'pinned':''}" onclick="togglePin('${post.id}',${post.pinned})">${pinIcon}</button>${post.author===userName||currentStaffIsOwner?`<button class="post-delete" onclick="openEditPost('${post.id}')">✏️</button><button class="post-delete" onclick="deletePost('${post.id}')">🗑</button>`:''}</div><div class="post-content">${post.content.replace(/\n/g,'<br>')}</div>${postPhotos.length?`<div class="record-photos">${postPhotos.map(s=>`<img src="${s}" onclick="openViewer(this.src)" alt="">`).join('')}</div>`:''}<div class="comments-area" id="comments-${post.id}"></div></div>`;
 }
-async function loadComments(postId){const{data:comments}=await sb.from('board_comments').select('*').eq('post_id',postId).order('created_at');const el=document.getElementById('comments-'+postId);if(!el)return;let html=(comments||[]).map(c=>`<div class="comment-item"><div class="comment-avatar">${c.author.charAt(0)}</div><div class="comment-body"><div class="comment-author">${c.author}</div><div class="comment-text">${c.content.replace(/\n/g,'<br>')}</div><div class="comment-time">${formatTime(c.created_at)}</div></div></div>`).join('');html+=`<div class="comment-input-row"><input type="text" placeholder="返信する..." id="comment-input-${postId}" onkeypress="if(event.key==='Enter')submitComment('${postId}')"><button onclick="submitComment('${postId}')">送信</button></div>`;el.innerHTML=html;}
-async function submitComment(postId){const input=document.getElementById('comment-input-'+postId);const content=input.value.trim();if(!content)return;await sb.from('board_comments').insert({post_id:postId,author:userName,content});input.value='';await loadComments(postId);}
+function renderComments(postId){
+  const el=document.getElementById('comments-'+postId);if(!el)return;
+  const comments=commentsCache[postId]||[];
+  // コメント0件は折りたたみ表示
+  const isOpen=el.dataset.open==='1';
+  if(!isOpen&&comments.length===0){
+    el.innerHTML=`<div class="comment-input-row"><input type="text" placeholder="返信する..." id="comment-input-${postId}" onkeypress="if(event.key==='Enter')submitComment('${postId}')"><button onclick="submitComment('${postId}')">送信</button></div>`;
+    return;
+  }
+  let html=comments.map(c=>`<div class="comment-item"><div class="comment-avatar">${c.author.charAt(0)}</div><div class="comment-body"><div class="comment-author">${c.author}</div><div class="comment-text">${c.content.replace(/\n/g,'<br>')}</div><div class="comment-time">${formatTime(c.created_at)}</div></div></div>`).join('');
+  html+=`<div class="comment-input-row"><input type="text" placeholder="返信する..." id="comment-input-${postId}" onkeypress="if(event.key==='Enter')submitComment('${postId}')"><button onclick="submitComment('${postId}')">送信</button></div>`;
+  el.innerHTML=html;el.dataset.open='1';
+}
+async function submitComment(postId){
+  const input=document.getElementById('comment-input-'+postId);
+  const content=input.value.trim();if(!content)return;
+  const newComment={post_id:postId,author:userName,content,created_at:new Date().toISOString()};
+  // 楽観的UI更新（先に表示）
+  if(!commentsCache[postId])commentsCache[postId]=[];
+  commentsCache[postId].push(newComment);
+  const el=document.getElementById('comments-'+postId);if(el)el.dataset.open='1';
+  renderComments(postId);
+  // バックグラウンドで保存
+  await sb.from('board_comments').insert({post_id:postId,author:userName,content});
+}
 
 // ===== 現金管理 =====
 async function initCashPage(){const{data}=await sb.from('wecats_cash').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});cashCache=data||[];renderCashBalance();renderCashList();}
