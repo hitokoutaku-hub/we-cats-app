@@ -543,10 +543,11 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
       <div style="font-size:36px;font-weight:900" id="cashBalance">¥-</div>
       <div style="font-size:11px;opacity:0.8;margin-top:4px" id="cashLastUpdate">読み込み中...</div>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:14px">
+    <div style="display:flex;gap:8px;margin-bottom:8px">
       <button onclick="openCashModal('expense')" style="flex:1;padding:12px;background:var(--white);border:2px solid #f87171;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;color:#f87171;cursor:pointer">💸 使用する</button>
       <button onclick="openCashModal('refill')" style="flex:1;padding:12px;background:var(--white);border:2px solid #4ade80;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;color:#16a34a;cursor:pointer">💴 補充する</button>
     </div>
+    <button onclick="openCashModal('reset')" style="width:100%;padding:10px;margin-bottom:14px;background:var(--white);border:1.5px solid var(--pink-dark);border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;color:var(--text-light);cursor:pointer">🔄 残高をリセット（金庫の実際の金額に合わせる）</button>
     <div style="background:var(--white);border-radius:14px;padding:14px;box-shadow:var(--shadow)">
       <div style="font-size:14px;font-weight:700;color:var(--pink-deep);margin-bottom:12px">📋 使用履歴</div>
       <div id="cashList"></div>
@@ -670,6 +671,15 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
     <div class="form-group" style="margin-bottom:0"><label class="form-label">日付</label><input type="date" class="form-input" id="resDate"></div>
     <div class="form-group" style="margin-bottom:0"><label class="form-label">時間</label><input type="time" class="form-input" id="resTime"></div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">☕ 種別</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+      <button id="resTypeNormal" data-val="normal" onclick="selectResType(this)" style="padding:12px 4px;border-radius:10px;border:2px solid var(--pink-deep);background:var(--pink-deep);color:white;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer">☕ 通常カフェ</button>
+      <button id="resTypeNight" data-val="night" onclick="selectResType(this)" style="padding:12px 4px;border-radius:10px;border:2px solid var(--pink-dark);background:var(--white);color:var(--text);font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer">🌙 夜カフェ</button>
+    </div>
+    <div id="resNightInfo" style="display:none;background:#1e1b4b;color:#c4b5fd;border-radius:10px;padding:8px 12px;margin-top:8px;font-size:12px;font-weight:700">🌙 2時間制・¥3,000 / 人　完全予約制</div>
   </div>
 
   <div class="form-group"><label class="form-label">お客様名</label><input type="text" class="form-input" id="resName" placeholder="例：田中 様"></div>
@@ -912,7 +922,7 @@ let currentCatLocationTab='cage';
 let floorOpts={toilet:null,food:null};
 let staffCache=[],loginLogsCache=[],selectedStaffId=null,currentStaffIsOwner=false;
 // 予約
-let resYear=new Date().getFullYear(),resMonth=new Date().getMonth(),resSelectedDay=null,resTab='calendar',resCache=[],resPax=2,resChannel=null;
+let resYear=new Date().getFullYear(),resMonth=new Date().getMonth(),resSelectedDay=null,resTab='calendar',resCache=[],resPax=2,resChannel=null,resType='normal';
 // 現金
 let cashCache=[],currentCashType='expense';
 // 体重
@@ -1377,8 +1387,10 @@ function renderResCalendar(){
   for(let i=0;i<firstDay;i++){const c=document.createElement('div');c.className='res-cal-cell empty';grid.appendChild(c);}
   for(let d=1;d<=daysInMonth;d++){
     const cell=document.createElement('div');const count=(dayMap[d]||[]).length;
+    const dow=new Date(resYear,resMonth,d).getDay();const isFri=dow===5;
+    const hasNight=(dayMap[d]||[]).some(r=>r.res_type==='night');
     cell.className='res-cal-cell'+(count>0?' has-res':'')+(d===todayNum?' today':'')+(d===resSelectedDay?' selected':'');
-    cell.innerHTML=`<div class="res-cal-day">${d}</div>${count>0?`<div class="res-cal-count">${count}</div>`:''}`;
+    cell.innerHTML=`<div class="res-cal-day" style="${isFri?'color:#6d28d9;font-weight:900':''}">${d}</div>${hasNight?'<div style="font-size:9px;line-height:1">🌙</div>':count>0?`<div class="res-cal-count">${count}</div>`:''}`;
     cell.onclick=()=>{resSelectedDay=d;renderResCalendar();showResDayDetail(d,dayMap[d]||[]);};
     grid.appendChild(cell);
   }
@@ -1399,7 +1411,7 @@ function buildResCard(r){
   return`<div class="res-card" onclick="openResEdit('${r.id}')">
     <div class="res-card-time">${r.time?r.time.slice(0,5):'--:--'}</div>
     <div class="res-card-body">
-      <div class="res-card-name">${r.customer_name}</div>
+      <div class="res-card-name">${r.res_type==='night'?'<span style="background:#6d28d9;color:white;border-radius:6px;font-size:10px;padding:1px 6px;margin-right:4px;font-weight:700">🌙 夜カフェ</span>':''}${r.customer_name}</div>
       <div class="res-card-detail">👥 ${r.pax}名${r.phone?`　📞 <a href="tel:${r.phone}" style="color:var(--pink-deep);text-decoration:none" onclick="event.stopPropagation()">${r.phone}</a>`:''}</div>
       <div class="res-card-detail" style="margin-top:2px">${r.channel?`<span style="background:var(--pink-light);border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">${r.channel}</span>`:''} ${r.staff?`<span style="font-size:11px;color:var(--text-light)">担当：${r.staff}</span>`:''}</div>
       ${r.memo?`<div class="res-card-memo">📝 ${r.memo}</div>`:''}
@@ -1438,6 +1450,7 @@ function openResModal(dateStr){
   document.getElementById('resEditId').value='';
   document.getElementById('resDate').value=dateStr||today();
   document.getElementById('resTime').value='10:00';
+  resType='normal';selectResType(document.getElementById('resTypeNormal'));
   document.getElementById('resName').value='';
   document.getElementById('resPhone').value='';
   document.getElementById('resStaff').value=userName||'';
@@ -1460,6 +1473,8 @@ function openResEdit(id){
   document.getElementById('resPhone').value=r.phone||'';
   document.getElementById('resMemo').value=r.memo||'';
   document.getElementById('resStaff').value=r.staff||'';
+  resType=r.res_type||'normal';
+  selectResType(document.getElementById(resType==='night'?'resTypeNight':'resTypeNormal'));
   resChannel=r.channel||null;
   document.querySelectorAll('#resChannelOpts button').forEach(b=>{
     const active=b.dataset.val===resChannel;
@@ -1473,6 +1488,14 @@ function openResEdit(id){
   document.getElementById('modalRes').classList.add('open');
 }
 function changeResPax(delta){resPax=Math.max(1,Math.min(99,resPax+delta));document.getElementById('resPaxNum').textContent=resPax;}
+function selectResType(el){
+  resType=el.dataset.val;
+  const isNight=resType==='night';
+  document.getElementById('resTypeNormal').style.cssText=`padding:12px 4px;border-radius:10px;border:2px solid ${isNight?'var(--pink-dark)':'var(--pink-deep)'};background:${isNight?'var(--white)':'var(--pink-deep)'};color:${isNight?'var(--text)':'white'};font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer`;
+  document.getElementById('resTypeNight').style.cssText=`padding:12px 4px;border-radius:10px;border:2px solid ${isNight?'#6d28d9':'var(--pink-dark)'};background:${isNight?'#6d28d9':'var(--white)'};color:${isNight?'white':'var(--text)'};font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer`;
+  document.getElementById('resNightInfo').style.display=isNight?'block':'none';
+  if(isNight&&!document.getElementById('resTime').value){document.getElementById('resTime').value='18:00';}
+}
 function selectResChannel(el){
   resChannel=el.dataset.val;
   document.querySelectorAll('#resChannelOpts button').forEach(b=>{
@@ -1486,7 +1509,7 @@ async function saveRes(){
   const time=document.getElementById('resTime').value,phone=document.getElementById('resPhone').value.trim(),memo=document.getElementById('resMemo').value.trim();
   const staff=document.getElementById('resStaff').value.trim(),channel=resChannel||null;
   const editId=document.getElementById('resEditId').value;
-  const payload={date,time,customer_name:name,pax:resPax,phone,memo,staff,channel};
+  const payload={date,time,customer_name:name,pax:resPax,phone,memo,staff,channel,res_type:resType||'normal'};
   if(editId){await sb.from('wecats_reservations').update(payload).eq('id',editId);showToast('✓ 予約を更新しました');}
   else{await sb.from('wecats_reservations').insert({id:'res_'+Date.now(),...payload});showToast('✓ 予約を追加しました');}
   await loadReservations();closeModal('res');renderTodaySummary();
@@ -1701,15 +1724,20 @@ async function submitComment(postId){
 
 // ===== 現金管理 =====
 async function initCashPage(){
-  // created_atで昇順取得（古い順）→ 残金を順番通りに再計算
   const{data}=await sb.from('wecats_cash').select('*').order('date',{ascending:true}).order('created_at',{ascending:true});
-  // 残金を全件再計算して上書き
-  let balance=77736;
-  cashCache=(data||[]).map(r=>{
-    balance=r.type==='expense'?balance-r.amount:balance+r.amount;
+  const rows=data||[];
+  // 一番最後の「reset」レコードを基準点にする
+  let startIdx=0,balance=0;
+  for(let i=rows.length-1;i>=0;i--){
+    if(rows[i].type==='reset'){startIdx=i;balance=rows[i].amount;break;}
+  }
+  // リセット以降のレコードだけ再計算（リセット自体は残高確定として扱う）
+  cashCache=rows.map((r,i)=>{
+    if(i<startIdx) return{...r}; // リセット前は保存値そのまま表示
+    if(i===startIdx){balance=r.amount;return{...r,balance};}
+    balance=r.type==='expense'?balance-r.amount:r.type==='refill'?balance+r.amount:balance;
     return{...r,balance};
   });
-  // 表示は新しい順に並び替え
   cashCache=cashCache.reverse();
   renderCashBalance();renderCashList();
 }
@@ -1721,13 +1749,24 @@ function renderCashBalance(){
 }
 function renderCashList(){
   const el=document.getElementById('cashList');if(!cashCache.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">💰</div><p>記録がありません</p></div>';return;}
-  el.innerHTML=cashCache.map(r=>{const isExpense=r.type==='expense';let photos=[];try{const p=JSON.parse(r.receipt_photo||'[]');photos=Array.isArray(p)?p:(p?[p]:[]);}catch(e){photos=r.receipt_photo?[r.receipt_photo]:[];}return`<div style="background:var(--pink-light);border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:4px solid ${isExpense?'#f87171':'#4ade80'}"><div style="display:flex;align-items:center;margin-bottom:6px"><div style="flex:1"><div style="font-size:11px;color:var(--text-light);font-weight:700">${r.date}</div><div style="font-size:14px;font-weight:700">${r.description||''}</div></div><div style="text-align:right;margin-left:8px"><div style="font-size:16px;font-weight:900;color:${isExpense?'#dc2626':'#16a34a'}">${isExpense?'-':'+'} ¥${r.amount.toLocaleString()}</div><div style="font-size:11px;color:var(--text-light)">残金 ¥${r.balance.toLocaleString()}</div></div></div>${r.memo?`<div style="font-size:11px;color:var(--text-light);margin-bottom:4px">📝 ${r.memo}</div>`:''}${photos.filter(Boolean).map(p=>`<img src="${p}" style="width:100%;border-radius:8px;margin-top:6px;max-height:220px;object-fit:cover;display:block" onclick="openViewer(this.src)" alt="領収書">`).join('')}<div style="display:flex;gap:6px;margin-top:8px"><button onclick="deleteCashRecord('${r.id}')" style="flex:1;padding:6px;background:var(--white);border:1.5px solid #f87171;border-radius:8px;font-family:'Zen Maru Gothic',sans-serif;font-size:11px;color:#dc2626;font-weight:700;cursor:pointer">🗑 削除</button></div></div>`;}).join('');
+  el.innerHTML=cashCache.map(r=>{const isExpense=r.type==='expense';const isReset=r.type==='reset';let photos=[];try{const p=JSON.parse(r.receipt_photo||'[]');photos=Array.isArray(p)?p:(p?[p]:[]);}catch(e){photos=r.receipt_photo?[r.receipt_photo]:[];}return`<div style="background:var(--pink-light);border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:4px solid ${isReset?'#a855f7':isExpense?'#f87171':'#4ade80'}"><div style="display:flex;align-items:center;margin-bottom:6px"><div style="flex:1"><div style="font-size:11px;color:var(--text-light);font-weight:700">${r.date}</div><div style="font-size:14px;font-weight:700">${r.description||''}</div></div><div style="text-align:right;margin-left:8px"><div style="font-size:16px;font-weight:900;color:${isReset?'#a855f7':isExpense?'#dc2626':'#16a34a'}">${isReset?'🔄':isExpense?'-':'+'} ¥${r.amount.toLocaleString()}</div><div style="font-size:11px;color:var(--text-light)">残金 ¥${r.balance.toLocaleString()}</div></div></div>${r.memo?`<div style="font-size:11px;color:var(--text-light);margin-bottom:4px">📝 ${r.memo}</div>`:''}${photos.filter(Boolean).map(p=>`<img src="${p}" style="width:100%;border-radius:8px;margin-top:6px;max-height:220px;object-fit:cover;display:block" onclick="openViewer(this.src)" alt="領収書">`).join('')}<div style="display:flex;gap:6px;margin-top:8px"><button onclick="deleteCashRecord('${r.id}')" style="flex:1;padding:6px;background:var(--white);border:1.5px solid #f87171;border-radius:8px;font-family:'Zen Maru Gothic',sans-serif;font-size:11px;color:#dc2626;font-weight:700;cursor:pointer">🗑 削除</button></div></div>`;}).join('');
 }
-function openCashModal(type){currentCashType=type;const isExpense=type==='expense';document.getElementById('cashModalTitle').textContent=isExpense?'💸 現金を使用する':'💴 現金を補充する';document.getElementById('cashAmountLabel').textContent=isExpense?'使用金額':'補充金額';document.getElementById('cashDate').value=today();document.getElementById('cashAmount').value='';document.getElementById('cashDesc').value='';document.getElementById('cashMemo').value='';photoBuf.cash=[];renderPhotoPreview('cash');document.getElementById('modalCash').classList.add('open');}
+function openCashModal(type){
+  currentCashType=type;
+  const isExpense=type==='expense';const isReset=type==='reset';
+  document.getElementById('cashModalTitle').textContent=isReset?'🔄 残高をリセット':isExpense?'💸 現金を使用する':'💴 現金を補充する';
+  document.getElementById('cashAmountLabel').textContent=isReset?'現在の正しい残金':'使用金額';
+  document.getElementById('cashDate').value=today();
+  document.getElementById('cashAmount').value=isReset?(cashCache.length?cashCache[0].balance:''):'';
+  document.getElementById('cashDesc').value=isReset?'残高リセット':'';
+  document.getElementById('cashMemo').value='';
+  photoBuf.cash=[];renderPhotoPreview('cash');
+  document.getElementById('modalCash').classList.add('open');
+}
 async function saveCashRecord(){
   const date=document.getElementById('cashDate').value,amount=parseInt(document.getElementById('cashAmount').value),description=document.getElementById('cashDesc').value.trim();
   if(!date||!amount||amount<=0){showToast('日付と金額を入力してください');return;}
-  const currentBalance=cashCache.length?cashCache[0].balance:77736;const newBalance=currentCashType==='expense'?currentBalance-amount:currentBalance+amount;
+  const currentBalance=cashCache.length?cashCache[0].balance:0;const newBalance=currentCashType==='expense'?currentBalance-amount:currentBalance+amount;
   if(newBalance<0){showToast('残金が不足しています');return;}
   await sb.from('wecats_cash').insert({id:'cash_'+Date.now(),date,type:currentCashType,description,amount,balance:newBalance,receipt_photo:photoBuf.cash[0]||'',memo:document.getElementById('cashMemo').value.trim()});
   photoBuf.cash=[];closeModal('cash');showToast('✓ 保存しました');await initCashPage();
