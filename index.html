@@ -1704,7 +1704,7 @@ async function initCashPage(){
   // created_atで昇順取得（古い順）→ 残金を順番通りに再計算
   const{data}=await sb.from('wecats_cash').select('*').order('date',{ascending:true}).order('created_at',{ascending:true});
   // 残金を全件再計算して上書き
-  let balance=49120;
+  let balance=77736;
   cashCache=(data||[]).map(r=>{
     balance=r.type==='expense'?balance-r.amount:balance+r.amount;
     return{...r,balance};
@@ -1714,7 +1714,7 @@ async function initCashPage(){
   renderCashBalance();renderCashList();
 }
 function renderCashBalance(){
-  if(!cashCache.length){document.getElementById('cashBalance').textContent='¥49,120';document.getElementById('cashLastUpdate').textContent='初期残高：¥49,120';return;}
+  if(!cashCache.length){document.getElementById('cashBalance').textContent='¥77,736';document.getElementById('cashLastUpdate').textContent='初期残高：¥77,736';return;}
   const latest=cashCache[0];
   document.getElementById('cashBalance').textContent='¥'+latest.balance.toLocaleString();
   document.getElementById('cashLastUpdate').textContent=`最終更新：${latest.date}`;
@@ -1727,7 +1727,7 @@ function openCashModal(type){currentCashType=type;const isExpense=type==='expens
 async function saveCashRecord(){
   const date=document.getElementById('cashDate').value,amount=parseInt(document.getElementById('cashAmount').value),description=document.getElementById('cashDesc').value.trim();
   if(!date||!amount||amount<=0){showToast('日付と金額を入力してください');return;}
-  const currentBalance=cashCache.length?cashCache[0].balance:49120;const newBalance=currentCashType==='expense'?currentBalance-amount:currentBalance+amount;
+  const currentBalance=cashCache.length?cashCache[0].balance:77736;const newBalance=currentCashType==='expense'?currentBalance-amount:currentBalance+amount;
   if(newBalance<0){showToast('残金が不足しています');return;}
   await sb.from('wecats_cash').insert({id:'cash_'+Date.now(),date,type:currentCashType,description,amount,balance:newBalance,receipt_photo:photoBuf.cash[0]||'',memo:document.getElementById('cashMemo').value.trim()});
   photoBuf.cash=[];closeModal('cash');showToast('✓ 保存しました');await initCashPage();
