@@ -878,6 +878,85 @@ const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
 
+// ─── オフラインキュー ────────────────────────────────────────
+const WECATS_QUEUE_KEY = 'wecats_offline_queue';
+let sbReady = false;
+
+// Supabase接続確認
+(async()=>{
+  try {
+    const{data,error}=await sb.from('wecats_staff').select('id').limit(1);
+    sbReady=!error;
+  } catch(e){ sbReady=false; }
+})();
+
+function wcQueueGet(){try{return JSON.parse(localStorage.getItem(WECATS_QUEUE_KEY)||'[]');}catch(e){return[];}}
+function wcQueueSave(q){localStorage.setItem(WECATS_QUEUE_KEY,JSON.stringify(q));}
+function wcQueueAdd(table,op,data){
+  const q=wcQueueGet();
+  // 同じテーブル・同じIDのupsertは上書き
+  if(op==='upsert'){
+    const idx=q.findIndex(item=>item.table===table&&item.op==='upsert'&&item.data?.id===data?.id);
+    if(idx>=0){q[idx]={table,op,data,ts:Date.now()};wcQueueSave(q);updateWcBadge();return;}
+  }
+  q.push({table,op,data,ts:Date.now()});
+  wcQueueSave(q);
+  updateWcBadge();
+}
+function updateWcBadge(){
+  const q=wcQueueGet();
+  const badge=document.getElementById('wcQueueBadge');
+  if(badge){badge.style.display=q.length>0?'block':'none';badge.textContent=`⏳ 未送信 ${q.length}件`;}
+}
+async function wcFlushQueue(){
+  if(!sbReady)return;
+  const q=wcQueueGet();
+  if(!q.length)return;
+  const failed=[];
+  for(const item of q){
+    try{
+      if(item.op==='upsert'){await sb.from(item.table).upsert(item.data);}
+      else if(item.op==='insert'){await sb.from(item.table).insert(item.data);}
+      else if(item.op==='update'){await sb.from(item.table).update(item.data.update).eq('id',item.data.id);}
+      else if(item.op==='delete'){await sb.from(item.table).delete().eq('id',item.data.id);}
+    }catch(e){failed.push(item);}
+  }
+  wcQueueSave(failed);
+  updateWcBadge();
+  if(failed.length===0&&q.length>0){showToast(`✅ ${q.length}件をクラウドに送信しました`);}
+}
+// 30秒ごとにSupabase復旧チェック＆キュー送信
+setInterval(async()=>{
+  if(!sbReady){
+    try{
+      const{error}=await sb.from('wecats_staff').select('id').limit(1);
+      if(!error){sbReady=true;showToast('🌐 サーバーに再接続しました');await wcFlushQueue();}
+    }catch(e){}
+  } else { await wcFlushQueue(); }
+},30000);
+
+// ─── Supabaseラッパー（オフライン対応） ──────────────────────
+async function sbInsert(table,data){
+  if(!sbReady){wcQueueAdd(table,'insert',data);return{error:null,offline:true};}
+  try{const r=await sb.from(table).insert(data);if(r.error)throw r.error;return r;}
+  catch(e){wcQueueAdd(table,'insert',data);return{error:null,offline:true};}
+}
+async function sbUpsert(table,data){
+  if(!sbReady){wcQueueAdd(table,'upsert',data);return{error:null,offline:true};}
+  try{const r=await sb.from(table).upsert(data);if(r.error)throw r.error;return r;}
+  catch(e){wcQueueAdd(table,'upsert',data);return{error:null,offline:true};}
+}
+async function sbUpdate(table,id,updateData){
+  if(!sbReady){wcQueueAdd(table,'update',{id,update:updateData});return{error:null,offline:true};}
+  try{const r=await sb.from(table).update(updateData).eq('id',id);if(r.error)throw r.error;return r;}
+  catch(e){wcQueueAdd(table,'update',{id,update:updateData});return{error:null,offline:true};}
+}
+async function sbDelete(table,id){
+  if(!sbReady){wcQueueAdd(table,'delete',{id});return{error:null,offline:true};}
+  try{const r=await sb.from(table).delete().eq('id',id);if(r.error)throw r.error;return r;}
+  catch(e){wcQueueAdd(table,'delete',{id});return{error:null,offline:true};}
+}
+
 // キャッシュ
 let catsCache=[],catRecordsCache={},catMedsCache={},catHospPlansCache={};
 const DEFAULT_CATS=[
@@ -931,7 +1010,20 @@ let weightYear=new Date().getFullYear(),weightMonth=new Date().getMonth()+1,weig
 const CAT_EMOJIS=['🐱','🐈','😺','😸','⭐','🌸','🍀','🌙','🌈','🐯','💜','🍑','🤍','🧡','💛','🩷','🩵','🌻','🍃','🤎'];
 const CARE_TYPES=[{key:'nail',label:'爪切り',emoji:'✂️'},{key:'brush',label:'ブラッシング',emoji:'🪮'},{key:'hairball',label:'毛玉取り',emoji:'🧶'},{key:'ear',label:'耳掃除',emoji:'👂'},{key:'teeth',label:'歯磨き',emoji:'🦷'},{key:'shampoo',label:'シャンプー',emoji:'🛁'}];
 
-window.onload=()=>{ updateHeaderDate(); setInterval(updateHeaderDate,1000); loadStaffList(); };
+window.onload=()=>{
+  updateHeaderDate(); setInterval(updateHeaderDate,1000); loadStaffList();
+  // オフラインバッジをヘッダーに追加
+  const hdr=document.querySelector('.header');
+  if(hdr&&!document.getElementById('wcQueueBadge')){
+    const badge=document.createElement('div');
+    badge.id='wcQueueBadge';
+    badge.style.cssText='display:none;background:#a08030;color:#fff;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:auto';
+    badge.onclick=()=>{if(sbReady)wcFlushQueue();else showToast('サーバーに接続できません');};
+    hdr.appendChild(badge);
+  }
+  updateWcBadge();
+  setTimeout(async()=>{if(sbReady)await wcFlushQueue();},3000);
+};
 
 async function loadStaffList(){
   const{data}=await sb.from('wecats_staff').select('*').order('created_at');
@@ -1121,8 +1213,8 @@ async function saveDailyCheck(){
   const dateStr=calInputDate||today();
   calInputDate=null;document.getElementById('dailyDateLabel').style.display='none';
   const existing=(catRecordsCache[currentCatId]||[]).find(r=>r.type==='daily'&&r.date===dateStr);
-  if(existing){await sb.from('wecats_records').update({data:values}).eq('id',existing.id);}
-  else{await sb.from('wecats_records').insert({id:'rec_'+Date.now(),cat_id:currentCatId,type:'daily',date:dateStr,data:values});}
+  if(existing){await sbUpdate('wecats_records',existing.id,{data:values});}
+  else{await sbInsert('wecats_records',{id:'rec_'+Date.now(),cat_id:currentCatId,type:'daily',date:dateStr,data:values});}
   await loadCatDetail(currentCatId);showToast('✓ 保存しました');photoBuf.daily=[];renderPhotoPreview('daily');resetDailyForm();renderDailyHistory();
 }
 function renderDailyHistory(){
@@ -1180,8 +1272,8 @@ async function saveHospital(){
   const date=document.getElementById('hDate').value;if(!date){showToast('日付を入力してください');return;}
   const data={date,symptom:document.getElementById('hSymptom').value.trim(),diagnosis:document.getElementById('hDiagnosis').value.trim(),medicine:document.getElementById('hMedicine').value.trim(),memo:document.getElementById('hMemo').value.trim(),photos:[...photoBuf.hospital]};
   const editId=document.getElementById('modalHospital').dataset.editId;
-  if(editId){await sb.from('wecats_records').update({data}).eq('id',editId);document.getElementById('modalHospital').dataset.editId='';}
-  else{await sb.from('wecats_records').insert({id:'rec_'+Date.now(),cat_id:currentCatId,type:'hospital',date,data});}
+  if(editId){await sbUpdate('wecats_records',editId,{data});document.getElementById('modalHospital').dataset.editId='';}
+  else{await sbInsert('wecats_records',{id:'rec_'+Date.now(),cat_id:currentCatId,type:'hospital',date,data});}
   await loadCatDetail(currentCatId);photoBuf.hospital=[];closeModal('hospital');showToast('✓ 受診記録を保存しました');renderHospitalList();
 }
 function renderHospitalList(){
@@ -1207,7 +1299,7 @@ function openCareModal(key,label,emoji){
 async function saveCare(){
   const date=document.getElementById('cDate').value;if(!date){showToast('日付を入力してください');return;}
   const data={careType:currentCareType,memo:document.getElementById('cMemo').value.trim()};
-  await sb.from('wecats_records').insert({id:'rec_'+Date.now(),cat_id:currentCatId,type:'care',date,data});
+  await sbInsert('wecats_records',{id:'rec_'+Date.now(),cat_id:currentCatId,type:'care',date,data});
   await loadCatDetail(currentCatId);calInputDate=null;closeModal('care');showToast('✓ ケア記録を保存しました');renderCareGrid();renderCareHistory();
 }
 function renderCareHistory(){
@@ -1221,7 +1313,7 @@ function renderCareHistory(){
 async function saveMedication(){
   const name=document.getElementById('medName').value.trim(),freq=document.getElementById('medFreq').value.trim();
   if(!name||!freq){showToast('薬の名前と頻度を入力してください');return;}
-  await sb.from('wecats_medications').insert({id:'med_'+Date.now(),cat_id:currentCatId,name,frequency:freq,start_date:document.getElementById('medStart').value,end_date:document.getElementById('medEnd').value,memo:document.getElementById('medMemo').value.trim()});
+  await sbInsert('wecats_medications',{id:'med_'+Date.now(),cat_id:currentCatId,name,frequency:freq,start_date:document.getElementById('medStart').value,end_date:document.getElementById('medEnd').value,memo:document.getElementById('medMemo').value.trim()});
   await loadCatDetail(currentCatId);closeModal('medication');showToast('✓ 投薬を追加しました');renderMedList();renderCatList();
 }
 function renderMedList(){
@@ -1510,15 +1602,15 @@ async function saveRes(){
   const staff=document.getElementById('resStaff').value.trim(),channel=resChannel||null;
   const editId=document.getElementById('resEditId').value;
   const payload={date,time,customer_name:name,pax:resPax,phone,memo,staff,channel,res_type:resType||'normal'};
-  if(editId){await sb.from('wecats_reservations').update(payload).eq('id',editId);showToast('✓ 予約を更新しました');}
-  else{await sb.from('wecats_reservations').insert({id:'res_'+Date.now(),...payload});showToast('✓ 予約を追加しました');}
+  if(editId){await sbUpdate('wecats_reservations',editId,payload);showToast('✓ 予約を更新しました');}
+  else{await sbInsert('wecats_reservations',{id:'res_'+Date.now(),...payload});showToast('✓ 予約を追加しました');}
   await loadReservations();closeModal('res');renderTodaySummary();
   if(resTab==='calendar')renderResCalendar();else renderResList();
 }
 async function deleteRes(){
   if(!confirm('この予約を削除しますか？'))return;
   const id=document.getElementById('resEditId').value;
-  await sb.from('wecats_reservations').delete().eq('id',id);
+  await sbDelete('wecats_reservations',id);
   resCache=resCache.filter(r=>r.id!==id);showToast('削除しました');closeModal('res');
   renderTodaySummary();if(resTab==='calendar')renderResCalendar();else renderResList();
 }
@@ -1582,8 +1674,8 @@ function renderDrinks(){
   document.getElementById('dSumOk').textContent=ok;document.getElementById('dSumWarn').textContent=warn;document.getElementById('dSumDanger').textContent=danger;
   document.getElementById('drinkAlert').className='drink-alert'+(hasDanger?' show':'');updateStockBadge();
 }
-async function changeDrinkStock(id,delta){const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;item.stock=Math.max(0,Math.min(99,item.stock+delta));renderDrinks();updateStockBadge();await sb.from('drink_items').update({stock:item.stock}).eq('id',id);}
-async function changeBarrelStock(id,delta){const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;item.stock=Math.max(0,Math.min(100,item.stock+delta));renderDrinks();updateStockBadge();await sb.from('drink_items').update({stock:item.stock}).eq('id',id);}
+async function changeDrinkStock(id,delta){const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;item.stock=Math.max(0,Math.min(99,item.stock+delta));renderDrinks();updateStockBadge();await sbUpdate('drink_items',id,{stock:item.stock});}
+async function changeBarrelStock(id,delta){const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;item.stock=Math.max(0,Math.min(100,item.stock+delta));renderDrinks();updateStockBadge();await sbUpdate('drink_items',id,{stock:item.stock});}
 function openDrinkAdd(){
   ['dAddName','dAddIcon'].forEach(id=>document.getElementById(id).value='');document.getElementById('dAddStock').value=10;
   const isDrink=currentDrinkTab==='hot'||currentDrinkTab==='ice';
@@ -1659,7 +1751,7 @@ async function submitPost(){
   if(!content&&photoBuf.board.length===0){showToast('内容を入力してください');return;}
   const editId=document.getElementById('newPostContent').dataset.editId;
   if(editId){await sb.from('board_posts').update({content,role:currentPostType}).eq('id',editId);document.getElementById('newPostContent').dataset.editId='';showToast('✓ 編集しました');}
-  else{await sb.from('board_posts').insert({author:userName,role:currentPostType,content,pinned:false,photos:JSON.stringify([...photoBuf.board])});showToast('✓ 投稿しました');}
+  else{await sbInsert('board_posts',{id:'post_'+Date.now(),author:userName,role:currentPostType,content,pinned:false,photos:JSON.stringify([...photoBuf.board]),created_at:new Date().toISOString()});showToast('✓ 投稿しました');}
   document.getElementById('newPostContent').value='';
   ['reportVisitors','reportReviews','reportSales'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   photoBuf.board=[];renderPhotoPreview('board');await loadBoard();
@@ -1799,7 +1891,7 @@ function renderWeightCompare(){
 }
 async function saveAllWeights(){
   const cats=catsCache.filter(c=>!c.archived),dateStr=`${weightYear}-${String(weightMonth).padStart(2,'0')}-01`;let saved=0;
-  for(const cat of cats){const input=document.getElementById('w_'+cat.id);if(!input||!input.value)continue;const weight=parseFloat(input.value);if(isNaN(weight)||weight<=0)continue;const existing=weightCache[cat.id];if(existing){await sb.from('wecats_weights').update({weight}).eq('id',existing.id);}else{await sb.from('wecats_weights').insert({id:`w_${cat.id}_${weightYear}_${weightMonth}`,cat_id:cat.id,weight,date:dateStr});}saved++;}
+  for(const cat of cats){const input=document.getElementById('w_'+cat.id);if(!input||!input.value)continue;const weight=parseFloat(input.value);if(isNaN(weight)||weight<=0)continue;const existing=weightCache[cat.id];if(existing){await sbUpdate('wecats_weights',existing.id,{weight});}else{await sbInsert('wecats_weights',{id:`w_${cat.id}_${weightYear}_${weightMonth}`,cat_id:cat.id,weight,date:dateStr});}saved++;}
   await loadWeights();renderWeightInputList();renderWeightCompare();showToast(`✓ ${saved}匹分を保存しました`);
 }
 function changeWeightMonth(delta){weightMonth+=delta;if(weightMonth>12){weightMonth=1;weightYear++;}if(weightMonth<1){weightMonth=12;weightYear--;}initWeightPage();}
@@ -1811,7 +1903,7 @@ async function saveFloorCheck(){
   const date=document.getElementById('floorDate').value;if(!date){showToast('日付を入力してください');return;}
   const data={toilet:floorOpts.toilet,food:floorOpts.food,concern:document.getElementById('floorConcern').value.trim(),memo:document.getElementById('floorMemo').value.trim()};
   const existing=await sb.from('wecats_records').select('*').eq('cat_id','floor').eq('type','floor_check').eq('date',date).single();
-  if(existing.data){await sb.from('wecats_records').update({data}).eq('id',existing.data.id);}else{await sb.from('wecats_records').insert({id:'floor_'+Date.now(),cat_id:'floor',type:'floor_check',date,data});}
+  if(existing.data){await sbUpdate('wecats_records',existing.data.id,{data});}else{await sbInsert('wecats_records',{id:'floor_'+Date.now(),cat_id:'floor',type:'floor_check',date,data});}
   closeModal('floorCheck');showToast('✓ フロアチェックを保存しました');
 }
 async function openFloorHistory(){
