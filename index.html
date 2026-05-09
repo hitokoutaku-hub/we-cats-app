@@ -1751,7 +1751,7 @@ async function submitPost(){
   if(!content&&photoBuf.board.length===0){showToast('内容を入力してください');return;}
   const editId=document.getElementById('newPostContent').dataset.editId;
   if(editId){await sb.from('board_posts').update({content,role:currentPostType}).eq('id',editId);document.getElementById('newPostContent').dataset.editId='';showToast('✓ 編集しました');}
-  else{await sbInsert('board_posts',{id:'post_'+Date.now(),author:userName,role:currentPostType,content,pinned:false,photos:JSON.stringify([...photoBuf.board]),created_at:new Date().toISOString()});showToast('✓ 投稿しました');}
+  else{await sbInsert('board_posts',{author:userName,role:currentPostType,content,pinned:false,photos:JSON.stringify([...photoBuf.board])});showToast('✓ 投稿しました');}
   document.getElementById('newPostContent').value='';
   ['reportVisitors','reportReviews','reportSales'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   photoBuf.board=[];renderPhotoPreview('board');await loadBoard();
