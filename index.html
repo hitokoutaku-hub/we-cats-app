@@ -949,7 +949,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <h3 id="snsAddTitle">📱 SNS作業を追加</h3>
   <input type="hidden" id="snsEditId">
   <div class="form-group"><label class="form-label">日付</label><input type="date" class="form-input" id="snsDate"></div>
-  <div class="form-group"><label class="form-label">作業場所</label><input type="text" class="form-input" id="snsPlace" placeholder="例：本店・自宅・現地"></div>
+  <div class="form-group" id="snsPlaceGroup"><label class="form-label">作業場所</label><input type="text" class="form-input" id="snsPlace" placeholder="例：本店・自宅・現地"></div>
   <div class="form-group"><label class="form-label">作業内容</label><textarea class="form-textarea" id="snsContent" placeholder="例：Instagram投稿・動画撮影" style="min-height:60px"></textarea></div>
   <div class="form-group"><label class="form-label">メモ（任意）</label><textarea class="form-textarea" id="snsMemo" placeholder="備考など" style="min-height:50px"></textarea></div>
   <button class="modal-submit" onclick="saveSnsWork()">保存する</button>
@@ -2388,7 +2388,7 @@ function openSnsAddModal() {
 }
 
 function openSnsEditModal(id) {
-  if (!currentStaffIsOwner) return;
+  if (!isSnsVisible()) return;
   const s = snsCache.find(x => x.id === id);
   if (!s) return;
   document.getElementById('snsEditId').value = id;
@@ -2397,7 +2397,7 @@ function openSnsEditModal(id) {
   document.getElementById('snsContent').value = s.content || '';
   document.getElementById('snsMemo').value = s.memo || '';
   document.getElementById('snsAddTitle').textContent = '✏️ SNS作業を編集';
-  document.getElementById('snsDeleteBtn').style.display = 'block';
+  document.getElementById('snsDeleteBtn').style.display = currentStaffIsOwner ? 'block' : 'none';
   document.getElementById('modalSnsAdd').classList.add('open');
 }
 
@@ -2411,9 +2411,12 @@ async function saveSnsWork() {
   if (editId) {
     await sb.from('wecats_sns_works').update({ date, place, content, memo }).eq('id', editId);
     showToast('✓ 更新しました');
-  } else {
+  } else if (currentStaffIsOwner) {
     await sb.from('wecats_sns_works').insert({ id: 'sns_' + Date.now(), date, place, content, memo });
     showToast('✓ 追加しました');
+  } else {
+    showToast('追加はオーナーのみできます');
+    return;
   }
   await loadSnsWorks();
   closeModal('snsAdd');
