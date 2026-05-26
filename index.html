@@ -2193,10 +2193,10 @@ async function saveShiftEdit() {
     for (const row of existing) await sb.from('wecats_shifts').delete().eq('id', row.id);
   }
   const inserts = [];
-  STAFF_LIST.forEach(staff => {
+  STAFF_LIST.forEach((staff, idx) => {
     const safeKey = staff.replace(/[^a-zA-Z0-9]/g, '_');
     const sel = document.getElementById(`shiftSel_${safeKey}`);
-    if (sel && sel.value) inserts.push({ id: 'shift_' + Date.now() + '_' + Math.random().toString(36).slice(2,8), staff_name: staff, date: dateStr, shift_type: sel.value });
+    if (sel && sel.value) inserts.push({ id: `shift_${dateStr}_${idx}_${Math.random().toString(36).slice(2,8)}`, staff_name: staff, date: dateStr, shift_type: sel.value });
   });
   if (inserts.length > 0) await sb.from('wecats_shifts').insert(inserts);
   await loadShifts();
