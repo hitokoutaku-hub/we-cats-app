@@ -2098,7 +2098,7 @@ async function loadShifts() {
 async function initShiftPage() {
   shiftSelectedDay = null;
   document.getElementById('shiftDayDetail').innerHTML = '';
-  await loadShifts();
+  await Promise.all([loadShifts(), loadShiftTypes()]);
   renderShiftCalendar();
   const editArea = document.getElementById('shiftEditArea');
   if (editArea) editArea.style.display = currentStaffIsOwner ? 'block' : 'none';
