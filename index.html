@@ -664,7 +664,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 <!-- ===== ボトムナビ ===== -->
 <div class="bottom-nav">
   <button class="nav-item active" data-page="cats" onclick="switchPage('cats')"><span class="nav-icon">🐱</span>猫管理</button>
-  <button class="nav-item" data-page="reservation" onclick="switchPage('reservation')"><span class="nav-icon">📅</span>予約</button>
+  <button class="nav-item" data-page="reservation" onclick="switchPage('reservation')"><span class="nav-icon">📞</span>予約</button>
   <button class="nav-item" data-page="drinks" onclick="switchPage('drinks')" style="position:relative"><span class="nav-icon">🥤</span>在庫<div class="nav-badge" id="stockBadge" style="display:none">!</div></button>
   <button class="nav-item" data-page="weight" onclick="switchPage('weight')"><span class="nav-icon">⚖️</span>体重</button>
   <button class="nav-item" data-page="cash" onclick="switchPage('cash')"><span class="nav-icon">💰</span>現金</button>
@@ -951,6 +951,34 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <button id="snsDeleteBtn" onclick="deleteSnsWork()" style="display:none;width:100%;padding:11px;margin-top:8px;background:none;border:1.5px solid #f87171;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;color:#dc2626;font-weight:700;cursor:pointer">🗑 削除</button>
 </div></div>
 
+
+<div class="modal-overlay" id="modalShiftType"><div class="modal">
+  <button class="modal-close" onclick="closeModal('shiftType')">✕</button>
+  <h3 id="shiftTypeModalTitle">📅 シフト種別を追加</h3>
+  <input type="hidden" id="shiftTypeEditId">
+  <div class="form-group"><label class="form-label">種別名</label><input type="text" class="form-input" id="shiftTypeName" placeholder="例：早番・夜番・研修"></div>
+  <div class="form-group"><label class="form-label">時間帯（任意）</label><input type="text" class="form-input" id="shiftTypeTime" placeholder="例：11:00〜15:00"></div>
+  <div class="form-group">
+    <label class="form-label">色</label>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:6px" id="shiftColorPicker">
+      <div onclick="selectShiftColor('#FFD6D6','#c0404a',this)" style="background:#FFD6D6;border-radius:8px;height:36px;cursor:pointer;border:2px solid transparent" data-bg="#FFD6D6" data-fg="#c0404a"></div>
+      <div onclick="selectShiftColor('#D6F0E0','#2a7a4a',this)" style="background:#D6F0E0;border-radius:8px;height:36px;cursor:pointer;border:2px solid transparent" data-bg="#D6F0E0" data-fg="#2a7a4a"></div>
+      <div onclick="selectShiftColor('#FFF3C4','#a07010',this)" style="background:#FFF3C4;border-radius:8px;height:36px;cursor:pointer;border:2px solid transparent" data-bg="#FFF3C4" data-fg="#a07010"></div>
+      <div onclick="selectShiftColor('#E8D6FF','#6030b0',this)" style="background:#E8D6FF;border-radius:8px;height:36px;cursor:pointer;border:2px solid transparent" data-bg="#E8D6FF" data-fg="#6030b0"></div>
+      <div onclick="selectShiftColor('#D6EAFF','#2050a0',this)" style="background:#D6EAFF;border-radius:8px;height:36px;cursor:pointer;border:2px solid transparent" data-bg="#D6EAFF" data-fg="#2050a0"></div>
+      <div onclick="selectShiftColor('#E0E0E0','#606060',this)" style="background:#E0E0E0;border-radius:8px;height:36px;cursor:pointer;border:2px solid transparent" data-bg="#E0E0E0" data-fg="#606060"></div>
+      <div onclick="selectShiftColor('#FFE4C4','#a05010',this)" style="background:#FFE4C4;border-radius:8px;height:36px;cursor:pointer;border:2px solid transparent" data-bg="#FFE4C4" data-fg="#a05010"></div>
+      <div onclick="selectShiftColor('#C4F0FF','#106080',this)" style="background:#C4F0FF;border-radius:8px;height:36px;cursor:pointer;border:2px solid transparent" data-bg="#C4F0FF" data-fg="#106080"></div>
+      <div onclick="selectShiftColor('#FFD6F0','#a03070',this)" style="background:#FFD6F0;border-radius:8px;height:36px;cursor:pointer;border:2px solid transparent" data-bg="#FFD6F0" data-fg="#a03070"></div>
+      <div onclick="selectShiftColor('#D6FFE8','#107040',this)" style="background:#D6FFE8;border-radius:8px;height:36px;cursor:pointer;border:2px solid transparent" data-bg="#D6FFE8" data-fg="#107040"></div>
+    </div>
+    <input type="hidden" id="shiftTypeBg" value="#FFD6D6">
+    <input type="hidden" id="shiftTypeFg" value="#c0404a">
+  </div>
+  <button class="modal-submit" onclick="saveShiftType()">保存する</button>
+  <button id="shiftTypeDeleteBtn" onclick="deleteShiftType()" style="display:none;width:100%;padding:11px;margin-top:8px;background:none;border:1.5px solid #f87171;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;color:#dc2626;font-weight:700;cursor:pointer">🗑 削除</button>
+</div></div>
+
 <div class="photo-viewer" id="photoViewer" onclick="closeViewer()">
   <button class="photo-viewer-close">✕</button>
   <img id="viewerImg" src="" alt="">
@@ -1146,7 +1174,7 @@ async function init(){
   showToast('データを読み込み中...');
   await loadCatsData();
   await Promise.all(catsCache.map(cat=>loadCatDetail(cat.id)));
-  await Promise.all([loadDrinks(),loadFolders(),loadReservations()]);
+  await Promise.all([loadDrinks(),loadFolders(),loadReservations(),loadShiftTypes()]);
   renderCatList(); checkHospitalAlerts();
 }
 function updateHeaderDate(){const now=new Date();document.getElementById('headerDate').innerHTML=`${now.getMonth()+1}/${now.getDate()}<br>${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;}
@@ -1168,7 +1196,7 @@ function switchPage(page){
   if(page==='drinks')renderDrinks();
   if(page==='cats'){renderCatList();checkHospitalAlerts();}
   if(page==='weight')initWeightPage();
-  if(page==='loginlog'){loadStaffForManage();loadLoginLogs();}
+  if(page==='loginlog'){loadStaffForManage();loadLoginLogs();renderShiftTypeList();}
   if(page==='cash')initCashPage();
   if(page==='shift')initShiftPage();
   if(page==='reservation')initResPage();
@@ -2104,9 +2132,12 @@ function renderShiftCalendar() {
     const shifts = dayMap[d] || [];
     cell.className = 'shift-cal-cell' + (d === todayNum ? ' today' : '') + (d === shiftSelectedDay ? ' selected' : '');
     const dayColor = dow === 0 ? 'color:#dc2626' : dow === 6 ? 'color:#2563eb' : '';
-    const shiftTags = shifts.slice(0, 3).map(s =>
-      `<div class="shift-tag ${s.shift_type}">${s.staff_name.slice(0, 2)}</div>`
-    ).join('');
+    const shiftTags = shifts.slice(0, 3).map(s => {
+      const st = shiftTypesCache.find(t => t.name === s.shift_type);
+      const bg = st ? st.color : '#E0E0E0';
+      const fg = st ? (st.fg_color || '#333') : '#333';
+      return `<div style="font-size:8px;font-weight:700;border-radius:4px;padding:1px 3px;margin-bottom:1px;width:100%;text-align:center;background:${bg};color:${fg}">${s.staff_name.slice(0, 2)}</div>`;
+    }).join('');
     cell.innerHTML = `<div class="shift-cal-day" style="${dayColor}">${d}</div>${shiftTags}`;
     cell.onclick = () => { shiftSelectedDay = d; renderShiftCalendar(); showShiftDayDetail(d, shifts); };
     grid.appendChild(cell);
@@ -2123,9 +2154,13 @@ function showShiftDayDetail(d, shifts) {
   } else {
     const typeOrder = ['早番', '通常', '遅番', '夜番', '休み', '定休'];
     const sorted = [...shifts].sort((a, b) => typeOrder.indexOf(a.shift_type) - typeOrder.indexOf(b.shift_type));
-    const timeMap = { '早番': '11:00〜15:00', '通常': '11:00〜18:00', '遅番': '14:00〜21:00', '夜番': '19:00〜22:00', '休み': '', '定休': '' };
+    const timeMap = {};
+  shiftTypesCache.forEach(t => { timeMap[t.name] = t.time_range || ''; });
     sorted.forEach(s => {
-      html += `<div class="shift-detail-card"><div style="display:flex;align-items:center;gap:8px"><span class="shift-tag ${s.shift_type}" style="width:auto;padding:2px 10px">${s.shift_type}</span><span style="font-size:14px;font-weight:700">${s.staff_name}</span>${timeMap[s.shift_type] ? `<span style="font-size:11px;color:var(--text-light);margin-left:auto">${timeMap[s.shift_type]}</span>` : ''}</div></div>`;
+      const st2 = shiftTypesCache.find(t => t.name === s.shift_type);
+      const bg2 = st2 ? st2.color : '#E0E0E0';
+      const fg2 = st2 ? (st2.fg_color || '#333') : '#333';
+      html += `<div class="shift-detail-card"><div style="display:flex;align-items:center;gap:8px"><span style="background:${bg2};color:${fg2};border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700">${s.shift_type}</span><span style="font-size:14px;font-weight:700">${s.staff_name}</span>${timeMap[s.shift_type] ? `<span style="font-size:11px;color:var(--text-light);margin-left:auto">${timeMap[s.shift_type]}</span>` : ''}</div></div>`;
     });
   }
   html += `</div>`;
@@ -2139,11 +2174,13 @@ function openShiftEditModal() {
   document.getElementById('shiftEditModalTitle').textContent = `✏️ ${shiftMonth + 1}月${shiftSelectedDay}日（${dow}）`;
   const currentShifts = shiftCache.filter(s => s.date === dateStr);
   const list = document.getElementById('shiftEditList');
+  const typeOptions = shiftTypesCache.map(t => `<option value="${t.name}" \${currentType === '${t.name}' ? 'selected' : ''}>${t.name}${t.time_range?' ('+t.time_range+')':''}</option>`).join('');
   list.innerHTML = STAFF_LIST.map(staff => {
     const current = currentShifts.find(s => s.staff_name === staff);
     const currentType = current ? current.shift_type : '';
     const safeKey = staff.replace(/[^a-zA-Z0-9]/g, '_');
-    return `<div class="shift-input-row"><div style="font-size:13px;font-weight:700;min-width:75px">${staff}</div><select id="shiftSel_${safeKey}" style="flex:1;padding:8px;border:1.5px solid var(--pink);border-radius:10px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;background:var(--pink-bg);color:var(--text)"><option value="" ${!currentType ? 'selected' : ''}>—</option>${['早番','通常','遅番','夜番','休み','定休'].map(t => `<option value="${t}" ${currentType === t ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`;
+    const opts = shiftTypesCache.map(t => `<option value="${t.name}" ${currentType === t.name ? 'selected' : ''}>${t.name}${t.time_range?' ('+t.time_range+')':''}</option>`).join('');
+    return `<div class="shift-input-row"><div style="font-size:13px;font-weight:700;min-width:75px">${staff}</div><select id="shiftSel_${safeKey}" style="flex:1;padding:8px;border:1.5px solid var(--pink);border-radius:10px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;background:var(--pink-bg);color:var(--text)"><option value="" ${!currentType ? 'selected' : ''}>—</option>${opts}</select></div>`;
   }).join('');
   list.dataset.date = dateStr;
   document.getElementById('modalShiftEdit').classList.add('open');
@@ -2168,6 +2205,116 @@ async function saveShiftEdit() {
   renderShiftCalendar();
 }
 
+
+
+// ===== シフト種別管理 =====
+let shiftTypesCache = [];
+let selectedShiftColor = { bg: '#FFD6D6', fg: '#c0404a' };
+
+async function loadShiftTypes() {
+  const { data } = await sb.from('wecats_shift_types').select('*').order('sort_order').order('created_at');
+  if (data && data.length > 0) {
+    shiftTypesCache = data;
+  } else {
+    // デフォルト種別を初期登録
+    const defaults = [
+      { id: 'st_1', name: '早番', time_range: '11:00〜15:00', color: '#FFD6D6', fg_color: '#c0404a', sort_order: 1 },
+      { id: 'st_2', name: '通常', time_range: '11:00〜18:00', color: '#D6F0E0', fg_color: '#2a7a4a', sort_order: 2 },
+      { id: 'st_3', name: '遅番', time_range: '14:00〜21:00', color: '#FFF3C4', fg_color: '#a07010', sort_order: 3 },
+      { id: 'st_4', name: '夜番', time_range: '19:00〜22:00', color: '#E8D6FF', fg_color: '#6030b0', sort_order: 4 },
+      { id: 'st_5', name: '休み',  time_range: '', color: '#E0E0E0', fg_color: '#606060', sort_order: 5 },
+      { id: 'st_6', name: '定休',  time_range: '', color: '#D6EAFF', fg_color: '#2050a0', sort_order: 6 },
+    ];
+    await sb.from('wecats_shift_types').insert(defaults);
+    shiftTypesCache = defaults;
+  }
+}
+
+function renderShiftTypeList() {
+  const el = document.getElementById('shiftTypeList');
+  if (!el) return;
+  if (!shiftTypesCache.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text-light)">種別がありません</div>';
+    return;
+  }
+  el.innerHTML = shiftTypesCache.map(t => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--pink-light)">
+      <div style="width:40px;height:28px;border-radius:6px;background:${t.color};flex-shrink:0"></div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:${t.fg_color||'#333'}">${t.name}</div>
+        ${t.time_range ? `<div style="font-size:11px;color:var(--text-light)">${t.time_range}</div>` : ''}
+      </div>
+      <button onclick="openShiftTypeModal('${t.id}')" style="background:var(--pink-light);border:none;border-radius:8px;padding:6px 10px;font-family:'Zen Maru Gothic',sans-serif;font-size:11px;color:var(--pink-deep);cursor:pointer">編集</button>
+    </div>`).join('');
+}
+
+function selectShiftColor(bg, fg, el) {
+  selectedShiftColor = { bg, fg };
+  document.getElementById('shiftTypeBg').value = bg;
+  document.getElementById('shiftTypeFg').value = fg;
+  document.querySelectorAll('#shiftColorPicker div').forEach(d => d.style.borderColor = 'transparent');
+  el.style.borderColor = '#6d28d9';
+}
+
+function openShiftTypeModal(id) {
+  document.getElementById('shiftTypeEditId').value = id || '';
+  if (id) {
+    const t = shiftTypesCache.find(x => x.id === id);
+    if (!t) return;
+    document.getElementById('shiftTypeModalTitle').textContent = '✏️ シフト種別を編集';
+    document.getElementById('shiftTypeName').value = t.name;
+    document.getElementById('shiftTypeTime').value = t.time_range || '';
+    document.getElementById('shiftTypeBg').value = t.color || '#FFD6D6';
+    document.getElementById('shiftTypeFg').value = t.fg_color || '#c0404a';
+    selectedShiftColor = { bg: t.color || '#FFD6D6', fg: t.fg_color || '#c0404a' };
+    document.getElementById('shiftTypeDeleteBtn').style.display = 'block';
+    // 色選択ハイライト
+    document.querySelectorAll('#shiftColorPicker div').forEach(d => {
+      d.style.borderColor = d.dataset.bg === t.color ? '#6d28d9' : 'transparent';
+    });
+  } else {
+    document.getElementById('shiftTypeModalTitle').textContent = '📅 シフト種別を追加';
+    document.getElementById('shiftTypeName').value = '';
+    document.getElementById('shiftTypeTime').value = '';
+    document.getElementById('shiftTypeBg').value = '#FFD6D6';
+    document.getElementById('shiftTypeFg').value = '#c0404a';
+    selectedShiftColor = { bg: '#FFD6D6', fg: '#c0404a' };
+    document.getElementById('shiftTypeDeleteBtn').style.display = 'none';
+    document.querySelectorAll('#shiftColorPicker div').forEach(d => d.style.borderColor = 'transparent');
+  }
+  document.getElementById('modalShiftType').classList.add('open');
+}
+
+async function saveShiftType() {
+  const name = document.getElementById('shiftTypeName').value.trim();
+  if (!name) { showToast('種別名を入力してください'); return; }
+  const time_range = document.getElementById('shiftTypeTime').value.trim();
+  const color = document.getElementById('shiftTypeBg').value;
+  const fg_color = document.getElementById('shiftTypeFg').value;
+  const editId = document.getElementById('shiftTypeEditId').value;
+  if (editId) {
+    await sb.from('wecats_shift_types').update({ name, time_range, color, fg_color }).eq('id', editId);
+    showToast('✓ 更新しました');
+  } else {
+    await sb.from('wecats_shift_types').insert({ id: 'st_' + Date.now(), name, time_range, color, fg_color, sort_order: shiftTypesCache.length + 1 });
+    showToast('✓ 追加しました');
+  }
+  await loadShiftTypes();
+  renderShiftTypeList();
+  closeModal('shiftType');
+  // シフト編集モーダルも更新
+  if (document.getElementById('shiftEditList')) renderShiftEditSelects();
+}
+
+async function deleteShiftType() {
+  if (!confirm('この種別を削除しますか？')) return;
+  const id = document.getElementById('shiftTypeEditId').value;
+  await sb.from('wecats_shift_types').delete().eq('id', id);
+  await loadShiftTypes();
+  renderShiftTypeList();
+  closeModal('shiftType');
+  showToast('削除しました');
+}
 
 // ===== SNS作業管理（オーナー・高橋のみ） =====
 let snsYear = new Date().getFullYear();
