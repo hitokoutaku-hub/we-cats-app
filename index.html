@@ -645,6 +645,11 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 <div class="page" id="page-loginlog">
   <div style="padding:16px">
     <div style="background:var(--white);border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700;color:var(--pink-deep);margin-bottom:12px">📅 シフト種別管理</div>
+      <div id="shiftTypeList" style="margin-bottom:10px"></div>
+      <button onclick="openShiftTypeModal(null)" style="width:100%;padding:11px;background:var(--pink-light);border:2px dashed var(--pink-dark);border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;color:var(--pink-deep);font-weight:700;cursor:pointer">＋ シフト種別を追加</button>
+    </div>
+    <div style="background:var(--white);border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-bottom:14px">
       <div style="font-size:15px;font-weight:700;color:var(--pink-deep);margin-bottom:12px">👥 スタッフ管理</div>
       <div id="staffManageList"></div>
       <button onclick="openAddStaff()" style="width:100%;padding:11px;background:var(--pink-light);border:2px dashed var(--pink-dark);border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;color:var(--pink-deep);font-weight:700;cursor:pointer;margin-top:10px">＋ スタッフを追加</button>
