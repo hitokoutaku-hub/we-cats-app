@@ -2175,12 +2175,11 @@ function openShiftEditModal() {
   const currentShifts = shiftCache.filter(s => s.date === dateStr);
   const list = document.getElementById('shiftEditList');
   const typeOptions = shiftTypesCache.map(t => `<option value="${t.name}" \${currentType === '${t.name}' ? 'selected' : ''}>${t.name}${t.time_range?' ('+t.time_range+')':''}</option>`).join('');
-  list.innerHTML = STAFF_LIST.map(staff => {
+  list.innerHTML = STAFF_LIST.map((staff, idx) => {
     const current = currentShifts.find(s => s.staff_name === staff);
     const currentType = current ? current.shift_type : '';
-    const safeKey = staff.replace(/[^a-zA-Z0-9]/g, '_');
     const opts = shiftTypesCache.map(t => `<option value="${t.name}" ${currentType === t.name ? 'selected' : ''}>${t.name}${t.time_range?' ('+t.time_range+')':''}</option>`).join('');
-    return `<div class="shift-input-row"><div style="font-size:13px;font-weight:700;min-width:75px">${staff}</div><select id="shiftSel_${safeKey}" style="flex:1;padding:8px;border:1.5px solid var(--pink);border-radius:10px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;background:var(--pink-bg);color:var(--text)"><option value="" ${!currentType ? 'selected' : ''}>—</option>${opts}</select></div>`;
+    return `<div class="shift-input-row"><div style="font-size:13px;font-weight:700;min-width:75px">${staff}</div><select id="shiftSel_${idx}" style="flex:1;padding:8px;border:1.5px solid var(--pink);border-radius:10px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;background:var(--pink-bg);color:var(--text)"><option value="" ${!currentType ? 'selected' : ''}>—</option>${opts}</select></div>`;
   }).join('');
   list.dataset.date = dateStr;
   document.getElementById('modalShiftEdit').classList.add('open');
@@ -2194,8 +2193,7 @@ async function saveShiftEdit() {
   }
   const inserts = [];
   STAFF_LIST.forEach((staff, idx) => {
-    const safeKey = staff.replace(/[^a-zA-Z0-9]/g, '_');
-    const sel = document.getElementById(`shiftSel_${safeKey}`);
+    const sel = document.getElementById(`shiftSel_${idx}`);
     if (sel && sel.value) inserts.push({ id: `shift_${dateStr}_${idx}_${Math.random().toString(36).slice(2,8)}`, staff_name: staff, date: dateStr, shift_type: sel.value });
   });
   if (inserts.length > 0) await sb.from('wecats_shifts').insert(inserts);
