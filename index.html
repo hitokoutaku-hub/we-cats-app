@@ -2160,12 +2160,13 @@ function showShiftDayDetail(d, shifts) {
     const typeOrder = ['早番', '通常', '遅番', '夜番', '休み', '定休'];
     const sorted = [...shifts].sort((a, b) => typeOrder.indexOf(a.shift_type) - typeOrder.indexOf(b.shift_type));
     const timeMap = {};
-  shiftTypesCache.forEach(t => { timeMap[t.name] = t.time_range || ''; });
+  shiftTypesCache.forEach(t => { timeMap[t.name] = (t.time_range && t.time_range !== 'EMPTY') ? t.time_range : ''; });
     sorted.forEach(s => {
       const st2 = shiftTypesCache.find(t => t.name === s.shift_type);
       const bg2 = st2 ? st2.color : '#E0E0E0';
       const fg2 = st2 ? (st2.fg_color || '#333') : '#333';
-      html += `<div class="shift-detail-card"><div style="display:flex;align-items:center;gap:8px"><span style="background:${bg2};color:${fg2};border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700">${s.shift_type}</span><span style="font-size:14px;font-weight:700">${s.staff_name}</span>${timeMap[s.shift_type] ? `<span style="font-size:11px;color:var(--text-light);margin-left:auto">${timeMap[s.shift_type]}</span>` : ''}</div></div>`;
+      const tLabel = timeMap[s.shift_type] && timeMap[s.shift_type] !== 'EMPTY' ? timeMap[s.shift_type] : '';
+      html += `<div class="shift-detail-card"><div style="display:flex;align-items:center;gap:8px"><span style="background:${bg2};color:${fg2};border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700">${s.shift_type}</span><span style="font-size:14px;font-weight:700">${s.staff_name}</span>${tLabel ? `<span style="font-size:11px;color:var(--text-light);margin-left:auto">${tLabel}</span>` : ''}</div></div>`;
     });
   }
   html += `</div>`;
@@ -2183,7 +2184,7 @@ function openShiftEditModal() {
   list.innerHTML = STAFF_LIST.map((staff, idx) => {
     const current = currentShifts.find(s => s.staff_name === staff);
     const currentType = current ? current.shift_type : '';
-    const opts = shiftTypesCache.map(t => `<option value="${t.name}" ${currentType === t.name ? 'selected' : ''}>${t.name}${t.time_range?' ('+t.time_range+')':''}</option>`).join('');
+    const opts = shiftTypesCache.map(t => { const tr = (t.time_range && t.time_range !== 'EMPTY') ? t.time_range : ''; return `<option value="${t.name}" ${currentType === t.name ? 'selected' : ''}>${t.name}${tr?' ('+tr+')':''}</option>`; }).join('');
     return `<div class="shift-input-row"><div style="font-size:13px;font-weight:700;min-width:75px">${staff}</div><select id="shiftSel_${idx}" style="flex:1;padding:8px;border:1.5px solid var(--pink);border-radius:10px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;background:var(--pink-bg);color:var(--text)"><option value="" ${!currentType ? 'selected' : ''}>—</option>${opts}</select></div>`;
   }).join('');
   list.dataset.date = dateStr;
@@ -2291,7 +2292,7 @@ function openShiftTypeModal(id) {
 async function saveShiftType() {
   const name = document.getElementById('shiftTypeName').value.trim();
   if (!name) { showToast('種別名を入力してください'); return; }
-  const time_range = document.getElementById('shiftTypeTime').value.trim();
+  const time_range = document.getElementById('shiftTypeTime').value.trim() || null;
   const color = document.getElementById('shiftTypeBg').value;
   const fg_color = document.getElementById('shiftTypeFg').value;
   const editId = document.getElementById('shiftTypeEditId').value;
