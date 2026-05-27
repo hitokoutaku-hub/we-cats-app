@@ -608,12 +608,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
       <span id="shiftMonthLabel" style="font-size:15px;font-weight:700"></span>
       <button onclick="changeShiftMonth(1)" style="background:var(--pink-light);border:none;border-radius:50%;width:34px;height:34px;font-size:18px;cursor:pointer;color:var(--pink-deep);font-weight:700">›</button>
     </div>
-    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">
-      <span class="shift-tag 早番" style="width:auto;padding:2px 8px">早番 11〜15時</span>
-      <span class="shift-tag 通常" style="width:auto;padding:2px 8px">通常 11〜18時</span>
-      <span class="shift-tag 遅番" style="width:auto;padding:2px 8px">遅番 14〜21時</span>
-      <span class="shift-tag 夜番" style="width:auto;padding:2px 8px">夜番 19〜22時</span>
-    </div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px" id="shiftLegend"></div>
     <div class="shift-cal-grid" style="margin-bottom:3px">
       <div class="shift-dow">日</div><div class="shift-dow">月</div><div class="shift-dow">火</div>
       <div class="shift-dow">水</div><div class="shift-dow">木</div><div class="shift-dow">金</div><div class="shift-dow">土</div>
@@ -2116,6 +2111,13 @@ function changeShiftMonth(delta) {
 
 function renderShiftCalendar() {
   document.getElementById('shiftMonthLabel').textContent = `${shiftYear}年 ${shiftMonth + 1}月`;
+  // 凡例を動的に生成
+  const legend = document.getElementById('shiftLegend');
+  if (legend) {
+    legend.innerHTML = shiftTypesCache.filter(t => t.time_range && t.time_range !== 'EMPTY').map(t =>
+      `<span style="background:${t.color};color:${t.fg_color||'#333'};border-radius:4px;padding:2px 8px;font-size:8px;font-weight:700">${t.name} ${t.time_range}</span>`
+    ).join('');
+  }
   const dayMap = {};
   shiftCache.forEach(s => {
     const d = parseInt(s.date.split('-')[2]);
