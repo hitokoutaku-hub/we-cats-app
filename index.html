@@ -2368,7 +2368,7 @@ function renderSnsWorks() {
   el.innerHTML = snsCache.map(s => {
     const [y, m, d] = s.date.split('-');
     const dow = ['日','月','火','水','木','金','土'][new Date(s.date).getDay()];
-    return `<div style="background:var(--white);border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 2px 8px rgba(109,40,217,0.1);border-left:4px solid #7c3aed;cursor:${currentStaffIsOwner?'pointer':'default'}" onclick="${currentStaffIsOwner?`openSnsEditModal('${s.id}')`:''}" >
+    return `<div style="background:var(--white);border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 2px 8px rgba(109,40,217,0.1);border-left:4px solid #7c3aed;cursor:${isSnsVisible()?'pointer':'default'}" onclick="${isSnsVisible()?`openSnsEditModal('${s.id}')`:''}" >
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <span style="font-size:13px;font-weight:700;color:#6d28d9">${parseInt(m)}/${parseInt(d)}（${dow}）</span>
         ${s.place ? `<span style="background:#ede9fe;color:#6d28d9;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:700">📍 ${s.place}</span>` : ''}
