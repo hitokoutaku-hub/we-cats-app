@@ -212,9 +212,9 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .comment-author { font-size: 10px; font-weight: 700; color: var(--pink-deep); margin-bottom: 2px; }
 .comment-text { font-size: 12px; line-height: 1.5; }
 .comment-time { font-size: 10px; color: var(--text-light); margin-top: 2px; }
-.comment-input-row { display: flex; gap: 6px; margin-top: 8px; }
-.comment-input-row input { flex: 1; padding: 8px 10px; border: 1.5px solid var(--pink); border-radius: 20px; font-family: 'Zen Maru Gothic', sans-serif; font-size: 12px; color: var(--text); background: var(--pink-bg); outline: none; }
-.comment-input-row button { padding: 8px 14px; background: var(--pink-deep); color: var(--white); border: none; border-radius: 20px; font-family: 'Zen Maru Gothic', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; }
+.comment-input-row { display: flex; gap: 6px; margin-top: 8px; align-items: flex-end; }
+.comment-input-row textarea { flex: 1; padding: 8px 10px; border: 1.5px solid var(--pink); border-radius: 14px; font-family: 'Zen Maru Gothic', sans-serif; font-size: 12px; color: var(--text); background: var(--pink-bg); outline: none; resize: none; min-height: 38px; max-height: 120px; line-height: 1.5; overflow-y: auto; }
+.comment-input-row button { padding: 8px 14px; background: var(--pink-deep); color: var(--white); border: none; border-radius: 20px; font-family: 'Zen Maru Gothic', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
 
 /* マニュアル */
 .manual-wrap { padding: 16px; }
@@ -1138,14 +1138,26 @@ window.onload=()=>{
 };
 
 async function loadStaffList(){
-  const{data}=await sb.from('wecats_staff').select('*').order('created_at');
-  staffCache=data||[];
+  const el=document.getElementById('staffList');
+  el.innerHTML='<div style="text-align:center;padding:16px;color:var(--text-light);font-size:13px">読み込み中… 🐱</div>';
+  try{
+    const{data,error}=await sb.from('wecats_staff').select('*').order('created_at');
+    if(error)throw error;
+    staffCache=data||[];
+  }catch(e){
+    staffCache=[];
+    el.innerHTML='<div style="text-align:center;padding:12px;color:var(--danger);font-size:13px;font-weight:700">⚠️ 読み込めませんでした<br><button onclick="loadStaffList()" style="margin-top:8px;padding:8px 20px;background:var(--pink-deep);color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">再読み込み</button></div>';
+    return;
+  }
   renderStaffButtons();
 }
 function renderStaffButtons(){
   const el=document.getElementById('staffList');
-  if(!staffCache.length){el.innerHTML=`<div style="font-size:12px;color:var(--text-light);text-align:center;margin-bottom:8px">スタッフが登録されていません</div>`;return;}
-  el.innerHTML=`<div style="font-size:12px;color:var(--text-light);margin-bottom:8px;text-align:center">名前を選んでください</div>`+
+  if(!staffCache.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--text-light);text-align:center;margin-bottom:8px;padding:12px">スタッフが登録されていません</div>';
+    return;
+  }
+  el.innerHTML='<div style="font-size:12px;color:var(--text-light);margin-bottom:8px;text-align:center">名前を選んでください</div>'+
     staffCache.map(s=>`<button onclick="selectStaff('${s.id}')" id="staffBtn_${s.id}" style="width:100%;padding:12px;margin-bottom:8px;border-radius:12px;border:2px solid var(--pink-dark);background:var(--white);font-family:'Zen Maru Gothic',sans-serif;font-size:15px;font-weight:700;color:var(--text);cursor:pointer;transition:all 0.2s">${s.is_owner?'👑 ':''}${s.name}</button>`).join('');
 }
 function selectStaff(id){
@@ -1904,27 +1916,52 @@ function buildPostCard(post){
 function renderComments(postId){
   const el=document.getElementById('comments-'+postId);if(!el)return;
   const comments=commentsCache[postId]||[];
-  // コメント0件は折りたたみ表示
   const isOpen=el.dataset.open==='1';
+  const inputHtml=`<div class="comment-input-row"><textarea placeholder="返信する...（Shift+Enterで改行）" id="comment-input-${postId}" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitComment('${postId}')}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea><button onclick="submitComment('${postId}')">送信</button></div>`;
   if(!isOpen&&comments.length===0){
-    el.innerHTML=`<div class="comment-input-row"><input type="text" placeholder="返信する..." id="comment-input-${postId}" onkeypress="if(event.key==='Enter')submitComment('${postId}')"><button onclick="submitComment('${postId}')">送信</button></div>`;
+    el.innerHTML=inputHtml;
     return;
   }
-  let html=comments.map(c=>`<div class="comment-item"><div class="comment-avatar">${c.author.charAt(0)}</div><div class="comment-body"><div class="comment-author">${c.author}</div><div class="comment-text">${c.content.replace(/\n/g,'<br>')}</div><div class="comment-time">${formatTime(c.created_at)}</div></div></div>`).join('');
-  html+=`<div class="comment-input-row"><input type="text" placeholder="返信する..." id="comment-input-${postId}" onkeypress="if(event.key==='Enter')submitComment('${postId}')"><button onclick="submitComment('${postId}')">送信</button></div>`;
+  let html=comments.map(c=>{
+    const canEdit=(c.author===userName)||(typeof currentStaffIsOwner!=='undefined'&&currentStaffIsOwner);
+    const editBtn=canEdit?`<button onclick="openEditComment('${postId}','${c.id||''}')" style="background:none;border:none;font-size:11px;color:var(--text-light);cursor:pointer;padding:0;margin-left:6px">✏️</button>`:'';
+    const delBtn=canEdit?`<button onclick="deleteComment('${postId}','${c.id||''}')" style="background:none;border:none;font-size:11px;color:var(--text-light);cursor:pointer;padding:0;margin-left:2px">🗑</button>`:'';
+    return`<div class="comment-item" id="comment-item-${c.id||''}"><div class="comment-avatar">${c.author.charAt(0)}</div><div class="comment-body"><div class="comment-author">${c.author}${editBtn}${delBtn}</div><div class="comment-text" id="comment-text-${c.id||''}">${c.content.replace(/\n/g,'<br>')}</div><div class="comment-time">${formatTime(c.created_at)}</div></div></div>`;
+  }).join('');
+  html+=inputHtml;
   el.innerHTML=html;el.dataset.open='1';
 }
 async function submitComment(postId){
   const input=document.getElementById('comment-input-'+postId);
   const content=input.value.trim();if(!content)return;
-  const newComment={post_id:postId,author:userName,content,created_at:new Date().toISOString()};
-  // 楽観的UI更新（先に表示）
+  input.value='';input.style.height='auto';
+  const{data}=await sb.from('board_comments').insert({post_id:postId,author:userName,content}).select().single();
+  const newComment=data||{post_id:postId,author:userName,content,created_at:new Date().toISOString()};
   if(!commentsCache[postId])commentsCache[postId]=[];
   commentsCache[postId].push(newComment);
   const el=document.getElementById('comments-'+postId);if(el)el.dataset.open='1';
   renderComments(postId);
-  // バックグラウンドで保存
-  await sb.from('board_comments').insert({post_id:postId,author:userName,content});
+}
+function openEditComment(postId,commentId){
+  const comments=commentsCache[postId]||[];
+  const c=comments.find(x=>x.id==commentId);if(!c)return;
+  const el=document.getElementById('comment-text-'+commentId);if(!el)return;
+  const oldText=c.content;
+  el.innerHTML=`<textarea id="edit-comment-textarea-${commentId}" style="width:100%;padding:6px;border:1.5px solid var(--pink);border-radius:8px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;color:var(--text);background:var(--pink-bg);outline:none;resize:none;min-height:60px">${oldText}</textarea><div style="display:flex;gap:6px;margin-top:6px"><button onclick="saveEditComment('${postId}','${commentId}')" style="padding:6px 14px;background:var(--pink-deep);color:white;border:none;border-radius:10px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;cursor:pointer">保存</button><button onclick="renderComments('${postId}')" style="padding:6px 14px;background:var(--pink-light);color:var(--text-light);border:none;border-radius:10px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;cursor:pointer">キャンセル</button></div>`;
+}
+async function saveEditComment(postId,commentId){
+  const ta=document.getElementById('edit-comment-textarea-'+commentId);if(!ta)return;
+  const content=ta.value.trim();if(!content){showToast('内容を入力してください');return;}
+  await sb.from('board_comments').update({content}).eq('id',commentId);
+  const comments=commentsCache[postId]||[];
+  const c=comments.find(x=>x.id==commentId);if(c)c.content=content;
+  renderComments(postId);showToast('✓ 返信を編集しました');
+}
+async function deleteComment(postId,commentId){
+  if(!confirm('この返信を削除しますか？'))return;
+  await sb.from('board_comments').delete().eq('id',commentId);
+  if(commentsCache[postId])commentsCache[postId]=commentsCache[postId].filter(c=>c.id!=commentId);
+  renderComments(postId);showToast('削除しました');
 }
 
 // ===== 現金管理 =====
@@ -1932,13 +1969,18 @@ async function initCashPage(){
   const{data}=await sb.from('wecats_cash').select('*').order('date',{ascending:true}).order('created_at',{ascending:true});
   const rows=data||[];
   // 一番最後の「reset」レコードを基準点にする
-  let startIdx=0,balance=0;
+  let startIdx=-1,balance=0;
   for(let i=rows.length-1;i>=0;i--){
     if(rows[i].type==='reset'){startIdx=i;balance=rows[i].amount;break;}
   }
-  // リセット以降のレコードだけ再計算（リセット自体は残高確定として扱う）
   cashCache=rows.map((r,i)=>{
-    if(i<startIdx) return{...r}; // リセット前は保存値そのまま表示
+    if(startIdx===-1){
+      // resetなし：DBのbalanceがあればそれを使い、なければ順番に計算
+      if(r.balance!=null&&r.balance!==undefined)return{...r};
+      balance=r.type==='expense'?balance-r.amount:r.type==='refill'?balance+r.amount:r.type==='reset'?r.amount:balance;
+      return{...r,balance};
+    }
+    if(i<startIdx)return{...r,balance:(r.balance!=null?r.balance:0)};
     if(i===startIdx){balance=r.amount;return{...r,balance};}
     balance=r.type==='expense'?balance-r.amount:r.type==='refill'?balance+r.amount:balance;
     return{...r,balance};
@@ -1949,12 +1991,12 @@ async function initCashPage(){
 function renderCashBalance(){
   if(!cashCache.length){document.getElementById('cashBalance').textContent='¥77,736';document.getElementById('cashLastUpdate').textContent='初期残高：¥77,736';return;}
   const latest=cashCache[0];
-  document.getElementById('cashBalance').textContent='¥'+latest.balance.toLocaleString();
+  document.getElementById('cashBalance').textContent='¥'+(latest.balance??0).toLocaleString();
   document.getElementById('cashLastUpdate').textContent=`最終更新：${latest.date}`;
 }
 function renderCashList(){
   const el=document.getElementById('cashList');if(!cashCache.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">💰</div><p>記録がありません</p></div>';return;}
-  el.innerHTML=cashCache.map(r=>{const isExpense=r.type==='expense';const isReset=r.type==='reset';let photos=[];try{const p=JSON.parse(r.receipt_photo||'[]');photos=Array.isArray(p)?p:(p?[p]:[]);}catch(e){photos=r.receipt_photo?[r.receipt_photo]:[];}return`<div style="background:var(--pink-light);border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:4px solid ${isReset?'#a855f7':isExpense?'#f87171':'#4ade80'}"><div style="display:flex;align-items:center;margin-bottom:6px"><div style="flex:1"><div style="font-size:11px;color:var(--text-light);font-weight:700">${r.date}</div><div style="font-size:14px;font-weight:700">${r.description||''}</div></div><div style="text-align:right;margin-left:8px"><div style="font-size:16px;font-weight:900;color:${isReset?'#a855f7':isExpense?'#dc2626':'#16a34a'}">${isReset?'🔄':isExpense?'-':'+'} ¥${r.amount.toLocaleString()}</div><div style="font-size:11px;color:var(--text-light)">残金 ¥${r.balance.toLocaleString()}</div></div></div>${r.memo?`<div style="font-size:11px;color:var(--text-light);margin-bottom:4px">📝 ${r.memo}</div>`:''}${photos.filter(Boolean).map(p=>`<img src="${p}" style="width:100%;border-radius:8px;margin-top:6px;max-height:220px;object-fit:cover;display:block" onclick="openViewer(this.src)" alt="領収書">`).join('')}<div style="display:flex;gap:6px;margin-top:8px"><button onclick="deleteCashRecord('${r.id}')" style="flex:1;padding:6px;background:var(--white);border:1.5px solid #f87171;border-radius:8px;font-family:'Zen Maru Gothic',sans-serif;font-size:11px;color:#dc2626;font-weight:700;cursor:pointer">🗑 削除</button></div></div>`;}).join('');
+  el.innerHTML=cashCache.map(r=>{const isExpense=r.type==='expense';const isReset=r.type==='reset';let photos=[];try{const p=JSON.parse(r.receipt_photo||'[]');photos=Array.isArray(p)?p:(p?[p]:[]);}catch(e){photos=r.receipt_photo?[r.receipt_photo]:[];}return`<div style="background:var(--pink-light);border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:4px solid ${isReset?'#a855f7':isExpense?'#f87171':'#4ade80'}"><div style="display:flex;align-items:center;margin-bottom:6px"><div style="flex:1"><div style="font-size:11px;color:var(--text-light);font-weight:700">${r.date}</div><div style="font-size:14px;font-weight:700">${r.description||''}</div></div><div style="text-align:right;margin-left:8px"><div style="font-size:16px;font-weight:900;color:${isReset?'#a855f7':isExpense?'#dc2626':'#16a34a'}">${isReset?'🔄':isExpense?'-':'+'} ¥${r.amount.toLocaleString()}</div><div style="font-size:11px;color:var(--text-light)">残金 ¥${(r.balance??0).toLocaleString()}</div></div></div>${r.memo?`<div style="font-size:11px;color:var(--text-light);margin-bottom:4px">📝 ${r.memo}</div>`:''}${photos.filter(Boolean).map(p=>`<img src="${p}" style="width:100%;border-radius:8px;margin-top:6px;max-height:220px;object-fit:cover;display:block" onclick="openViewer(this.src)" alt="領収書">`).join('')}<div style="display:flex;gap:6px;margin-top:8px"><button onclick="deleteCashRecord('${r.id}')" style="flex:1;padding:6px;background:var(--white);border:1.5px solid #f87171;border-radius:8px;font-family:'Zen Maru Gothic',sans-serif;font-size:11px;color:#dc2626;font-weight:700;cursor:pointer">🗑 削除</button></div></div>`;}).join('');
 }
 function openCashModal(type){
   currentCashType=type;
@@ -2220,13 +2262,19 @@ let selectedShiftColor = { bg: '#FFD6D6', fg: '#c0404a' };
 async function loadShiftTypes() {
   const { data } = await sb.from('wecats_shift_types').select('*').order('sort_order').order('created_at');
   if (data && data.length > 0) {
+    // 遅番がデフォルト値のままなら自動修正
+    const osoi = data.find(s => s.id === 'st_3' && s.name === '遅番' && s.time_range === '14:00〒21:00');
+    if (osoi) {
+      await sb.from('wecats_shift_types').update({ time_range: '15:00〒19:00' }).eq('id', 'st_3');
+      osoi.time_range = '15:00〒19:00';
+    }
     shiftTypesCache = data;
   } else {
     // デフォルト種別を初期登録
     const defaults = [
       { id: 'st_1', name: '早番', time_range: '11:00〜15:00', color: '#FFD6D6', fg_color: '#c0404a', sort_order: 1 },
       { id: 'st_2', name: '通常', time_range: '11:00〜18:00', color: '#D6F0E0', fg_color: '#2a7a4a', sort_order: 2 },
-      { id: 'st_3', name: '遅番', time_range: '14:00〜21:00', color: '#FFF3C4', fg_color: '#a07010', sort_order: 3 },
+      { id: 'st_3', name: '遅番', time_range: '15:00〜19:00', color: '#FFF3C4', fg_color: '#a07010', sort_order: 3 },
       { id: 'st_4', name: '夜番', time_range: '19:00〜22:00', color: '#E8D6FF', fg_color: '#6030b0', sort_order: 4 },
       { id: 'st_5', name: '休み',  time_range: '', color: '#E0E0E0', fg_color: '#606060', sort_order: 5 },
       { id: 'st_6', name: '定休',  time_range: '', color: '#D6EAFF', fg_color: '#2050a0', sort_order: 6 },
