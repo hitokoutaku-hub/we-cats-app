@@ -24,9 +24,11 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .header-date { font-size: 11px; color: var(--text-light); text-align: right; line-height: 1.4; }
 
 .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: var(--white); border-top: 1px solid var(--pink); display: flex; z-index: 50; box-shadow: 0 -2px 12px rgba(212,112,138,0.15); }
-.nav-item { flex: 1 1 0; min-width: 0; padding: 6px 1px 10px; display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer; border: none; background: none; color: var(--text-light); font-family: 'Zen Maru Gothic', sans-serif; font-size: 8px; font-weight: 700; white-space: nowrap; }
-.nav-item .nav-icon { font-size: 17px; }
+.nav-item { flex: 1 1 0; min-width: 0; padding: 7px 1px 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; border: none; background: none; color: var(--text-light); font-family: 'Zen Maru Gothic', sans-serif; font-size: 9px; font-weight: 700; white-space: nowrap; }
+.nav-item .nav-icon { font-size: 18px; }
 .nav-item.active { color: var(--pink-deep); }
+#navLoginLog { flex: 0.65 1 0; font-size: 8px; }
+#navLoginLog .nav-icon { font-size: 16px; }
 
 .page { display: none; }
 .page.active { display: block; }
