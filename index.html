@@ -16,17 +16,20 @@
   --ok: #4ade80; --warn: #facc15; --danger: #f87171;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); color: var(--text); min-height: 100vh; max-width: 480px; margin: 0 auto; padding-bottom: 80px; }
+body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); color: var(--text); min-height: 100vh; max-width: 480px; margin: 0 auto; }
 
 .header { background: var(--pink); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(212,112,138,0.2); }
-.header h1 { font-size: 18px; font-weight: 700; color: var(--text); }
+.header h1 { font-size: 20px; font-weight: 700; color: var(--text); }
 .back-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px 8px; color: var(--text); }
 .header-date { font-size: 11px; color: var(--text-light); text-align: right; line-height: 1.4; }
 
-.bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: var(--white); border-top: 1px solid var(--pink); display: flex; z-index: 50; box-shadow: 0 -2px 12px rgba(212,112,138,0.15); }
-.nav-item { flex: 1 1 0; min-width: 0; padding: 8px 2px 12px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; border: none; background: none; color: var(--text-light); font-family: 'Zen Maru Gothic', sans-serif; font-size: 10px; font-weight: 700; white-space: nowrap; }
-.nav-item .nav-icon { font-size: 20px; }
-.nav-item.active { color: var(--pink-deep); }
+.quick-nav { display: flex; background: var(--white); border-bottom: 1px solid var(--pink); box-shadow: 0 2px 10px rgba(212,112,138,0.12); }
+.quick-item { flex: 1 1 0; min-width: 0; padding: 10px 4px 9px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; border: none; background: none; color: var(--text-light); font-family: 'Zen Maru Gothic', sans-serif; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.quick-item .quick-icon { font-size: 23px; }
+.quick-item.active { color: var(--pink-deep); }
+.more-menu-item { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 6px; background: none; border: none; border-bottom: 1px solid var(--pink-light); font-family: 'Zen Maru Gothic', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); cursor: pointer; text-align: left; }
+.more-menu-item:last-child { border-bottom: none; }
+.more-menu-item .more-icon { font-size: 22px; width: 28px; text-align: center; }
 
 .page { display: none; }
 .page.active { display: block; }
@@ -330,13 +333,18 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 <div class="header">
   <div style="display:flex;align-items:center;gap:4px">
     <button class="back-btn" id="backBtn" style="visibility:hidden" onclick="goBack()">←</button>
-    <button class="back-btn" id="headerShiftBtn" style="font-size:18px;display:flex;align-items:center;gap:3px;white-space:nowrap" onclick="switchPage('shift')" title="シフト"><span style="font-size:22px">📅</span>シフト</button>
+    <button class="back-btn" id="menuBtn" style="font-size:22px" onclick="openMoreMenu()" title="メニュー">☰</button>
   </div>
   <h1 id="headerTitle">🐱 WE CATS</h1>
-  <div style="display:flex;align-items:center;gap:6px">
-    <div class="header-date" id="headerDate"></div>
-    <button class="back-btn" id="headerAdminBtn" style="display:none;font-size:18px" onclick="switchPage('loginlog')" title="管理">👑</button>
-  </div>
+  <div class="header-date" id="headerDate"></div>
+</div>
+
+<!-- ===== よく使う4つ（クイックナビ） ===== -->
+<div class="quick-nav">
+  <button class="quick-item active" data-page="cats" onclick="switchPage('cats')"><span class="quick-icon">🐱</span>猫管理</button>
+  <button class="quick-item" data-page="drinks" onclick="switchPage('drinks')" style="position:relative"><span class="quick-icon">🥤</span>在庫<div class="nav-badge" id="stockBadge" style="display:none">!</div></button>
+  <button class="quick-item" data-page="board" onclick="switchPage('board')"><span class="quick-icon">📋</span>連絡</button>
+  <button class="quick-item" data-page="reservation" onclick="switchPage('reservation')"><span class="quick-icon">📞</span>予約</button>
 </div>
 
 <div class="hosp-alert" id="hospGlobalAlert"></div>
@@ -667,18 +675,19 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   </div>
 </div>
 
-<!-- ===== ボトムナビ ===== -->
-<div class="bottom-nav">
-  <button class="nav-item active" data-page="cats" onclick="switchPage('cats')"><span class="nav-icon">🐱</span>猫管理</button>
-  <button class="nav-item" data-page="reservation" onclick="switchPage('reservation')"><span class="nav-icon">📞</span>予約</button>
-  <button class="nav-item" data-page="drinks" onclick="switchPage('drinks')" style="position:relative"><span class="nav-icon">🥤</span>在庫<div class="nav-badge" id="stockBadge" style="display:none">!</div></button>
-  <button class="nav-item" data-page="weight" onclick="switchPage('weight')"><span class="nav-icon">⚖️</span>体重</button>
-  <button class="nav-item" data-page="cash" onclick="switchPage('cash')"><span class="nav-icon">💰</span>現金</button>
-  <button class="nav-item" data-page="board" onclick="switchPage('board')"><span class="nav-icon">📋</span>連絡</button>
-  <button class="nav-item" data-page="manual" onclick="switchPage('manual')"><span class="nav-icon">📌</span>マニュアル</button>
-</div>
+
 
 <!-- ===== モーダル群 ===== -->
+<!-- ===== もっとメニュー ===== -->
+<div class="modal-overlay" id="modalMoreMenu"><div class="modal">
+  <h3 style="font-size:15px;font-weight:700;color:var(--pink-deep);margin-bottom:6px">📂 メニュー</h3>
+  <button class="more-menu-item" onclick="switchPage('weight');closeModal('moreMenu')"><span class="more-icon">⚖️</span>体重</button>
+  <button class="more-menu-item" onclick="switchPage('cash');closeModal('moreMenu')"><span class="more-icon">💰</span>現金</button>
+  <button class="more-menu-item" onclick="switchPage('manual');closeModal('moreMenu')"><span class="more-icon">📌</span>マニュアル</button>
+  <button class="more-menu-item" onclick="switchPage('shift');closeModal('moreMenu')"><span class="more-icon">📅</span>シフト</button>
+  <button class="more-menu-item" id="moreMenuAdminItem" style="display:none" onclick="switchPage('loginlog');closeModal('moreMenu')"><span class="more-icon">👑</span>管理</button>
+</div></div>
+
 <div class="modal-overlay" id="modalHospitalPlan"><div class="modal">
   <button class="modal-close" onclick="closeModal('hospitalPlan')">✕</button>
   <h3>📅 病院予定を追加</h3>
@@ -1180,8 +1189,8 @@ async function doLogin(){
   userName=staff.name; currentStaffIsOwner=staff.is_owner||false;
   localStorage.setItem('wecats_username',staff.name);
   await sb.from('wecats_login_logs').insert({id:'log_'+Date.now(),staff_id:staff.id,staff_name:staff.name});
-  const navLog=document.getElementById('headerAdminBtn');
-  if(navLog)navLog.style.display=currentStaffIsOwner?'block':'none';
+  const navLog=document.getElementById('moreMenuAdminItem');
+  if(navLog)navLog.style.display=currentStaffIsOwner?'flex':'none';
   document.getElementById('nameSetup').style.display='none';
   document.getElementById('boardAuthorName').textContent=userName;
   init();
@@ -1204,7 +1213,7 @@ function switchPage(page){
   currentPage=page;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===page));
+  document.querySelectorAll('.quick-item').forEach(n=>n.classList.toggle('active',n.dataset.page===page));
   document.getElementById('backBtn').style.visibility='hidden';
   document.getElementById('headerTitle').textContent='🐱 WE CATS';
   if(page==='board')loadBoard();
@@ -1375,6 +1384,7 @@ function openModal(type){
   document.getElementById('modal'+cap(type)).classList.add('open');
 }
 function closeModal(type){document.getElementById('modal'+cap(type)).classList.remove('open');}
+function openMoreMenu(){openModal('moreMenu');}
 async function saveHospitalPlan(){
   const date=document.getElementById('hpDate').value,memo=document.getElementById('hpMemo').value.trim();
   if(!date){showToast('日付を入力してください');return;}
