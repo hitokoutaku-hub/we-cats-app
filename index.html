@@ -18,7 +18,10 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); color: var(--text); min-height: 100vh; max-width: 480px; margin: 0 auto; }
 
-.header { background: var(--pink); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(212,112,138,0.2); }
+.header { background: var(--pink); padding: 16px 20px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(212,112,138,0.2); }
+.header h1 { justify-self: center; }
+.header > div:first-child { justify-self: start; }
+.header-date { justify-self: end; }
 .header h1 { font-size: 20px; font-weight: 700; color: var(--text); }
 .back-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px 8px; color: var(--text); }
 .header-date { font-size: 11px; color: var(--text-light); text-align: right; line-height: 1.4; }
@@ -333,7 +336,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 <div class="header">
   <div style="display:flex;align-items:center;gap:4px">
     <button class="back-btn" id="backBtn" style="visibility:hidden" onclick="goBack()">←</button>
-    <button class="back-btn" id="menuBtn" style="font-size:22px" onclick="openMoreMenu()" title="メニュー">☰</button>
+    <button class="back-btn" id="menuBtn" style="font-size:14px;display:flex;align-items:center;gap:3px;white-space:nowrap" onclick="openMoreMenu()" title="メニュー"><span style="font-size:20px">☰</span>メニュー</button>
   </div>
   <h1 id="headerTitle">🐱 WE CATS</h1>
   <div class="header-date" id="headerDate"></div>
