@@ -335,7 +335,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 <!-- ヘッダー -->
 <div class="header">
   <div style="display:flex;align-items:center;gap:4px">
-    <button class="back-btn" id="backBtn" style="visibility:hidden" onclick="goBack()">←</button>
+    <button class="back-btn" id="backBtn" style="display:none" onclick="goBack()">←</button>
     <button class="back-btn" id="menuBtn" style="font-size:14px;display:flex;align-items:center;gap:3px;white-space:nowrap" onclick="openMoreMenu()" title="メニュー"><span style="font-size:20px">☰</span>メニュー</button>
   </div>
   <h1 id="headerTitle">🐱 WE CATS</h1>
@@ -1217,7 +1217,7 @@ function switchPage(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
   document.querySelectorAll('.quick-item').forEach(n=>n.classList.toggle('active',n.dataset.page===page));
-  document.getElementById('backBtn').style.visibility='hidden';
+  document.getElementById('backBtn').style.display='none';
   document.getElementById('headerTitle').textContent='🐱 WE CATS';
   if(page==='board')loadBoard();
   if(page==='manual')renderFolders();
@@ -1238,7 +1238,7 @@ function goBack(){
     document.getElementById('page-folderdetail').classList.add('active');
     const f=foldersCache.find(f=>f.id===currentFolderId);
     document.getElementById('headerTitle').textContent=f?f.title:'マニュアル';
-    document.getElementById('backBtn').style.visibility='visible';
+    document.getElementById('backBtn').style.display='inline-block';
   }
 }
 
@@ -1300,7 +1300,7 @@ async function openCatDetail(catId){
   currentPage='catdetail';
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-catdetail').classList.add('active');
-  document.getElementById('backBtn').style.visibility='visible';
+  document.getElementById('backBtn').style.display='inline-block';
   document.getElementById('headerTitle').textContent=cat.name;
   await loadCatDetail(catId);
   document.getElementById('detailSub').textContent=`記録 ${(catRecordsCache[catId]||[]).length}件`;
@@ -2110,7 +2110,7 @@ function renderFolders(){
   const el=document.getElementById('folderList');if(!foldersCache.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📁</div><p>フォルダーがありません</p></div>';return;}
   el.innerHTML=foldersCache.map(f=>{const count=articlesCache.filter(a=>a.folder_id===f.id).length;return`<div class="folder-card" onclick="openFolder('${f.id}')"><div class="folder-icon">📁</div><div class="folder-info"><div class="folder-name">${f.title}</div><div class="folder-count">${count}件</div></div><div style="color:var(--text-light);font-size:16px">›</div></div>`;}).join('');
 }
-function openFolder(folderId){currentFolderId=folderId;const folder=foldersCache.find(f=>f.id===folderId);currentPage='folderdetail';document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-folderdetail').classList.add('active');document.getElementById('backBtn').style.visibility='visible';document.getElementById('headerTitle').textContent=folder.title;renderArticles();}
+function openFolder(folderId){currentFolderId=folderId;const folder=foldersCache.find(f=>f.id===folderId);currentPage='folderdetail';document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-folderdetail').classList.add('active');document.getElementById('backBtn').style.display='inline-block';document.getElementById('headerTitle').textContent=folder.title;renderArticles();}
 function renderArticles(){
   const items=articlesCache.filter(a=>a.folder_id===currentFolderId);const el=document.getElementById('articleList');
   if(!items.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📄</div><p>まだ記事がありません</p></div>';return;}
@@ -2118,7 +2118,7 @@ function renderArticles(){
 }
 function openArticle(articleId){
   const article=articlesCache.find(a=>a.id===articleId);editingArticleId=articleId;
-  currentPage='articledetail';document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-articledetail').classList.add('active');document.getElementById('backBtn').style.visibility='visible';document.getElementById('headerTitle').textContent=article.title;
+  currentPage='articledetail';document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-articledetail').classList.add('active');document.getElementById('backBtn').style.display='inline-block';document.getElementById('headerTitle').textContent=article.title;
   let html=`<div style="font-size:17px;font-weight:700;color:var(--pink-deep);margin-bottom:12px">${article.title}</div>`;
   if(article.type==='checklist'){const items=(article.content||'').split('\n').filter(s=>s.trim());const ck='check_'+articleId+'_'+today();const state=JSON.parse(localStorage.getItem(ck)||'{}');html+=items.map((item,i)=>`<div class="checklist-item"><div class="checklist-check ${state[i]?'done':''}" onclick="toggleCheck('${ck}',${i},this,'ct-${articleId}-${i}')">${state[i]?'✓':''}</div><div class="checklist-text ${state[i]?'done':''}" id="ct-${articleId}-${i}">${item}</div></div>`).join('');html+=`<button class="reset-check-btn" onclick="resetChecklist('${ck}','${articleId}')">🔄 チェックをリセット</button>`;}
   else if(article.type==='step_article'){try{const steps=JSON.parse(article.content||'[]');html+=steps.map((step,i)=>{const photos=step.photos||[];return`<div style="margin-bottom:20px;border-bottom:1px solid var(--pink-light);padding-bottom:16px">${photos.map(p=>`<img src="${p}" style="width:100%;border-radius:10px;object-fit:cover;max-height:260px;margin-bottom:6px;display:block" onclick="openViewer(this.src)" alt="">`).join('')}<div style="display:flex;align-items:flex-start;gap:10px;margin-top:${photos.length?'8':'0'}px"><div style="width:28px;height:28px;border-radius:50%;background:var(--pink-deep);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;margin-top:2px">${i+1}</div><div style="font-size:14px;line-height:1.7;flex:1">${step.text||''}</div></div></div>`;}).join('');}catch(e){html+=`<div style="font-size:13px">${article.content||''}</div>`;}}
