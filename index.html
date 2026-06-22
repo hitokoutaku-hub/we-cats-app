@@ -354,18 +354,18 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 
 <!-- ===== 猫一覧 ===== -->
 <div class="page active" id="page-cats">
-  <div style="padding:12px 16px 0">
-    <button onclick="openFloorCheck()" style="width:100%;padding:11px;background:linear-gradient(135deg,var(--pink-deep),#e8507a);color:white;border:none;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:6px">🏠 フロア全体チェックを入力</button>
-    <button onclick="openFloorHistory()" style="width:100%;padding:9px;background:var(--white);border:1.5px solid var(--pink-dark);border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;color:var(--pink-deep);cursor:pointer;margin-bottom:10px">📋 フロア履歴を見る</button>
+  <div style="padding:12px 16px 10px;display:flex;gap:8px">
+    <button onclick="openFloorCheck()" style="flex:1;padding:11px 6px;background:linear-gradient(135deg,var(--pink-deep),#e8507a);color:white;border:none;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;cursor:pointer">🏠 フロア全体チェックを入力</button>
+    <button onclick="openFloorHistory()" style="flex:1;padding:11px 6px;background:var(--white);border:1.5px solid var(--pink-dark);border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;color:var(--pink-deep);cursor:pointer">📋 フロア履歴を見る</button>
   </div>
   <div style="display:flex;gap:8px;padding:0 16px 8px">
     <button id="tabCage" onclick="switchCatLocationTab('cage')" style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--pink-deep);background:var(--pink-deep);color:white;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer">🏠 ケージ組</button>
     <button id="tabFloor" onclick="switchCatLocationTab('floor')" style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--pink-dark);background:var(--white);color:var(--text-light);font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer">🐾 放し飼い組</button>
   </div>
-  <div class="cat-grid" id="catGrid"></div>
   <div style="text-align:center;margin-bottom:8px">
     <button class="archive-toggle-btn" id="archiveToggleBtn" onclick="toggleArchive()">🎓 卒業した子を見る</button>
   </div>
+  <div class="cat-grid" id="catGrid"></div>
   <div id="archiveSection" style="display:none;padding:0 16px 16px">
     <div class="section-title">🎓 卒業した子たち</div>
     <div class="cat-grid" style="padding:0" id="archiveCatGrid"></div>
