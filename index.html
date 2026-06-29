@@ -2002,7 +2002,8 @@ async function deleteComment(postId,commentId){
 
 // ===== 現金管理 =====
 async function initCashPage(){
-  const{data}=await sb.from('wecats_cash').select('*').order('date',{ascending:true}).order('created_at',{ascending:true});
+  const{data,error}=await sb.from('wecats_cash').select('*').order('date',{ascending:true});
+  if(error){console.error('cash load error:',error);showToast('⚠ 読み込みエラー: '+error.message);}
   const rows=data||[];
   // 一番最後の「reset」レコードを基準点にする
   let startIdx=-1,balance=0;
