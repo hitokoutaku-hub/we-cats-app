@@ -142,6 +142,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .cal-cell.selected { background: var(--pink-deep) !important; color: var(--white); }
 .cal-dots { display: flex; gap: 2px; justify-content: center; margin-top: 1px; }
 .cal-cell-dot { width: 4px; height: 4px; border-radius: 50%; }
+.cal-hosp-mark { font-size: 9px; line-height: 1; margin-top: 1px; }
 .cal-day-detail { margin-top: 12px; background: var(--pink-light); border-radius: 12px; padding: 12px; }
 .cal-day-detail h4 { font-size: 12px; font-weight: 700; color: var(--pink-deep); margin-bottom: 8px; }
 .cal-detail-item { font-size: 11px; margin-bottom: 5px; line-height: 1.6; }
@@ -442,7 +443,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
       </div>
       <div class="cal-legend">
         <span class="cal-dot dot-daily"></span>毎日
-        <span class="cal-dot dot-hospital" style="margin-left:6px"></span>病院
+        <span style="margin-left:6px">🏥 病院</span>
         <span class="cal-dot dot-care" style="margin-left:6px"></span>ケア
       </div>
       <div class="cal-grid" style="margin-bottom:3px">
@@ -1201,9 +1202,23 @@ async function doLogin(){
 async function init(){
   showToast('データを読み込み中...');
   await loadCatsData();
-  await Promise.all(catsCache.map(cat=>loadCatDetail(cat.id)));
+  await loadAllCatsOverviewData();
   await Promise.all([loadDrinks(),loadFolders(),loadReservations(),loadShiftTypes()]);
   renderCatList(); checkHospitalAlerts();
+}
+async function loadAllCatsOverviewData(){
+  const ids=catsCache.map(c=>c.id);
+  if(!ids.length)return;
+  const[{data:records},{data:meds},{data:plans}]=await Promise.all([
+    sb.from('wecats_records').select('id,cat_id,date,type').in('cat_id',ids).order('date',{ascending:false}),
+    sb.from('wecats_medications').select('*').in('cat_id',ids),
+    sb.from('wecats_hospital_plans').select('*').in('cat_id',ids).order('date'),
+  ]);
+  catRecordsCache={};catMedsCache={};catHospPlansCache={};
+  ids.forEach(id=>{catRecordsCache[id]=[];catMedsCache[id]=[];catHospPlansCache[id]=[];});
+  (records||[]).forEach(r=>{if(catRecordsCache[r.cat_id])catRecordsCache[r.cat_id].push(r);});
+  (meds||[]).forEach(r=>{if(catMedsCache[r.cat_id])catMedsCache[r.cat_id].push(r);});
+  (plans||[]).forEach(r=>{if(catHospPlansCache[r.cat_id])catHospPlansCache[r.cat_id].push(r);});
 }
 function updateHeaderDate(){const now=new Date();document.getElementById('headerDate').innerHTML=`${now.getMonth()+1}/${now.getDate()}<br>${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;}
 function today(){const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;}
@@ -1478,7 +1493,7 @@ async function delMedication(id){if(!confirm('この投薬記録を削除しま�
 async function delRecord(id,tab){if(!confirm('この記録を削除しますか？'))return;await sb.from('wecats_records').delete().eq('id',id);await loadCatDetail(currentCatId);showToast('削除しました');switchCatTab(tab||currentCatTab);}
 
 // ===== 猫管理 =====
-async function reloadCatsAndRender(){await loadCatsData();renderCatList();checkHospitalAlerts();}
+async function reloadCatsAndRender(){await loadCatsData();await loadAllCatsOverviewData();renderCatList();checkHospitalAlerts();}
 function renderEmojiPicker(id){document.getElementById(id).innerHTML=CAT_EMOJIS.map(e=>`<span class="emoji-opt ${e===selectedEmoji?'selected':''}" onclick="selectEmoji(this,'${e}','${id}')">${e}</span>`).join('');}
 function selectEmoji(el,e,id){selectedEmoji=e;document.querySelectorAll(`#${id} .emoji-opt`).forEach(x=>x.classList.remove('selected'));el.classList.add('selected');}
 async function addCat(){const name=document.getElementById('newCatName').value.trim();if(!name){showToast('名前を入力してください');return;}await sb.from('wecats_cats').insert({id:'cat_'+Date.now(),name,emoji:selectedEmoji,sort_order:catsCache.length});await reloadCatsAndRender();closeModal('addCat');showToast(`✓ ${name} を追加しました`);}
@@ -1522,8 +1537,8 @@ function renderCalendar(){
   for(let d=1;d<=daysInMonth;d++){
     const cell=document.createElement('div');const hasRec=dayMap[d];const count=hasRec?Object.values(hasRec).flat().length:0;
     cell.className='cal-cell'+(count>0?' has-record':'')+(d===todayNum?' today':'')+(d===calSelectedDay?' selected':'');
-    let dots='';if(hasRec){if(hasRec.daily.length)dots+=`<span class="cal-cell-dot dot-daily"></span>`;if(hasRec.hospital.length)dots+=`<span class="cal-cell-dot dot-hospital"></span>`;if(hasRec.care.length)dots+=`<span class="cal-cell-dot dot-care"></span>`;}
-    cell.innerHTML=`${d}<div class="cal-dots">${dots}</div>`;
+    let dots='';if(hasRec){if(hasRec.daily.length)dots+=`<span class="cal-cell-dot dot-daily"></span>`;if(hasRec.care.length)dots+=`<span class="cal-cell-dot dot-care"></span>`;}
+    cell.innerHTML=`${d}<div class="cal-dots">${dots}</div>${hasRec&&hasRec.hospital.length?'<div class="cal-hosp-mark">🏥</div>':''}`;
     cell.onclick=()=>{calSelectedDay=d;renderCalendar();showCalDayDetail(d,dayMap[d]);};
     grid.appendChild(cell);
   }
