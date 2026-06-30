@@ -2017,7 +2017,7 @@ async function deleteComment(postId,commentId){
 
 // ===== 現金管理 =====
 async function initCashPage(){
-  const{data,error}=await sb.from('wecats_cash').select('*').order('date',{ascending:true});
+  const{data,error}=await sb.from('wecats_cash').select('id,date,type,description,amount,balance,memo').order('date',{ascending:true});
   if(error){console.error('cash load error:',error);showToast('⚠ 読み込みエラー: '+error.message);}
   const rows=data||[];
   // 一番最後の「reset」レコードを基準点にする
@@ -2048,7 +2048,7 @@ function renderCashBalance(){
 }
 function renderCashList(){
   const el=document.getElementById('cashList');if(!cashCache.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">💰</div><p>記録がありません</p></div>';return;}
-  el.innerHTML=cashCache.map(r=>{const isExpense=r.type==='expense';const isReset=r.type==='reset';let photos=[];try{const p=JSON.parse(r.receipt_photo||'[]');photos=Array.isArray(p)?p:(p?[p]:[]);}catch(e){photos=r.receipt_photo?[r.receipt_photo]:[];}return`<div style="background:var(--pink-light);border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:4px solid ${isReset?'#a855f7':isExpense?'#f87171':'#4ade80'}"><div style="display:flex;align-items:center;margin-bottom:6px"><div style="flex:1"><div style="font-size:11px;color:var(--text-light);font-weight:700">${r.date}</div><div style="font-size:14px;font-weight:700">${r.description||''}</div></div><div style="text-align:right;margin-left:8px"><div style="font-size:16px;font-weight:900;color:${isReset?'#a855f7':isExpense?'#dc2626':'#16a34a'}">${isReset?'🔄':isExpense?'-':'+'} ¥${r.amount.toLocaleString()}</div><div style="font-size:11px;color:var(--text-light)">残金 ¥${(r.balance??0).toLocaleString()}</div></div></div>${r.memo?`<div style="font-size:11px;color:var(--text-light);margin-bottom:4px">📝 ${r.memo}</div>`:''}${photos.filter(Boolean).map(p=>`<img src="${p}" style="width:100%;border-radius:8px;margin-top:6px;max-height:220px;object-fit:cover;display:block" onclick="openViewer(this.src)" alt="領収書">`).join('')}<div style="display:flex;gap:6px;margin-top:8px"><button onclick="deleteCashRecord('${r.id}')" style="flex:1;padding:6px;background:var(--white);border:1.5px solid #f87171;border-radius:8px;font-family:'Zen Maru Gothic',sans-serif;font-size:11px;color:#dc2626;font-weight:700;cursor:pointer">🗑 削除</button></div></div>`;}).join('');
+  el.innerHTML=cashCache.map(r=>{const isExpense=r.type==='expense';const isReset=r.type==='reset';return`<div style="background:var(--pink-light);border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:4px solid ${isReset?'#a855f7':isExpense?'#f87171':'#4ade80'}"><div style="display:flex;align-items:center;margin-bottom:6px"><div style="flex:1"><div style="font-size:11px;color:var(--text-light);font-weight:700">${r.date}</div><div style="font-size:14px;font-weight:700">${r.description||''}</div></div><div style="text-align:right;margin-left:8px"><div style="font-size:16px;font-weight:900;color:${isReset?'#a855f7':isExpense?'#dc2626':'#16a34a'}">${isReset?'🔄':isExpense?'-':'+'} ¥${r.amount.toLocaleString()}</div><div style="font-size:11px;color:var(--text-light)">残金 ¥${(r.balance??0).toLocaleString()}</div></div></div>${r.memo?`<div style="font-size:11px;color:var(--text-light);margin-bottom:4px">📝 ${r.memo}</div>`:''}<div style="display:flex;gap:6px;margin-top:8px"><button onclick="viewReceipt('${r.id}')" style="flex:1;padding:6px;background:var(--white);border:1.5px solid var(--pink);border-radius:8px;font-family:'Zen Maru Gothic',sans-serif;font-size:11px;color:var(--pink-deep);font-weight:700;cursor:pointer">🧾 レシート</button><button onclick="deleteCashRecord('${r.id}')" style="flex:1;padding:6px;background:var(--white);border:1.5px solid #f87171;border-radius:8px;font-family:'Zen Maru Gothic',sans-serif;font-size:11px;color:#dc2626;font-weight:700;cursor:pointer">🗑 削除</button></div></div>`;}).join('');
 }
 function openCashModal(type){
   currentCashType=type;
@@ -2069,6 +2069,14 @@ async function saveCashRecord(){
   if(newBalance<0){showToast('残金が不足しています');return;}
   await sb.from('wecats_cash').insert({id:'cash_'+Date.now(),date,type:currentCashType,description,amount,balance:newBalance,receipt_photo:photoBuf.cash[0]||'',memo:document.getElementById('cashMemo').value.trim()});
   photoBuf.cash=[];closeModal('cash');showToast('✓ 保存しました');await initCashPage();
+}
+async function viewReceipt(id){
+  const{data}=await sb.from('wecats_cash').select('receipt_photo').eq('id',id).single();
+  if(!data||!data.receipt_photo){showToast('レシートはありません');return;}
+  let photos=[];try{const p=JSON.parse(data.receipt_photo||'[]');photos=Array.isArray(p)?p:(p?[p]:[]);}catch(e){photos=data.receipt_photo?[data.receipt_photo]:[];}
+  photos=photos.filter(Boolean);
+  if(!photos.length){showToast('レシートはありません');return;}
+  openViewer(photos[0]);
 }
 async function deleteCashRecord(id){if(!confirm('この記録を削除しますか？'))return;await sb.from('wecats_cash').delete().eq('id',id);await initCashPage();showToast('削除しました');}
 
