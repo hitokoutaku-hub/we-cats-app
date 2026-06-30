@@ -1206,15 +1206,20 @@ async function doLogin(){
 async function init(){
   showToast('データを読み込み中...');
   await loadCatsData();
-  await loadAllCatsOverviewData();
-  await Promise.all([loadDrinks(),loadFolders(),loadReservations(),loadShiftTypes()]);
+  await Promise.all([
+    loadAllCatsOverviewData(),
+    loadDrinks(),
+    loadFolders(),
+    loadReservations(),
+    loadShiftTypes()
+  ]);
   renderCatList(); checkHospitalAlerts();
 }
 async function loadAllCatsOverviewData(){
   const ids=catsCache.map(c=>c.id);
   if(!ids.length)return;
   const[{data:latestRecords},{data:meds},{data:plans}]=await Promise.all([
-    sb.from('wecats_records').select('cat_id,date,type').in('cat_id',ids).eq('type','daily').order('date',{ascending:false}),
+    sb.from('wecats_records').select('cat_id,date,type').in('cat_id',ids).eq('type','daily').order('date',{ascending:false}).limit(50),
     sb.from('wecats_medications').select('*').in('cat_id',ids),
     sb.from('wecats_hospital_plans').select('*').in('cat_id',ids).order('date'),
   ]);
