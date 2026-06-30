@@ -1213,14 +1213,15 @@ async function init(){
 async function loadAllCatsOverviewData(){
   const ids=catsCache.map(c=>c.id);
   if(!ids.length)return;
-  const[{data:records},{data:meds},{data:plans}]=await Promise.all([
-    sb.from('wecats_records').select('id,cat_id,date,type').in('cat_id',ids).order('date',{ascending:false}),
+  const[{data:latestRecords},{data:meds},{data:plans}]=await Promise.all([
+    sb.from('wecats_records').select('cat_id,date,type').in('cat_id',ids).eq('type','daily').order('date',{ascending:false}),
     sb.from('wecats_medications').select('*').in('cat_id',ids),
     sb.from('wecats_hospital_plans').select('*').in('cat_id',ids).order('date'),
   ]);
   catRecordsCache={};catMedsCache={};catHospPlansCache={};
   ids.forEach(id=>{catRecordsCache[id]=[];catMedsCache[id]=[];catHospPlansCache[id]=[];});
-  (records||[]).forEach(r=>{if(catRecordsCache[r.cat_id])catRecordsCache[r.cat_id].push(r);});
+  const seen={};
+  (latestRecords||[]).forEach(r=>{if(!seen[r.cat_id]){seen[r.cat_id]=true;if(catRecordsCache[r.cat_id])catRecordsCache[r.cat_id].push(r);}});
   (meds||[]).forEach(r=>{if(catMedsCache[r.cat_id])catMedsCache[r.cat_id].push(r);});
   (plans||[]).forEach(r=>{if(catHospPlansCache[r.cat_id])catHospPlansCache[r.cat_id].push(r);});
 }
