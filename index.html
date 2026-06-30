@@ -585,9 +585,13 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
       <button onclick="openCashModal('refill')" style="flex:1;padding:12px;background:var(--white);border:2px solid #4ade80;border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;color:#16a34a;cursor:pointer">💴 補充する</button>
     </div>
     <button onclick="openCashModal('reset')" style="width:100%;padding:10px;margin-bottom:14px;background:var(--white);border:1.5px solid var(--pink-dark);border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;color:var(--text-light);cursor:pointer">🔄 残高をリセット（金庫の実際の金額に合わせる）</button>
-    <div style="background:var(--white);border-radius:14px;padding:14px;box-shadow:var(--shadow)">
-      <div style="font-size:14px;font-weight:700;color:var(--pink-deep);margin-bottom:12px">📋 使用履歴</div>
-      <div id="cashList"></div>
+    <div style="background:var(--white);border-radius:14px;box-shadow:var(--shadow)">
+      <button onclick="toggleCashHistory()" style="width:100%;padding:14px;background:none;border:none;display:flex;align-items:center;justify-content:space-between;font-family:'Zen Maru Gothic',sans-serif;font-size:14px;font-weight:700;color:var(--pink-deep);cursor:pointer">
+        <span>📋 使用履歴</span><span id="cashHistoryArrow">▼</span>
+      </button>
+      <div id="cashHistoryBody" style="display:none;padding:0 14px 14px">
+        <div id="cashList"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -2078,6 +2082,7 @@ async function viewReceipt(id){
   if(!photos.length){showToast('レシートはありません');return;}
   openViewer(photos[0]);
 }
+function toggleCashHistory(){const body=document.getElementById('cashHistoryBody');const arrow=document.getElementById('cashHistoryArrow');const isOpen=body.style.display!=='none';body.style.display=isOpen?'none':'block';arrow.textContent=isOpen?'▼':'▲';}
 async function deleteCashRecord(id){if(!confirm('この記録を削除しますか？'))return;await sb.from('wecats_cash').delete().eq('id',id);await initCashPage();showToast('削除しました');}
 
 // ===== 体重管理 =====
