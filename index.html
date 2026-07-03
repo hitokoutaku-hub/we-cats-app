@@ -225,16 +225,37 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 
 /* マニュアル */
 .manual-wrap { padding: 16px; }
-.folder-card { background: var(--white); border-radius: 14px; padding: 16px; margin-bottom: 10px; box-shadow: var(--shadow); cursor: pointer; display: flex; align-items: center; gap: 12px; }
-.folder-icon { font-size: 28px; }
-.folder-info { flex: 1; }
-.folder-name { font-size: 15px; font-weight: 700; }
-.folder-count { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+.folder-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-bottom: 4px; }
+.folder-tile { background: var(--white); border-radius: 16px; padding: 16px 14px; box-shadow: var(--shadow); cursor: pointer; border: 1px solid rgba(244,198,208,0.4); position: relative; overflow: hidden; transition: transform 0.12s; }
+.folder-tile:active { transform: scale(0.97); }
+.folder-tile-bar { position: absolute; top: 0; left: 0; right: 0; height: 5px; }
+.folder-tile-icon { font-size: 26px; width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; border-radius: 14px; margin-bottom: 10px; margin-top: 4px; }
+.folder-tile-name { font-size: 14px; font-weight: 700; line-height: 1.3; }
+.folder-tile-count { font-size: 10px; color: var(--pink-deep); margin-top: 6px; font-weight: 700; background: var(--pink-light); display: inline-block; padding: 1px 8px; border-radius: 10px; }
+.fldr-icon-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.fldr-icon-opt { font-size: 20px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; border: 2px solid transparent; background: var(--pink-bg); }
+.fldr-icon-opt.selected { border-color: var(--pink-deep); background: var(--pink-light); }
+.fldr-color-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.fldr-color-opt { width: 34px; height: 34px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; }
+.fldr-color-opt.selected { border-color: var(--text); }
 .manual-add-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 8px; padding: 13px; border-radius: 14px; border: 2px dashed var(--pink-dark); background: none; color: var(--text-light); font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Zen Maru Gothic', sans-serif; }
-.article-card { background: var(--white); border-radius: 12px; padding: 14px; margin-bottom: 8px; box-shadow: var(--shadow); cursor: pointer; }
-.article-type { font-size: 10px; color: var(--pink-deep); font-weight: 700; margin-bottom: 4px; }
-.article-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-.article-preview { font-size: 12px; color: var(--text-light); }
+.article-card { background: var(--white); border-radius: 15px; margin-bottom: 11px; box-shadow: var(--shadow); cursor: pointer; overflow: hidden; transition: transform 0.12s; border: 1px solid rgba(244,198,208,0.4); }
+.article-card:active { transform: scale(0.985); }
+.article-card-thumb { width: 100%; height: 128px; object-fit: cover; display: block; background: var(--pink-light); }
+.article-card-body { padding: 13px 15px; }
+.article-card-thumb + .article-card-body { padding-top: 11px; }
+.article-type { display: inline-block; font-size: 10px; color: var(--pink-deep); font-weight: 700; margin-bottom: 6px; background: var(--pink-light); padding: 3px 9px; border-radius: 20px; }
+.article-title { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+.article-preview { font-size: 12px; color: var(--text-light); line-height: 1.6; }
+/* 手順書 詳細 */
+.step-block { background: var(--white); border-radius: 15px; box-shadow: var(--shadow); margin-bottom: 14px; overflow: hidden; border: 1px solid rgba(244,198,208,0.4); position: relative; }
+.step-block.photo-only .step-photo { max-height: none; }
+.step-num-float { position: absolute; top: 10px; left: 10px; width: 28px; height: 28px; border-radius: 50%; background: rgba(212,112,138,0.92); color: white; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; box-shadow: 0 2px 8px rgba(74,45,53,0.3); backdrop-filter: blur(2px); }
+.step-photo { width: 100%; object-fit: cover; max-height: 300px; display: block; cursor: zoom-in; background: var(--pink-light); }
+.step-body { display: flex; align-items: flex-start; gap: 11px; padding: 14px 15px; }
+.step-num { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--pink-deep), var(--pink-dark)); color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; box-shadow: 0 2px 8px rgba(212,112,138,0.35); }
+.step-text { font-size: 14px; line-height: 1.75; flex: 1; padding-top: 3px; }
+.article-detail-title { font-size: 19px; font-weight: 700; color: var(--pink-deep); margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--pink-light); }
 .checklist-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--pink-light); }
 .checklist-check { width: 26px; height: 26px; border-radius: 6px; border: 2px solid var(--pink-dark); background: var(--white); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; }
 .checklist-check.done { background: var(--pink-deep); border-color: var(--pink-deep); color: white; }
@@ -600,7 +621,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 <div class="page" id="page-manual">
   <div class="manual-wrap">
     <div id="folderList"></div>
-    <button class="manual-add-btn" onclick="openModal('addFolder')">📁 フォルダーを追加</button>
+    <button class="manual-add-btn" onclick="initAddFolderModal();openModal('addFolder')">📁 フォルダーを追加</button>
   </div>
 </div>
 <div class="page" id="page-folderdetail">
@@ -608,6 +629,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
     <div id="articleList"></div>
     <button class="manual-add-btn" onclick="initAddArticleModal();openModal('addArticle')">📄 記事を追加（写真付き手順）</button>
     <button class="manual-add-btn" onclick="openModal('addChecklist')" style="margin-top:6px">✅ チェックリストを追加</button>
+    <button class="manual-add-btn" onclick="openEditFolder()" style="margin-top:6px">✏️ フォルダー名・色を編集</button>
     <button class="manual-add-btn" onclick="deleteFolder()" style="margin-top:6px;border-color:#f87171;color:var(--danger)">🗑 このフォルダーを削除</button>
   </div>
 </div>
@@ -885,8 +907,15 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 
 <div class="modal-overlay" id="modalAddFolder"><div class="modal">
   <button class="modal-close" onclick="closeModal('addFolder')">✕</button>
-  <h3>📁 フォルダーを追加</h3>
+  <h3 id="folderModalTitle">📁 フォルダーを追加</h3>
   <div class="form-group"><label class="form-label">フォルダー名</label><input type="text" class="form-input" id="folderName" placeholder="例：空調・電気について"></div>
+  <div class="form-group"><label class="form-label">アイコン</label>
+    <div class="fldr-icon-picker" id="folderIconPicker"></div>
+  </div>
+  <div class="form-group"><label class="form-label">色</label>
+    <div class="fldr-color-picker" id="folderColorPicker"></div>
+  </div>
+  <input type="hidden" id="editFolderId">
   <button class="modal-submit" onclick="saveFolder()">追加する</button>
 </div></div>
 
@@ -2142,39 +2171,132 @@ async function openFloorHistory(){
 
 // ===== マニュアル =====
 async function loadFolders(){const{data}=await sb.from('manuals').select('*').order('created_at');foldersCache=(data||[]).filter(m=>m.type==='folder');articlesCache=(data||[]).filter(m=>m.type!=='folder');}
-function renderFolders(){
-  const el=document.getElementById('folderList');if(!foldersCache.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📁</div><p>フォルダーがありません</p></div>';return;}
-  el.innerHTML=foldersCache.map(f=>{const count=articlesCache.filter(a=>a.folder_id===f.id).length;return`<div class="folder-card" onclick="openFolder('${f.id}')"><div class="folder-icon">📁</div><div class="folder-info"><div class="folder-name">${f.title}</div><div class="folder-count">${count}件</div></div><div style="color:var(--text-light);font-size:16px">›</div></div>`;}).join('');
+// フォルダーの絵文字・色パレット
+const FOLDER_ICONS = ['📁','🌙','🐱','🧹','💴','📦','☎️','🎫','⚠️','🍽️','🚪','🔑','📋','🧴','🌡️','💊','🎀','📸','🗓️','✨'];
+const FOLDER_COLORS = [
+  {bar:'#8b5cf6',bg:'#efe0ff'},{bar:'#e8838f',bg:'#ffe0e8'},{bar:'#34a853',bg:'#d6f5e3'},
+  {bar:'#d4a017',bg:'#fff3d6'},{bar:'#3b82f6',bg:'#dbeafe'},{bar:'#ef4444',bg:'#fde0e0'},
+  {bar:'#ec4899',bg:'#ffe4f0'},{bar:'#f97316',bg:'#ffe0d6'},{bar:'#14b8a6',bg:'#d6f5f0'}
+];
+function folderMeta(f){
+  // content にJSONで {icon,color} を保存。旧データは既定値
+  try{const m=JSON.parse(f.content||'{}');if(m&&m.icon)return{icon:m.icon,ci:(typeof m.ci==='number'?m.ci:0)};}catch(e){}
+  return {icon:'📁', ci:0};
 }
+function renderFolders(){
+  const el=document.getElementById('folderList');
+  if(!foldersCache.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📁</div><p>フォルダーがありません</p></div>';return;}
+  const tiles=foldersCache.map(f=>{
+    const count=articlesCache.filter(a=>a.folder_id===f.id).length;
+    const meta=folderMeta(f);
+    const col=FOLDER_COLORS[meta.ci]||FOLDER_COLORS[0];
+    return`<div class="folder-tile" onclick="openFolder('${f.id}')"><div class="folder-tile-bar" style="background:${col.bar}"></div><div class="folder-tile-icon" style="background:${col.bg}">${meta.icon}</div><div class="folder-tile-name">${f.title}</div><div class="folder-tile-count">${count}件</div></div>`;
+  }).join('');
+  el.innerHTML='<div class="folder-grid">'+tiles+'</div>';
+}
+// 選択状態（モーダル用）
+let pickedFolderIcon='📁', pickedFolderColor=0;
+function buildFolderPickers(){
+  const ip=document.getElementById('folderIconPicker');
+  if(ip)ip.innerHTML=FOLDER_ICONS.map(ic=>`<div class="fldr-icon-opt${ic===pickedFolderIcon?' selected':''}" onclick="pickFolderIcon('${ic}',this)">${ic}</div>`).join('');
+  const cp=document.getElementById('folderColorPicker');
+  if(cp)cp.innerHTML=FOLDER_COLORS.map((c,i)=>`<div class="fldr-color-opt${i===pickedFolderColor?' selected':''}" style="background:${c.bar}" onclick="pickFolderColor(${i},this)"></div>`).join('');
+}
+function pickFolderIcon(ic,el){pickedFolderIcon=ic;document.querySelectorAll('#folderIconPicker .fldr-icon-opt').forEach(x=>x.classList.remove('selected'));el.classList.add('selected');}
+function pickFolderColor(i,el){pickedFolderColor=i;document.querySelectorAll('#folderColorPicker .fldr-color-opt').forEach(x=>x.classList.remove('selected'));el.classList.add('selected');}
 function openFolder(folderId){currentFolderId=folderId;const folder=foldersCache.find(f=>f.id===folderId);currentPage='folderdetail';document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-folderdetail').classList.add('active');document.getElementById('backBtn').style.display='inline-block';document.getElementById('headerTitle').textContent=folder.title;renderArticles();}
 function renderArticles(){
   const items=articlesCache.filter(a=>a.folder_id===currentFolderId);const el=document.getElementById('articleList');
   if(!items.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📄</div><p>まだ記事がありません</p></div>';return;}
-  el.innerHTML=items.map(a=>{let preview='';if(a.type==='step_article'){try{const steps=JSON.parse(a.content||'[]');preview=steps.length?`${steps.length}ステップ`:''}catch(e){preview='';}}else if(a.type!=='checklist'){preview=(a.content||'').slice(0,50)+((a.content||'').length>50?'…':'');}return`<div class="article-card" onclick="openArticle('${a.id}')"><div class="article-type">${a.type==='checklist'?'✅ チェックリスト':a.type==='step_article'?'📸 手順書':'📄 記事'}</div><div class="article-title">${a.title}</div>${preview?`<div class="article-preview">${preview}</div>`:''}</div>`;}).join('');
+  el.innerHTML=items.map(a=>{
+    let preview='';let thumb='';
+    if(a.type==='step_article'){
+      try{const steps=JSON.parse(a.content||'[]');
+        preview=steps.length?`${steps.length}ステップ`:'';
+        // 最初の写真をサムネイルに
+        for(const s of steps){if(s.photos&&s.photos.length){thumb=s.photos[0];break;}}
+      }catch(e){preview='';}
+    }else if(a.type!=='checklist'){
+      preview=(a.content||'').slice(0,50)+((a.content||'').length>50?'…':'');
+    }else{
+      const cnt=(a.content||'').split('\n').filter(s=>s.trim()).length;
+      preview=cnt?`${cnt}項目`:'';
+    }
+    const typeLabel=a.type==='checklist'?'✅ チェックリスト':a.type==='step_article'?'📸 手順書':'📄 記事';
+    const thumbHtml=thumb?`<img src="${thumb}" class="article-card-thumb" alt="">`:'';
+    return`<div class="article-card" onclick="openArticle('${a.id}')">${thumbHtml}<div class="article-card-body"><div class="article-type">${typeLabel}</div><div class="article-title">${a.title}</div>${preview?`<div class="article-preview">${preview}</div>`:''}</div></div>`;
+  }).join('');
 }
 function openArticle(articleId){
   const article=articlesCache.find(a=>a.id===articleId);editingArticleId=articleId;
   currentPage='articledetail';document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-articledetail').classList.add('active');document.getElementById('backBtn').style.display='inline-block';document.getElementById('headerTitle').textContent=article.title;
-  let html=`<div style="font-size:17px;font-weight:700;color:var(--pink-deep);margin-bottom:12px">${article.title}</div>`;
+  let html=`<div class="article-detail-title">${article.title}</div>`;
   if(article.type==='checklist'){const items=(article.content||'').split('\n').filter(s=>s.trim());const ck='check_'+articleId+'_'+today();const state=JSON.parse(localStorage.getItem(ck)||'{}');html+=items.map((item,i)=>`<div class="checklist-item"><div class="checklist-check ${state[i]?'done':''}" onclick="toggleCheck('${ck}',${i},this,'ct-${articleId}-${i}')">${state[i]?'✓':''}</div><div class="checklist-text ${state[i]?'done':''}" id="ct-${articleId}-${i}">${item}</div></div>`).join('');html+=`<button class="reset-check-btn" onclick="resetChecklist('${ck}','${articleId}')">🔄 チェックをリセット</button>`;}
-  else if(article.type==='step_article'){try{const steps=JSON.parse(article.content||'[]');html+=steps.map((step,i)=>{const photos=step.photos||[];return`<div style="margin-bottom:20px;border-bottom:1px solid var(--pink-light);padding-bottom:16px">${photos.map(p=>`<img src="${p}" style="width:100%;border-radius:10px;object-fit:cover;max-height:260px;margin-bottom:6px;display:block" onclick="openViewer(this.src)" alt="">`).join('')}<div style="display:flex;align-items:flex-start;gap:10px;margin-top:${photos.length?'8':'0'}px"><div style="width:28px;height:28px;border-radius:50%;background:var(--pink-deep);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;margin-top:2px">${i+1}</div><div style="font-size:14px;line-height:1.7;flex:1">${step.text||''}</div></div></div>`;}).join('');}catch(e){html+=`<div style="font-size:13px">${article.content||''}</div>`;}}
-  else{html+=`<div style="font-size:13px;line-height:1.9;white-space:pre-wrap">${article.content||''}</div>`;}
+  else if(article.type==='step_article'){try{const steps=JSON.parse(article.content||'[]');html+=steps.map((step,i)=>{const photos=step.photos||[];const hasText=step.text&&step.text.trim();const photoHtml=photos.map(p=>`<img src="${p}" class="step-photo" onclick="openViewer(this.src)" alt="">`).join('');const bodyHtml=hasText?`<div class="step-body"><div class="step-num">${i+1}</div><div class="step-text">${step.text}</div></div>`:`<div class="step-num-float">${i+1}</div>`;return`<div class="step-block${hasText?'':' photo-only'}">${photoHtml}${bodyHtml}</div>`;}).join('');}catch(e){html+=`<div style="font-size:13px">${article.content||''}</div>`;}}
+  else{html+=`<div style="font-size:14px;line-height:1.9;white-space:pre-wrap">${article.content||''}</div>`;}
   document.getElementById('articleDetailContent').innerHTML=html;
 }
 function toggleCheck(ck,idx,el,textId){const state=JSON.parse(localStorage.getItem(ck)||'{}');state[idx]=!state[idx];localStorage.setItem(ck,JSON.stringify(state));el.classList.toggle('done',state[idx]);el.textContent=state[idx]?'✓':'';const t=document.getElementById(textId);if(t)t.classList.toggle('done',state[idx]);}
 function resetChecklist(ck,articleId){localStorage.removeItem(ck);openArticle(articleId);showToast('✓ チェックをリセットしました');}
-async function saveFolder(){const title=document.getElementById('folderName').value.trim();if(!title){showToast('フォルダー名を入力してください');return;}await sb.from('manuals').insert({title,type:'folder',content:''});await loadFolders();closeModal('addFolder');renderFolders();showToast('✓ フォルダーを追加しました');}
+async function saveFolder(){
+  const title=document.getElementById('folderName').value.trim();
+  if(!title){showToast('フォルダー名を入力してください');return;}
+  const meta=JSON.stringify({icon:pickedFolderIcon,ci:pickedFolderColor});
+  const editId=document.getElementById('editFolderId').value;
+  if(editId){
+    await sb.from('manuals').update({title,content:meta}).eq('id',editId);
+    await loadFolders();closeModal('addFolder');renderFolders();showToast('✓ フォルダーを更新しました');
+  }else{
+    await sb.from('manuals').insert({title,type:'folder',content:meta});
+    await loadFolders();closeModal('addFolder');renderFolders();showToast('✓ フォルダーを追加しました');
+  }
+}
+function initAddFolderModal(){
+  document.getElementById('folderName').value='';
+  document.getElementById('editFolderId').value='';
+  document.getElementById('folderModalTitle').textContent='📁 フォルダーを追加';
+  document.querySelector('#modalAddFolder .modal-submit').textContent='追加する';
+  pickedFolderIcon='📁';pickedFolderColor=0;
+  buildFolderPickers();
+}
+function openEditFolder(){
+  const f=foldersCache.find(x=>x.id===currentFolderId);if(!f)return;
+  const meta=folderMeta(f);
+  document.getElementById('folderName').value=f.title;
+  document.getElementById('editFolderId').value=f.id;
+  document.getElementById('folderModalTitle').textContent='📁 フォルダーを編集';
+  document.querySelector('#modalAddFolder .modal-submit').textContent='更新する';
+  pickedFolderIcon=meta.icon;pickedFolderColor=meta.ci;
+  buildFolderPickers();
+  openModal('addFolder');
+}
 function initAddArticleModal(){articleStepData=[];document.getElementById('articleTitle').value='';renderArticleSteps();}
 function addArticleStep(){articleStepData.push({text:'',photos:[]});renderArticleSteps();}
 function removeArticleStep(idx){articleStepData.splice(idx,1);renderArticleSteps();}
 function removeStepPhoto(stepIdx,photoIdx){articleStepData[stepIdx].photos.splice(photoIdx,1);renderArticleSteps();}
 function renderArticleSteps(){
   const el=document.getElementById('articleSteps');
-  if(!articleStepData.length){el.innerHTML='<div style="font-size:12px;color:var(--text-light);text-align:center;padding:10px 0;margin-bottom:8px">「＋ ステップを追加」でステップを作成してください</div>';return;}
-  el.innerHTML=articleStepData.map((step,i)=>{const photosHtml=(step.photos||[]).map((p,pi)=>`<div style="position:relative;flex-shrink:0"><img src="${p}" style="width:90px;height:90px;object-fit:cover;border-radius:8px"><button onclick="removeStepPhoto(${i},${pi})" style="position:absolute;top:2px;right:2px;background:rgba(74,45,53,0.7);color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:9px;cursor:pointer;line-height:18px;text-align:center;padding:0">✕</button></div>`).join('');return`<div style="background:var(--pink-light);border-radius:10px;padding:12px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="width:24px;height:24px;border-radius:50%;background:var(--pink-deep);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</div><textarea placeholder="説明を入力..." onchange="articleStepData[${i}].text=this.value" style="flex:1;padding:6px 8px;border:1.5px solid var(--pink);border-radius:8px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;background:var(--white);resize:none;min-height:50px;outline:none">${step.text||''}</textarea><button onclick="removeArticleStep(${i})" style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--text-light);flex-shrink:0">🗑</button></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${photosHtml}</div><div onclick="document.getElementById('stepPhoto_${i}').click()" style="border:2px dashed var(--pink-dark);border-radius:8px;padding:8px;text-align:center;cursor:pointer;font-size:12px;color:var(--text-light)">📷 写真を追加（複数可）<input type="file" id="stepPhoto_${i}" accept="image/*" multiple style="display:none" onchange="handleStepPhoto(event,${i})"></div></div>`;}).join('');
+  if(!articleStepData.length){el.innerHTML='<div style="font-size:12px;color:var(--text-light);text-align:center;padding:10px 0;margin-bottom:8px">「＋ ステップを追加」で手順を作成してください</div>';return;}
+  el.innerHTML=articleStepData.map((step,i)=>{
+    const photos=step.photos||[];
+    const photosHtml=photos.map((p,pi)=>`<div style="position:relative;flex-shrink:0"><img src="${p}" style="width:100%;max-width:100%;border-radius:8px;display:block"><button onclick="removeStepPhoto(${i},${pi})" style="position:absolute;top:4px;right:4px;background:rgba(74,45,53,0.7);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:11px;cursor:pointer;line-height:22px;text-align:center;padding:0">✕</button></div>`).join('');
+    const photoBlock = photos.length
+      ? `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">${photosHtml}</div>`
+      : '';
+    return`<div style="background:var(--pink-light);border-radius:12px;padding:12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="width:24px;height:24px;border-radius:50%;background:var(--pink-deep);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</div>
+        <div style="flex:1;font-size:12px;font-weight:700;color:var(--pink-deep)">手順 ${i+1}</div>
+        <button onclick="removeArticleStep(${i})" style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--text-light);flex-shrink:0">🗑</button>
+      </div>
+      ${photoBlock}
+      <div onclick="document.getElementById('stepPhoto_${i}').click()" style="border:2px dashed var(--pink-dark);border-radius:8px;padding:10px;text-align:center;cursor:pointer;font-size:12px;color:var(--pink-deep);font-weight:700;background:var(--white);margin-bottom:8px">📷 ${photos.length?'写真を追加':'写真を選ぶ（解説を書き込んだ画像でもOK）'}<input type="file" id="stepPhoto_${i}" accept="image/*" multiple style="display:none" onchange="handleStepPhoto(event,${i})"></div>
+      <textarea placeholder="補足があれば入力（任意）" onchange="articleStepData[${i}].text=this.value" style="width:100%;padding:8px 10px;border:1.5px solid var(--pink);border-radius:8px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;background:var(--white);resize:none;min-height:44px;outline:none">${step.text||''}</textarea>
+    </div>`;
+  }).join('');
 }
 function handleStepPhoto(event,idx){Array.from(event.target.files).forEach(file=>{const reader=new FileReader();reader.onload=e=>{if(!articleStepData[idx].photos)articleStepData[idx].photos=[];articleStepData[idx].photos.push(e.target.result);renderArticleSteps();};reader.readAsDataURL(file);});event.target.value='';}
-async function saveArticle(){const title=document.getElementById('articleTitle').value.trim();if(!title){showToast('タイトルを入力してください');return;}if(!articleStepData.length){showToast('ステップを追加してください');return;}await sb.from('manuals').insert({title,type:'step_article',content:JSON.stringify(articleStepData),folder_id:currentFolderId});await loadFolders();closeModal('addArticle');renderArticles();showToast('✓ 記事を追加しました');articleStepData=[];}
+async function saveArticle(){const title=document.getElementById('articleTitle').value.trim();if(!title){showToast('タイトルを入力してください');return;}const valid=articleStepData.filter(s=>(s.photos&&s.photos.length)||(s.text&&s.text.trim()));if(!valid.length){showToast('写真または説明を1つ以上入れてください');return;}await sb.from('manuals').insert({title,type:'step_article',content:JSON.stringify(valid),folder_id:currentFolderId});await loadFolders();closeModal('addArticle');renderArticles();showToast('✓ 記事を追加しました');articleStepData=[];}
 async function saveChecklist(){const title=document.getElementById('checklistTitle').value.trim(),items=document.getElementById('checklistItems').value.trim();if(!title||!items){showToast('タイトルと項目を入力してください');return;}await sb.from('manuals').insert({title,type:'checklist',content:items,folder_id:currentFolderId});await loadFolders();closeModal('addChecklist');renderArticles();showToast('✓ チェックリストを追加しました');}
 async function deleteArticle(){if(!confirm('削除しますか？'))return;await sb.from('manuals').delete().eq('id',editingArticleId);await loadFolders();goBack();showToast('削除しました');}
 async function deleteFolder(){if(!confirm('このフォルダーと中の記事を全て削除しますか？'))return;const articles=articlesCache.filter(a=>a.folder_id===currentFolderId);for(const a of articles)await sb.from('manuals').delete().eq('id',a.id);await sb.from('manuals').delete().eq('id',currentFolderId);await loadFolders();switchPage('manual');showToast('削除しました');}
