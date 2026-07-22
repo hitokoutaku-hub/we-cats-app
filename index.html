@@ -361,7 +361,10 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
     <button class="back-btn" id="menuBtn" style="font-size:14px;display:flex;align-items:center;gap:3px;white-space:nowrap" onclick="openMoreMenu()" title="メニュー"><span style="font-size:20px">☰</span>メニュー</button>
   </div>
   <h1 id="headerTitle">🐱 WE CATS</h1>
-  <div class="header-date" id="headerDate"></div>
+  <div style="display:flex;align-items:center;gap:2px">
+    <button class="back-btn" id="refreshBtn" style="font-size:20px" onclick="manualRefresh()" title="最新データに更新">🔄</button>
+    <div class="header-date" id="headerDate"></div>
+  </div>
 </div>
 
 <!-- ===== よく使う4つ（クイックナビ） ===== -->
@@ -1238,6 +1241,13 @@ async function doLogin(){
   document.getElementById('nameSetup').style.display='none';
   document.getElementById('boardAuthorName').textContent=userName;
   init();
+}
+async function manualRefresh(){
+  const btn=document.getElementById('refreshBtn');
+  if(btn){btn.style.transition='transform .6s';btn.style.transform='rotate(360deg)';setTimeout(()=>{btn.style.transform='rotate(0deg)';},600);}
+  showToast('最新データを取得中...');
+  await init();
+  showToast('更新しました ✅');
 }
 async function init(){
   showToast('データを読み込み中...');
