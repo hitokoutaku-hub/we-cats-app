@@ -2328,7 +2328,7 @@ let shiftYear = new Date().getFullYear();
 let shiftMonth = new Date().getMonth();
 let shiftSelectedDay = null;
 let shiftCache = [];
-const STAFF_LIST = ['高橋', '土橋', '田染', '冨部', '松中', '松本', 'よしむら', '吉村'];
+function getStaffNames() { return staffCache.map(s => s.name); }
 
 async function loadShifts() {
   const prefix = `${shiftYear}-${String(shiftMonth + 1).padStart(2, '0')}`;
@@ -2339,7 +2339,7 @@ async function loadShifts() {
 async function initShiftPage() {
   shiftSelectedDay = null;
   document.getElementById('shiftDayDetail').innerHTML = '';
-  await Promise.all([loadShifts(), loadShiftTypes()]);
+  await Promise.all([loadShifts(), loadShiftTypes(), loadStaffForManage()]);
   renderShiftCalendar();
   const editArea = document.getElementById('shiftEditArea');
   if (editArea) editArea.style.display = currentStaffIsOwner ? 'block' : 'none';
@@ -2429,7 +2429,7 @@ function openShiftEditModal() {
   const currentShifts = shiftCache.filter(s => s.date === dateStr);
   const list = document.getElementById('shiftEditList');
   const typeOptions = shiftTypesCache.map(t => `<option value="${t.name}" \${currentType === '${t.name}' ? 'selected' : ''}>${t.name}${t.time_range?' ('+t.time_range+')':''}</option>`).join('');
-  list.innerHTML = STAFF_LIST.map((staff, idx) => {
+  list.innerHTML = getStaffNames().map((staff, idx) => {
     const current = currentShifts.find(s => s.staff_name === staff);
     const currentType = current ? current.shift_type : '';
     const opts = shiftTypesCache.map(t => { const tr = (t.time_range && t.time_range !== 'EMPTY') ? t.time_range : ''; return `<option value="${t.name}" ${currentType === t.name ? 'selected' : ''}>${t.name}${tr?' ('+tr+')':''}</option>`; }).join('');
@@ -2446,7 +2446,7 @@ async function saveShiftEdit() {
     for (const row of existing) await sb.from('wecats_shifts').delete().eq('id', row.id);
   }
   const inserts = [];
-  STAFF_LIST.forEach((staff, idx) => {
+  getStaffNames().forEach((staff, idx) => {
     const sel = document.getElementById(`shiftSel_${idx}`);
     if (sel && sel.value) inserts.push({ id: `shift_${dateStr}_${idx}_${Math.random().toString(36).slice(2,8)}`, staff_name: staff, date: dateStr, shift_type: sel.value });
   });
