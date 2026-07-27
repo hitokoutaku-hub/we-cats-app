@@ -1083,7 +1083,7 @@ async function wcFlushQueue(){
       if(item.op==='upsert'){await sb.from(item.table).upsert(item.data);}
       else if(item.op==='insert'){await sb.from(item.table).insert(item.data);}
       else if(item.op==='update'){await sb.from(item.table).update(item.data.update).eq('id',item.data.id);}
-      else if(item.op==='delete'){await sb.from(item.table).delete().eq('id',item.data.id);}
+      else if(item.op==='delete'){await sb.from(item.table).delete().eq(item.data.column||'id',item.data.id);}
     }catch(e){failed.push(item);}
   }
   wcQueueSave(failed);
@@ -1121,6 +1121,11 @@ async function sbDelete(table,id){
   try{const r=await sb.from(table).delete().eq('id',id);if(r.error)throw r.error;return r;}
   catch(e){wcQueueAdd(table,'delete',{id});return{error:null,offline:true};}
 }
+async function sbDeleteBy(table,column,value){
+  if(!sbReady){wcQueueAdd(table,'delete',{id:value,column});return{error:null,offline:true};}
+  try{const r=await sb.from(table).delete().eq(column,value);if(r.error)throw r.error;return r;}
+  catch(e){wcQueueAdd(table,'delete',{id:value,column});return{error:null,offline:true};}
+}
 
 // キャッシュ
 let catsCache=[],catRecordsCache={},catMedsCache={},catHospPlansCache={};
@@ -1138,7 +1143,7 @@ const DEFAULT_CATS=[
 async function loadCatsData(){
   const{data:cats}=await sb.from('wecats_cats').select('*').order('sort_order').order('created_at');
   if(!cats||cats.length===0){
-    await sb.from('wecats_cats').insert(DEFAULT_CATS.map((c,i)=>({...c,sort_order:i})));
+    await sbInsert('wecats_cats', DEFAULT_CATS.map((c,i)=>({...c,sort_order:i})));
     const{data:cats2}=await sb.from('wecats_cats').select('*').order('sort_order');
     catsCache=cats2||DEFAULT_CATS;
   } else { catsCache=cats; }
@@ -1235,7 +1240,7 @@ async function doLogin(){
   if(!staff||staff.pin!==pin){showToast('PINコードが違います');document.getElementById('pinInput').value='';return;}
   userName=staff.name; currentStaffIsOwner=staff.is_owner||false;
   localStorage.setItem('wecats_username',staff.name);
-  await sb.from('wecats_login_logs').insert({id:'log_'+Date.now(),staff_id:staff.id,staff_name:staff.name});
+  await sbInsert('wecats_login_logs', {id:'log_'+Date.now(),staff_id:staff.id,staff_name:staff.name});
   const navLog=document.getElementById('moreMenuAdminItem');
   if(navLog)navLog.style.display=currentStaffIsOwner?'flex':'none';
   document.getElementById('nameSetup').style.display='none';
@@ -1456,7 +1461,7 @@ function openMoreMenu(){openModal('moreMenu');}
 async function saveHospitalPlan(){
   const date=document.getElementById('hpDate').value,memo=document.getElementById('hpMemo').value.trim();
   if(!date){showToast('日付を入力してください');return;}
-  await sb.from('wecats_hospital_plans').insert({id:'hp_'+Date.now(),cat_id:currentCatId,date,memo});
+  await sbInsert('wecats_hospital_plans', {id:'hp_'+Date.now(),cat_id:currentCatId,date,memo});
   await loadCatDetail(currentCatId);closeModal('hospitalPlan');showToast('✓ 病院予定を追加しました');renderHospPlanList();checkHospitalAlerts();
 }
 function renderHospPlanList(){
@@ -1465,7 +1470,7 @@ function renderHospPlanList(){
   if(!plans.length){el.innerHTML='<div style="font-size:12px;color:var(--text-light);margin-bottom:8px">予定なし</div>';return;}
   el.innerHTML=plans.map(p=>{const d=diffDays(p.date);const cls=d===0?'urgent':d<=3?'soon':'';const dayLabel=d===0?'今日！':d===1?'明日':`${d}日後`;return`<div class="hosp-plan-item ${cls}"><button class="record-delete" onclick="delHospPlan('${p.id}')">🗑</button><div class="hosp-date">📅 ${p.date}</div>${p.memo?`<div class="hosp-memo">${p.memo}</div>`:''}<div class="hosp-days ${cls}">${dayLabel}</div></div>`;}).join('');
 }
-async function delHospPlan(id){await sb.from('wecats_hospital_plans').delete().eq('id',id);await loadCatDetail(currentCatId);renderHospPlanList();checkHospitalAlerts();}
+async function delHospPlan(id){await sbDelete('wecats_hospital_plans',id);await loadCatDetail(currentCatId);renderHospPlanList();checkHospitalAlerts();}
 function editHospitalRecord(id){
   const rec=(catRecordsCache[currentCatId]||[]).find(r=>r.id===id);if(!rec)return;
   const d=rec.data||{};
@@ -1538,15 +1543,15 @@ function renderMedList(){
   el.innerHTML=html;
 }
 function toggleMedCheck(key,el){medCheckState[key]=!medCheckState[key];el.classList.toggle('done',medCheckState[key]);el.textContent=medCheckState[key]?'✓':'';showToast(medCheckState[key]?'✓ 投薬済み！':'未投薬に戻しました');}
-async function endMedication(id){const endDate=prompt('終了日を入力してください（例：2026-04-08）',today());if(!endDate)return;await sb.from('wecats_medications').update({active:false,end_date:endDate}).eq('id',id);await loadCatDetail(currentCatId);renderMedList();renderCatList();showToast('✓ 投薬を終了しました');}
-async function delMedication(id){if(!confirm('この投薬記録を削除しますか？'))return;await sb.from('wecats_medications').delete().eq('id',id);await loadCatDetail(currentCatId);renderMedList();renderCatList();showToast('削除しました');}
-async function delRecord(id,tab){if(!confirm('この記録を削除しますか？'))return;await sb.from('wecats_records').delete().eq('id',id);await loadCatDetail(currentCatId);showToast('削除しました');switchCatTab(tab||currentCatTab);}
+async function endMedication(id){const endDate=prompt('終了日を入力してください（例：2026-04-08）',today());if(!endDate)return;await sbUpdate('wecats_medications',id,{active:false,end_date:endDate});await loadCatDetail(currentCatId);renderMedList();renderCatList();showToast('✓ 投薬を終了しました');}
+async function delMedication(id){if(!confirm('この投薬記録を削除しますか？'))return;await sbDelete('wecats_medications',id);await loadCatDetail(currentCatId);renderMedList();renderCatList();showToast('削除しました');}
+async function delRecord(id,tab){if(!confirm('この記録を削除しますか？'))return;await sbDelete('wecats_records',id);await loadCatDetail(currentCatId);showToast('削除しました');switchCatTab(tab||currentCatTab);}
 
 // ===== 猫管理 =====
 async function reloadCatsAndRender(){await loadCatsData();await loadAllCatsOverviewData();renderCatList();checkHospitalAlerts();}
 function renderEmojiPicker(id){document.getElementById(id).innerHTML=CAT_EMOJIS.map(e=>`<span class="emoji-opt ${e===selectedEmoji?'selected':''}" onclick="selectEmoji(this,'${e}','${id}')">${e}</span>`).join('');}
 function selectEmoji(el,e,id){selectedEmoji=e;document.querySelectorAll(`#${id} .emoji-opt`).forEach(x=>x.classList.remove('selected'));el.classList.add('selected');}
-async function addCat(){const name=document.getElementById('newCatName').value.trim();if(!name){showToast('名前を入力してください');return;}await sb.from('wecats_cats').insert({id:'cat_'+Date.now(),name,emoji:selectedEmoji,sort_order:catsCache.length});await reloadCatsAndRender();closeModal('addCat');showToast(`✓ ${name} を追加しました`);}
+async function addCat(){const name=document.getElementById('newCatName').value.trim();if(!name){showToast('名前を入力してください');return;}await sbInsert('wecats_cats',{id:'cat_'+Date.now(),name,emoji:selectedEmoji,sort_order:catsCache.length});await reloadCatsAndRender();closeModal('addCat');showToast(`✓ ${name} を追加しました`);}
 function openEditCat(catId){
   editingCatId=catId;const cat=catsCache.find(c=>c.id===catId);
   document.getElementById('editCatName').value=cat.name;selectedEmoji=cat.emoji;renderEmojiPicker('editEmojiPicker');
@@ -1555,11 +1560,11 @@ function openEditCat(catId){
   if(locBtn){const isFloor=(cat.location||'cage')==='floor';locBtn.textContent=isFloor?'🏠 ケージに変更':'🐾 放し飼いに変更';}
   document.getElementById('modalEditCat').classList.add('open');
 }
-async function toggleCatLocation(){const cat=catsCache.find(c=>c.id===editingCatId);const newLoc=(cat.location||'cage')==='cage'?'floor':'cage';await sb.from('wecats_cats').update({location:newLoc}).eq('id',editingCatId);await reloadCatsAndRender();closeModal('editCat');showToast(newLoc==='floor'?'🐾 放し飼い組に移動しました':'🏠 ケージ組に移動しました');}
-async function saveEditCat(){const name=document.getElementById('editCatName').value.trim();if(!name){showToast('名前を入力してください');return;}await sb.from('wecats_cats').update({name,emoji:selectedEmoji}).eq('id',editingCatId);await reloadCatsAndRender();closeModal('editCat');showToast('✓ 更新しました');}
-async function archiveCat(){const cat=catsCache.find(c=>c.id===editingCatId);if(!confirm(`「${cat.name}」を卒業にしますか？`))return;await sb.from('wecats_cats').update({archived:true}).eq('id',editingCatId);await reloadCatsAndRender();closeModal('editCat');showToast(`🎓 ${cat.name} を卒業にしました`);}
-async function unarchiveCat(){await sb.from('wecats_cats').update({archived:false}).eq('id',editingCatId);await reloadCatsAndRender();closeModal('editCat');showToast('✓ 現役に戻しました');}
-async function deleteCat(){const cat=catsCache.find(c=>c.id===editingCatId);if(!confirm(`「${cat.name}」を削除しますか？`))return;await sb.from('wecats_records').delete().eq('cat_id',editingCatId);await sb.from('wecats_medications').delete().eq('cat_id',editingCatId);await sb.from('wecats_hospital_plans').delete().eq('cat_id',editingCatId);await sb.from('wecats_cats').delete().eq('id',editingCatId);await reloadCatsAndRender();closeModal('editCat');showToast('削除しました');}
+async function toggleCatLocation(){const cat=catsCache.find(c=>c.id===editingCatId);const newLoc=(cat.location||'cage')==='cage'?'floor':'cage';await sbUpdate('wecats_cats',editingCatId,{location:newLoc});await reloadCatsAndRender();closeModal('editCat');showToast(newLoc==='floor'?'🐾 放し飼い組に移動しました':'🏠 ケージ組に移動しました');}
+async function saveEditCat(){const name=document.getElementById('editCatName').value.trim();if(!name){showToast('名前を入力してください');return;}await sbUpdate('wecats_cats',editingCatId,{name,emoji:selectedEmoji});await reloadCatsAndRender();closeModal('editCat');showToast('✓ 更新しました');}
+async function archiveCat(){const cat=catsCache.find(c=>c.id===editingCatId);if(!confirm(`「${cat.name}」を卒業にしますか？`))return;await sbUpdate('wecats_cats',editingCatId,{archived:true});await reloadCatsAndRender();closeModal('editCat');showToast(`🎓 ${cat.name} を卒業にしました`);}
+async function unarchiveCat(){await sbUpdate('wecats_cats',editingCatId,{archived:false});await reloadCatsAndRender();closeModal('editCat');showToast('✓ 現役に戻しました');}
+async function deleteCat(){const cat=catsCache.find(c=>c.id===editingCatId);if(!confirm(`「${cat.name}」を削除しますか？`))return;await sbDeleteBy('wecats_records','cat_id',editingCatId);await sbDeleteBy('wecats_medications','cat_id',editingCatId);await sbDeleteBy('wecats_hospital_plans','cat_id',editingCatId);await sbDelete('wecats_cats',editingCatId);await reloadCatsAndRender();closeModal('editCat');showToast('削除しました');}
 let archiveVisible=false;
 function toggleArchive(){
   archiveVisible=!archiveVisible;
@@ -1864,7 +1869,7 @@ async function initDefaultDrinks(){
     {category:'ice',name:'ミルクティー(パック)',icon:'🧋',stock:10},{category:'ice',name:'アンパンマン',icon:'🧒',stock:10},
     {category:'ice',name:'お茶',icon:'🍵',stock:10},{category:'ice',name:'水',icon:'💧',stock:10},
   ];
-  await sb.from('drink_items').insert(items);
+  await sbInsert('drink_items', items);
   const{data}=await sb.from('drink_items').select('*').order('created_at');
   ['hot','ice','cat','supply','meds'].forEach(cat=>drinkCache[cat]=(data||[]).filter(d=>d.category===cat));
 }
@@ -1914,7 +1919,7 @@ async function saveDrinkAdd(){
   const warn_threshold=parseInt(document.getElementById('dAddWarn').value)||5;
   const barrel=document.getElementById('dAddBarrel')?.checked;
   const insertData={category:currentDrinkTab,name,icon,stock:barrel?100:stock,warn_threshold};if(barrel)insertData.barrel_type=true;
-  await sb.from('drink_items').insert(insertData);await loadDrinks();closeModal('drinkAdd');showToast('✓ 追加しました');
+  await sbInsert('drink_items', insertData);await loadDrinks();closeModal('drinkAdd');showToast('✓ 追加しました');
 }
 function openDrinkEdit(id){
   const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;
@@ -1924,12 +1929,12 @@ function openDrinkEdit(id){
 }
 async function saveDrinkEdit(){
   const id=document.getElementById('dEditId').value,name=document.getElementById('dEditName').value.trim(),icon=document.getElementById('dEditIcon').value.trim(),warn_threshold=parseInt(document.getElementById('dEditWarn').value)||5;
-  await sb.from('drink_items').update({name,icon,warn_threshold}).eq('id',id);
+  await sbUpdate('drink_items',id,{name,icon,warn_threshold});
   const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(item){item.name=name;item.icon=icon;item.warn_threshold=warn_threshold;}
   closeModal('drinkEdit');renderDrinks();showToast('✓ 更新しました');
 }
-async function toggleDrinkPause(){const id=document.getElementById('dEditId').value;const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;item.paused=!item.paused;await sb.from('drink_items').update({paused:item.paused}).eq('id',id);closeModal('drinkEdit');renderDrinks();showToast(item.paused?'💤 休止にしました':'▶️ 休止を解除しました');}
-async function deleteDrink(){const id=document.getElementById('dEditId').value;if(!confirm('削除しますか？'))return;await sb.from('drink_items').delete().eq('id',id);drinkCache[currentDrinkTab]=drinkCache[currentDrinkTab].filter(d=>d.id!==id);closeModal('drinkEdit');renderDrinks();showToast('削除しました');}
+async function toggleDrinkPause(){const id=document.getElementById('dEditId').value;const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;item.paused=!item.paused;await sbUpdate('drink_items',id,{paused:item.paused});closeModal('drinkEdit');renderDrinks();showToast(item.paused?'💤 休止にしました':'▶️ 休止を解除しました');}
+async function deleteDrink(){const id=document.getElementById('dEditId').value;if(!confirm('削除しますか？'))return;await sbDelete('drink_items',id);drinkCache[currentDrinkTab]=drinkCache[currentDrinkTab].filter(d=>d.id!==id);closeModal('drinkEdit');renderDrinks();showToast('削除しました');}
 
 // ===== 連絡ボード =====
 function selectPostType(el,type){currentPostType=type;document.querySelectorAll('.post-type-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const rf=document.getElementById('reportFields');if(rf)rf.style.display=type==='report'?'block':'none';}
@@ -1975,14 +1980,14 @@ async function submitPost(){
   }
   if(!content&&photoBuf.board.length===0){showToast('内容を入力してください');return;}
   const editId=document.getElementById('newPostContent').dataset.editId;
-  if(editId){await sb.from('board_posts').update({content,role:currentPostType,photos:JSON.stringify([...photoBuf.board])}).eq('id',editId);document.getElementById('newPostContent').dataset.editId='';showToast('✓ 編集しました');}
+  if(editId){await sbUpdate('board_posts',editId,{content,role:currentPostType,photos:JSON.stringify([...photoBuf.board])});document.getElementById('newPostContent').dataset.editId='';showToast('✓ 編集しました');}
   else{await sbInsert('board_posts',{author:userName,role:currentPostType,content,pinned:false,photos:JSON.stringify([...photoBuf.board])});showToast('✓ 投稿しました');}
   document.getElementById('newPostContent').value='';
   ['reportVisitors','reportReviews','reportSales'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   photoBuf.board=[];renderPhotoPreview('board');await loadBoard();
 }
-async function deletePost(id){if(!confirm('削除しますか？'))return;await sb.from('board_posts').delete().eq('id',id);await sb.from('board_comments').delete().eq('post_id',id);delete commentsCache[id];await loadBoard();}
-async function togglePin(id,current){await sb.from('board_posts').update({pinned:!current}).eq('id',id);await loadBoard();showToast(current?'ピン留めを解除しました':'📌 ピン留めしました');}
+async function deletePost(id){if(!confirm('削除しますか？'))return;await sbDelete('board_posts',id);await sbDeleteBy('board_comments','post_id',id);delete commentsCache[id];await loadBoard();}
+async function togglePin(id,current){await sbUpdate('board_posts',id,{pinned:!current});await loadBoard();showToast(current?'ピン留めを解除しました':'📌 ピン留めしました');}
 function openEditPost(id){
   const post=boardCache.find(p=>p.id===id)||pinnedCache.find(p=>p.id===id);if(!post)return;
   document.getElementById('newPostContent').value=post.content;document.getElementById('newPostContent').dataset.editId=id;
@@ -1992,7 +1997,11 @@ function openEditPost(id){
 function renderBoard(){
   const pinnedEl=document.getElementById('pinnedPosts'),el=document.getElementById('boardPosts');
   pinnedEl.innerHTML=pinnedCache.length?`<div class="pinned-label">📌 ピン留め</div>`+pinnedCache.map(p=>buildPostCard(p)).join(''):'';
-  if(!boardCache.length&&!pinnedCache.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>まだ投稿がありません</p></div>';return;}
+  if(!boardCache.length&&!pinnedCache.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>直近3日間の投稿はありません</p></div>'
+      +(boardAllLoaded?'':'<button id="loadMoreBtn" onclick="loadOlderPosts()" style="width:100%;padding:12px;background:var(--white);border:1.5px solid var(--pink-dark);border-radius:12px;font-family:\'Zen Maru Gothic\',sans-serif;font-size:13px;color:var(--text-light);font-weight:700;cursor:pointer;margin-top:4px">📂 過去の投稿を見る</button>');
+    return;
+  }
   // 日付グループ（日単位）
   const groups={};boardCache.forEach(post=>{const d=new Date(post.created_at);const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;if(!groups[key])groups[key]=[];groups[key].push(post);});
   const todayStr=today();
@@ -2053,14 +2062,14 @@ function openEditComment(postId,commentId){
 async function saveEditComment(postId,commentId){
   const ta=document.getElementById('edit-comment-textarea-'+commentId);if(!ta)return;
   const content=ta.value.trim();if(!content){showToast('内容を入力してください');return;}
-  await sb.from('board_comments').update({content}).eq('id',commentId);
+  await sbUpdate('board_comments',commentId,{content});
   const comments=commentsCache[postId]||[];
   const c=comments.find(x=>x.id==commentId);if(c)c.content=content;
   renderComments(postId);showToast('✓ 返信を編集しました');
 }
 async function deleteComment(postId,commentId){
   if(!confirm('この返信を削除しますか？'))return;
-  await sb.from('board_comments').delete().eq('id',commentId);
+  await sbDelete('board_comments',commentId);
   if(commentsCache[postId])commentsCache[postId]=commentsCache[postId].filter(c=>c.id!=commentId);
   renderComments(postId);showToast('削除しました');
 }
@@ -2117,7 +2126,7 @@ async function saveCashRecord(){
   if(!date||!amount||amount<=0){showToast('日付と金額を入力してください');return;}
   const currentBalance=cashCache.length?cashCache[0].balance:0;const newBalance=currentCashType==='expense'?currentBalance-amount:currentBalance+amount;
   if(newBalance<0){showToast('残金が不足しています');return;}
-  await sb.from('wecats_cash').insert({id:'cash_'+Date.now(),date,type:currentCashType,description,amount,balance:newBalance,receipt_photo:photoBuf.cash[0]||'',memo:document.getElementById('cashMemo').value.trim()});
+  await sbInsert('wecats_cash',{id:'cash_'+Date.now(),date,type:currentCashType,description,amount,balance:newBalance,receipt_photo:photoBuf.cash[0]||'',memo:document.getElementById('cashMemo').value.trim()});
   photoBuf.cash=[];closeModal('cash');showToast('✓ 保存しました');await initCashPage();
 }
 async function viewReceipt(id){
@@ -2129,7 +2138,7 @@ async function viewReceipt(id){
   openViewer(photos[0]);
 }
 function toggleCashHistory(){const body=document.getElementById('cashHistoryBody');const arrow=document.getElementById('cashHistoryArrow');const isOpen=body.style.display!=='none';body.style.display=isOpen?'none':'block';arrow.textContent=isOpen?'▼':'▲';}
-async function deleteCashRecord(id){if(!confirm('この記録を削除しますか？'))return;await sb.from('wecats_cash').delete().eq('id',id);await initCashPage();showToast('削除しました');}
+async function deleteCashRecord(id){if(!confirm('この記録を削除しますか？'))return;await sbDelete('wecats_cash',id);await initCashPage();showToast('削除しました');}
 
 // ===== 体重管理 =====
 async function initWeightPage(){
@@ -2254,11 +2263,13 @@ async function saveFolder(){
   const meta=JSON.stringify({icon:pickedFolderIcon,ci:pickedFolderColor});
   const editId=document.getElementById('editFolderId').value;
   if(editId){
-    await sb.from('manuals').update({title,content:meta}).eq('id',editId);
-    await loadFolders();closeModal('addFolder');renderFolders();showToast('✓ フォルダーを更新しました');
+    const r=await sbUpdate('manuals',editId,{title,content:meta});
+    await loadFolders();closeModal('addFolder');renderFolders();
+    showToast(r.offline?'⚠️ 通信不良のため保留中。復旧後に自動送信されます':'✓ フォルダーを更新しました');
   }else{
-    await sb.from('manuals').insert({title,type:'folder',content:meta});
-    await loadFolders();closeModal('addFolder');renderFolders();showToast('✓ フォルダーを追加しました');
+    const r=await sbInsert('manuals',{title,type:'folder',content:meta});
+    await loadFolders();closeModal('addFolder');renderFolders();
+    showToast(r.offline?'⚠️ 通信不良のため保留中。復旧後に自動送信されます':'✓ フォルダーを追加しました');
   }
 }
 function initAddFolderModal(){
@@ -2306,19 +2317,19 @@ function renderArticleSteps(){
   }).join('');
 }
 function handleStepPhoto(event,idx){Array.from(event.target.files).forEach(file=>{const reader=new FileReader();reader.onload=e=>{if(!articleStepData[idx].photos)articleStepData[idx].photos=[];articleStepData[idx].photos.push(e.target.result);renderArticleSteps();};reader.readAsDataURL(file);});event.target.value='';}
-async function saveArticle(){const title=document.getElementById('articleTitle').value.trim();if(!title){showToast('タイトルを入力してください');return;}const valid=articleStepData.filter(s=>(s.photos&&s.photos.length)||(s.text&&s.text.trim()));if(!valid.length){showToast('写真または説明を1つ以上入れてください');return;}await sb.from('manuals').insert({title,type:'step_article',content:JSON.stringify(valid),folder_id:currentFolderId});await loadFolders();closeModal('addArticle');renderArticles();showToast('✓ 記事を追加しました');articleStepData=[];}
-async function saveChecklist(){const title=document.getElementById('checklistTitle').value.trim(),items=document.getElementById('checklistItems').value.trim();if(!title||!items){showToast('タイトルと項目を入力してください');return;}await sb.from('manuals').insert({title,type:'checklist',content:items,folder_id:currentFolderId});await loadFolders();closeModal('addChecklist');renderArticles();showToast('✓ チェックリストを追加しました');}
-async function deleteArticle(){if(!confirm('削除しますか？'))return;await sb.from('manuals').delete().eq('id',editingArticleId);await loadFolders();goBack();showToast('削除しました');}
-async function deleteFolder(){if(!confirm('このフォルダーと中の記事を全て削除しますか？'))return;const articles=articlesCache.filter(a=>a.folder_id===currentFolderId);for(const a of articles)await sb.from('manuals').delete().eq('id',a.id);await sb.from('manuals').delete().eq('id',currentFolderId);await loadFolders();switchPage('manual');showToast('削除しました');}
+async function saveArticle(){const title=document.getElementById('articleTitle').value.trim();if(!title){showToast('タイトルを入力してください');return;}const valid=articleStepData.filter(s=>(s.photos&&s.photos.length)||(s.text&&s.text.trim()));if(!valid.length){showToast('写真または説明を1つ以上入れてください');return;}const r=await sbInsert('manuals',{title,type:'step_article',content:JSON.stringify(valid),folder_id:currentFolderId});await loadFolders();closeModal('addArticle');renderArticles();showToast(r.offline?'⚠️ 通信不良のため保留中。復旧後に自動送信されます':'✓ 記事を追加しました');articleStepData=[];}
+async function saveChecklist(){const title=document.getElementById('checklistTitle').value.trim(),items=document.getElementById('checklistItems').value.trim();if(!title||!items){showToast('タイトルと項目を入力してください');return;}const r=await sbInsert('manuals',{title,type:'checklist',content:items,folder_id:currentFolderId});await loadFolders();closeModal('addChecklist');renderArticles();showToast(r.offline?'⚠️ 通信不良のため保留中。復旧後に自動送信されます':'✓ チェックリストを追加しました');}
+async function deleteArticle(){if(!confirm('削除しますか？'))return;const r=await sbDelete('manuals',editingArticleId);await loadFolders();goBack();showToast(r.offline?'⚠️ 通信不良のため保留中。復旧後に削除されます':'削除しました');}
+async function deleteFolder(){if(!confirm('このフォルダーと中の記事を全て削除しますか？'))return;const articles=articlesCache.filter(a=>a.folder_id===currentFolderId);for(const a of articles)await sbDelete('manuals',a.id);await sbDelete('manuals',currentFolderId);await loadFolders();switchPage('manual');showToast('削除しました');}
 
 // ===== スタッフ・ログイン管理 =====
 function openAddStaff(){document.getElementById('newStaffName').value='';document.getElementById('newStaffPin').value='';document.getElementById('newStaffIsOwner').checked=false;document.getElementById('modalAddStaff').classList.add('open');}
-async function saveNewStaff(){const name=document.getElementById('newStaffName').value.trim(),pin=document.getElementById('newStaffPin').value.trim(),isOwner=document.getElementById('newStaffIsOwner').checked;if(!name||!pin){showToast('名前とPINコードを入力してください');return;}if(pin.length!==4||!/^\d+$/.test(pin)){showToast('PINコードは数字4桁で入力してください');return;}await sb.from('wecats_staff').insert({id:'staff_'+Date.now(),name,pin,is_owner:isOwner});await loadStaffForManage();closeModal('addStaff');showToast('✓ スタッフを追加しました');}
+async function saveNewStaff(){const name=document.getElementById('newStaffName').value.trim(),pin=document.getElementById('newStaffPin').value.trim(),isOwner=document.getElementById('newStaffIsOwner').checked;if(!name||!pin){showToast('名前とPINコードを入力してください');return;}if(pin.length!==4||!/^\d+$/.test(pin)){showToast('PINコードは数字4桁で入力してください');return;}await sbInsert('wecats_staff',{id:'staff_'+Date.now(),name,pin,is_owner:isOwner});await loadStaffForManage();closeModal('addStaff');showToast('✓ スタッフを追加しました');}
 async function loadStaffForManage(){const{data}=await sb.from('wecats_staff').select('*').order('created_at');staffCache=data||[];renderStaffManageList();const sel=document.getElementById('logFilterStaff');if(sel){sel.innerHTML='<option value="">全員</option>'+staffCache.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');}}
 function renderStaffManageList(){const el=document.getElementById('staffManageList');if(!staffCache.length){el.innerHTML='<div style="font-size:12px;color:var(--text-light)">スタッフが登録されていません</div>';return;}el.innerHTML=staffCache.map(s=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--pink-light)"><div style="flex:1;font-size:13px;font-weight:700">${s.is_owner?'👑 ':'👤 '}${s.name}</div><div style="font-size:11px;color:var(--text-light)">PIN：${s.pin}</div><button onclick="openEditStaff('${s.id}')" style="background:var(--pink-light);border:none;border-radius:8px;padding:6px 10px;font-family:'Zen Maru Gothic',sans-serif;font-size:11px;color:var(--pink-deep);cursor:pointer">編集</button></div>`).join('');}
 function openEditStaff(id){const staff=staffCache.find(s=>s.id===id);if(!staff)return;document.getElementById('editStaffId').value=id;document.getElementById('editStaffName').value=staff.name;document.getElementById('editStaffPin').value='';document.getElementById('modalEditStaff').classList.add('open');}
-async function saveEditStaff(){const id=document.getElementById('editStaffId').value,name=document.getElementById('editStaffName').value.trim(),pin=document.getElementById('editStaffPin').value.trim();if(!name){showToast('名前を入力してください');return;}const updateData={name};if(pin){if(pin.length!==4||!/^\d+$/.test(pin)){showToast('PINコードは数字4桁で入力してください');return;}updateData.pin=pin;}await sb.from('wecats_staff').update(updateData).eq('id',id);await loadStaffForManage();closeModal('editStaff');showToast('✓ 更新しました');}
-async function deleteStaff(){const id=document.getElementById('editStaffId').value;const staff=staffCache.find(s=>s.id===id);if(!confirm(`「${staff.name}」を削除しますか？`))return;await sb.from('wecats_staff').delete().eq('id',id);await loadStaffForManage();closeModal('editStaff');showToast('削除しました');}
+async function saveEditStaff(){const id=document.getElementById('editStaffId').value,name=document.getElementById('editStaffName').value.trim(),pin=document.getElementById('editStaffPin').value.trim();if(!name){showToast('名前を入力してください');return;}const updateData={name};if(pin){if(pin.length!==4||!/^\d+$/.test(pin)){showToast('PINコードは数字4桁で入力してください');return;}updateData.pin=pin;}await sbUpdate('wecats_staff',id,updateData);await loadStaffForManage();closeModal('editStaff');showToast('✓ 更新しました');}
+async function deleteStaff(){const id=document.getElementById('editStaffId').value;const staff=staffCache.find(s=>s.id===id);if(!confirm(`「${staff.name}」を削除しますか？`))return;await sbDelete('wecats_staff',id);await loadStaffForManage();closeModal('editStaff');showToast('削除しました');}
 async function loadLoginLogs(){const{data}=await sb.from('wecats_login_logs').select('*').order('logged_in_at',{ascending:false}).limit(200);loginLogsCache=data||[];renderLoginLogs();}
 function renderLoginLogs(){const el=document.getElementById('loginLogList');const filterStaff=document.getElementById('logFilterStaff')?.value||'';let logs=loginLogsCache;if(filterStaff)logs=logs.filter(l=>l.staff_id===filterStaff);if(!logs.length){el.innerHTML='<div style="font-size:12px;color:var(--text-light);padding:8px 0">ログイン記録がありません</div>';return;}el.innerHTML=logs.slice(0,100).map(l=>{const d=new Date(l.logged_in_at);const dateStr=`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;const timeStr=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--pink-light)"><div style="font-size:13px;font-weight:700;flex:1">${l.staff_name}</div><div style="font-size:11px;color:var(--text-light)">${dateStr} ${timeStr}</div></div>`;}).join('');}
 
@@ -2443,14 +2454,14 @@ async function saveShiftEdit() {
   const dateStr = document.getElementById('shiftEditList').dataset.date;
   const { data: existing } = await sb.from('wecats_shifts').select('id').eq('date', dateStr);
   if (existing && existing.length) {
-    for (const row of existing) await sb.from('wecats_shifts').delete().eq('id', row.id);
+    for (const row of existing) await sbDelete('wecats_shifts', row.id);
   }
   const inserts = [];
   getStaffNames().forEach((staff, idx) => {
     const sel = document.getElementById(`shiftSel_${idx}`);
     if (sel && sel.value) inserts.push({ id: `shift_${dateStr}_${idx}_${Math.random().toString(36).slice(2,8)}`, staff_name: staff, date: dateStr, shift_type: sel.value });
   });
-  if (inserts.length > 0) await sb.from('wecats_shifts').insert(inserts);
+  if (inserts.length > 0) await sbInsert('wecats_shifts', inserts);
   await loadShifts();
   closeModal('shiftEdit');
   showToast('✓ シフトを保存しました');
@@ -2469,7 +2480,7 @@ async function loadShiftTypes() {
     // 遅番がデフォルト値のままなら自動修正
     const osoi = data.find(s => s.id === 'st_3' && s.name === '遅番' && s.time_range === '14:00〒21:00');
     if (osoi) {
-      await sb.from('wecats_shift_types').update({ time_range: '15:00〒19:00' }).eq('id', 'st_3');
+      await sbUpdate('wecats_shift_types', 'st_3', { time_range: '15:00〒19:00' });
       osoi.time_range = '15:00〒19:00';
     }
     shiftTypesCache = data;
@@ -2483,7 +2494,7 @@ async function loadShiftTypes() {
       { id: 'st_5', name: '休み',  time_range: '', color: '#E0E0E0', fg_color: '#606060', sort_order: 5 },
       { id: 'st_6', name: '定休',  time_range: '', color: '#D6EAFF', fg_color: '#2050a0', sort_order: 6 },
     ];
-    await sb.from('wecats_shift_types').insert(defaults);
+    await sbInsert('wecats_shift_types', defaults);
     shiftTypesCache = defaults;
   }
 }
@@ -2551,10 +2562,10 @@ async function saveShiftType() {
   const fg_color = document.getElementById('shiftTypeFg').value;
   const editId = document.getElementById('shiftTypeEditId').value;
   if (editId) {
-    await sb.from('wecats_shift_types').update({ name, time_range, color, fg_color }).eq('id', editId);
+    await sbUpdate('wecats_shift_types', editId, { name, time_range, color, fg_color });
     showToast('✓ 更新しました');
   } else {
-    await sb.from('wecats_shift_types').insert({ id: 'st_' + Date.now(), name, time_range, color, fg_color, sort_order: shiftTypesCache.length + 1 });
+    await sbInsert('wecats_shift_types', { id: 'st_' + Date.now(), name, time_range, color, fg_color, sort_order: shiftTypesCache.length + 1 });
     showToast('✓ 追加しました');
   }
   await loadShiftTypes();
@@ -2567,7 +2578,7 @@ async function saveShiftType() {
 async function deleteShiftType() {
   if (!confirm('この種別を削除しますか？')) return;
   const id = document.getElementById('shiftTypeEditId').value;
-  await sb.from('wecats_shift_types').delete().eq('id', id);
+  await sbDelete('wecats_shift_types', id);
   await loadShiftTypes();
   renderShiftTypeList();
   closeModal('shiftType');
@@ -2664,10 +2675,10 @@ async function saveSnsWork() {
   if (!date) { showToast('日付を入力してください'); return; }
   const editId = document.getElementById('snsEditId').value;
   if (editId) {
-    await sb.from('wecats_sns_works').update({ date, place, content, memo }).eq('id', editId);
+    await sbUpdate('wecats_sns_works', editId, { date, place, content, memo });
     showToast('✓ 更新しました');
   } else if (currentStaffIsOwner) {
-    await sb.from('wecats_sns_works').insert({ id: 'sns_' + Date.now(), date, place, content, memo });
+    await sbInsert('wecats_sns_works', { id: 'sns_' + Date.now(), date, place, content, memo });
     showToast('✓ 追加しました');
   } else {
     showToast('追加はオーナーのみできます');
@@ -2681,7 +2692,7 @@ async function saveSnsWork() {
 async function deleteSnsWork() {
   if (!confirm('削除しますか？')) return;
   const id = document.getElementById('snsEditId').value;
-  await sb.from('wecats_sns_works').delete().eq('id', id);
+  await sbDelete('wecats_sns_works', id);
   await loadSnsWorks();
   closeModal('snsAdd');
   renderSnsWorks();
