@@ -898,6 +898,11 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <div class="form-group"><label class="form-label" id="drinkEditNameLabel">ドリンク名</label><input type="text" class="form-input" id="dEditName"></div>
   <div class="form-group"><label class="form-label">アイコン</label><input type="text" class="form-input" id="dEditIcon" maxlength="2"></div>
   <div class="form-group"><label class="form-label">⚠️ 注意アラートの個数</label><input type="number" class="form-input" id="dEditWarn" min="0" max="99" placeholder="例：5"></div>
+  <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+    <input type="checkbox" id="dEditBarrel" style="width:18px;height:18px" onchange="toggleDrinkBarrelPreview()">
+    <label for="dEditBarrel" style="font-size:13px">🪣 樽・大容器（%で管理）</label>
+  </div>
+  <div id="dEditBarrelNote" style="font-size:11px;color:var(--text-light);margin:-4px 0 8px;display:none;">※切り替えると、残量は50%からスタートします</div>
   <div class="form-group" style="margin-top:8px">
     <button id="pauseToggleBtn" onclick="toggleDrinkPause()" style="width:100%;padding:11px;background:var(--pink-light);border:1.5px solid var(--pink-dark);border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;color:var(--text-light);font-weight:700;cursor:pointer">💤 休止にする</button>
   </div>
@@ -1924,13 +1929,28 @@ async function saveDrinkAdd(){
 function openDrinkEdit(id){
   const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;
   document.getElementById('dEditId').value=id;document.getElementById('dEditName').value=item.name;document.getElementById('dEditIcon').value=item.icon;document.getElementById('dEditWarn').value=item.warn_threshold||5;
+  var barrelCb=document.getElementById('dEditBarrel');if(barrelCb){barrelCb.checked=!!item.barrel_type;barrelCb.dataset.orig=item.barrel_type?'1':'0';}
+  var note=document.getElementById('dEditBarrelNote');if(note)note.style.display='none';
   const pauseBtn=document.getElementById('pauseToggleBtn');if(pauseBtn)pauseBtn.textContent=item.paused?'▶️ 休止を解除する':'💤 休止にする';
   document.getElementById('modalDrinkEdit').classList.add('open');
 }
+function toggleDrinkBarrelPreview(){
+  var cb=document.getElementById('dEditBarrel'),note=document.getElementById('dEditBarrelNote');
+  if(!cb||!note)return;
+  note.style.display=(cb.checked && cb.dataset.orig==='0')?'block':'none';
+}
 async function saveDrinkEdit(){
   const id=document.getElementById('dEditId').value,name=document.getElementById('dEditName').value.trim(),icon=document.getElementById('dEditIcon').value.trim(),warn_threshold=parseInt(document.getElementById('dEditWarn').value)||5;
-  await sbUpdate('drink_items',id,{name,icon,warn_threshold});
-  const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(item){item.name=name;item.icon=icon;item.warn_threshold=warn_threshold;}
+  const item=drinkCache[currentDrinkTab].find(d=>d.id===id);
+  const barrelCb=document.getElementById('dEditBarrel');
+  const newBarrel=barrelCb?barrelCb.checked:!!(item&&item.barrel_type);
+  const updateData={name,icon,warn_threshold,barrel_type:newBarrel};
+  if(item && !!item.barrel_type!==newBarrel){
+    // 表示方式が切り替わる時は、残量を新しい単位に合わせてリセットする
+    updateData.stock=newBarrel?50:5;
+  }
+  await sbUpdate('drink_items',id,updateData);
+  if(item){item.name=name;item.icon=icon;item.warn_threshold=warn_threshold;item.barrel_type=newBarrel;if('stock' in updateData)item.stock=updateData.stock;}
   closeModal('drinkEdit');renderDrinks();showToast('✓ 更新しました');
 }
 async function toggleDrinkPause(){const id=document.getElementById('dEditId').value;const item=drinkCache[currentDrinkTab].find(d=>d.id===id);if(!item)return;item.paused=!item.paused;await sbUpdate('drink_items',id,{paused:item.paused});closeModal('drinkEdit');renderDrinks();showToast(item.paused?'💤 休止にしました':'▶️ 休止を解除しました');}
