@@ -1652,7 +1652,12 @@ function closeViewer(){document.getElementById('photoViewer').classList.remove('
 
 // ===== 予約管理 =====
 async function loadReservations(){
-  const{data}=await sb.from('wecats_reservations').select('*').order('date').order('time');
+  // 過去30日〜先90日分だけ取得（全期間だと営業が長くなるほど遅くなるため）
+  const now=new Date();
+  const from=new Date(now);from.setDate(from.getDate()-30);
+  const to=new Date(now);to.setDate(to.getDate()+90);
+  const fromStr=from.toISOString().slice(0,10),toStr=to.toISOString().slice(0,10);
+  const{data}=await sb.from('wecats_reservations').select('*').gte('date',fromStr).lte('date',toStr).order('date').order('time');
   resCache=data||[];
 }
 async function initResPage(){
@@ -1698,10 +1703,23 @@ function switchResTab(tab){
     renderResList();
   }
 }
-function changeResMonth(delta){
+async function changeResMonth(delta){
   resMonth+=delta;
   if(resMonth>11){resMonth=0;resYear++;}if(resMonth<0){resMonth=11;resYear--;}
-  resSelectedDay=null;document.getElementById('resDayDetail').innerHTML='';renderResCalendar();
+  resSelectedDay=null;document.getElementById('resDayDetail').innerHTML='';
+  const prefix=`${resYear}-${String(resMonth+1).padStart(2,'0')}`;
+  if(!resCache.some(r=>r.date&&r.date.startsWith(prefix))){
+    // まだ読み込んでいない月は、その場で追加取得する
+    const monStart=`${prefix}-01`;
+    const lastDay=new Date(resYear,resMonth+1,0).getDate();
+    const monEnd=`${prefix}-${String(lastDay).padStart(2,'0')}`;
+    const{data}=await sb.from('wecats_reservations').select('*').gte('date',monStart).lte('date',monEnd);
+    if(data&&data.length){
+      const existingIds=new Set(resCache.map(r=>r.id));
+      data.forEach(r=>{if(!existingIds.has(r.id))resCache.push(r);});
+    }
+  }
+  renderResCalendar();
 }
 function renderResCalendar(){
   document.getElementById('resMonthLabel').textContent=`${resYear}年 ${resMonth+1}月`;
