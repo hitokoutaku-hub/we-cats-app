@@ -2317,8 +2317,8 @@ function loadPdfJs(){
   return new Promise((resolve,reject)=>{
     if(window.pdfjsLib){resolve();return;}
     const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    s.onload=()=>{try{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';resolve();}catch(e){reject(e);}};
+    s.src='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+    s.onload=()=>{try{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';resolve();}catch(e){reject(e);}};
     s.onerror=()=>reject(new Error('pdfjs load failed'));
     document.head.appendChild(s);
   });
@@ -2333,7 +2333,7 @@ async function renderPdfViewer(dataUrl,containerId){
     const binary=atob(base64);
     const bytes=new Uint8Array(binary.length);
     for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
-    const pdf=await pdfjsLib.getDocument({data:bytes,cMapUrl:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',cMapPacked:true}).promise;
+    const pdf=await pdfjsLib.getDocument({data:bytes,cMapUrl:'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',cMapPacked:true}).promise;
     container.innerHTML='';
     const targetWidth=container.clientWidth||320;
     for(let p=1;p<=pdf.numPages;p++){
