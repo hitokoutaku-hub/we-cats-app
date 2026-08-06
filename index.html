@@ -1266,7 +1266,6 @@ async function init(){
   if(prefetchPromise)await prefetchPromise;
   else{await loadCatsData();await Promise.all([loadAllCatsOverviewData(),loadDrinks(),loadFolders(),loadReservations(),loadShiftTypes()]);}
   renderCatList(); checkHospitalAlerts();
-  setTimeout(()=>{loadPdfJs().catch(()=>{});},1500);
 }
 async function loadAllCatsOverviewData(){
   const ids=catsCache.map(c=>c.id);
@@ -2296,7 +2295,7 @@ async function openArticle(articleId){
   const article=articlesCache.find(a=>a.id===articleId);editingArticleId=articleId;
   currentPage='articledetail';document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-articledetail').classList.add('active');document.getElementById('backBtn').style.display='inline-block';document.getElementById('headerTitle').textContent=article.title;
   let html=`<div class="article-detail-title">${article.title}</div>`;
-  if(article.attachment_name){html+=`<div style="margin-bottom:16px"><div id="pdfview-${articleId}" style="width:100%"><div style="text-align:center;padding:24px;color:var(--pink-deep);font-size:13px">📄 読み込み中...</div></div><a id="pdfdl-${articleId}" href="#" style="display:block;text-align:center;margin-top:8px;padding:10px;background:var(--pink-light);color:var(--pink-deep);font-weight:700;font-size:13px;border-radius:10px;text-decoration:none">⬇ ${article.attachment_name}</a></div>`;}
+  if(article.attachment_name){html+=`<div style="margin-bottom:16px"><div id="pdfview-${articleId}" style="width:100%"><div style="text-align:center;padding:24px;color:var(--pink-deep);font-size:13px">📄 読み込み中...</div></div><div style="display:flex;gap:8px;margin-top:8px"><a id="pdfopen-${articleId}" href="#" target="_blank" rel="noopener" style="flex:1;text-align:center;padding:10px;background:var(--pink-light);color:var(--pink-deep);font-weight:700;font-size:13px;border-radius:10px;text-decoration:none">🔍 新しいタブで開く</a><a id="pdfdl-${articleId}" href="#" style="flex:1;text-align:center;padding:10px;background:var(--pink-light);color:var(--pink-deep);font-weight:700;font-size:13px;border-radius:10px;text-decoration:none">⬇ ダウンロード</a></div></div>`;}
   if(article.type==='checklist'){const items=(article.content||'').split('\n').filter(s=>s.trim());const ck='check_'+articleId+'_'+today();const state=JSON.parse(localStorage.getItem(ck)||'{}');html+=items.map((item,i)=>`<div class="checklist-item"><div class="checklist-check ${state[i]?'done':''}" onclick="toggleCheck('${ck}',${i},this,'ct-${articleId}-${i}')">${state[i]?'✓':''}</div><div class="checklist-text ${state[i]?'done':''}" id="ct-${articleId}-${i}">${item}</div></div>`).join('');html+=`<button class="reset-check-btn" onclick="resetChecklist('${ck}','${articleId}')">🔄 チェックをリセット</button>`;}
   else if(article.type==='step_article'){try{const steps=JSON.parse(article.content||'[]');html+=steps.map((step,i)=>{const photos=step.photos||[];const hasText=step.text&&step.text.trim();const photoHtml=photos.map(p=>`<img src="${p}" class="step-photo" onclick="openViewer(this.src)" alt="">`).join('');const bodyHtml=hasText?`<div class="step-body"><div class="step-num">${i+1}</div><div class="step-text">${step.text}</div></div>`:`<div class="step-num-float">${i+1}</div>`;return`<div class="step-block${hasText?'':' photo-only'}">${photoHtml}${bodyHtml}</div>`;}).join('');}catch(e){html+=`<div style="font-size:13px">${article.content||''}</div>`;}}
   else{html+=`<div style="font-size:14px;line-height:1.9;white-space:pre-wrap">${article.content||''}</div>`;}
@@ -2307,7 +2306,9 @@ async function openArticle(articleId){
     if(pdfData){
       article.attachment=pdfData;
       const dl=document.getElementById('pdfdl-'+articleId);if(dl){dl.href=pdfData;dl.setAttribute('download',article.attachment_name||'document.pdf');}
-      renderPdfViewer(pdfData,'pdfview-'+articleId);
+      const op=document.getElementById('pdfopen-'+articleId);if(op){op.href=pdfData;}
+      const v=document.getElementById('pdfview-'+articleId);
+      if(v){v.innerHTML=`<embed src="${pdfData}" type="application/pdf" style="width:100%;height:82vh;border:1.5px solid var(--pink);border-radius:12px;background:var(--white)">`;}
     }else{
       const v=document.getElementById('pdfview-'+articleId);if(v)v.innerHTML='<div style="text-align:center;padding:20px;color:var(--danger);font-size:12px">⚠️ PDFの取得に失敗しました</div>';
     }
@@ -2333,7 +2334,7 @@ async function renderPdfViewer(dataUrl,containerId){
     const binary=atob(base64);
     const bytes=new Uint8Array(binary.length);
     for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
-    const pdf=await pdfjsLib.getDocument({data:bytes,cMapUrl:'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',cMapPacked:true}).promise;
+    const pdf=await pdfjsLib.getDocument({data:bytes,cMapUrl:'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',cMapPacked:true,isImageDecoderSupported:false}).promise;
     container.innerHTML='';
     const targetWidth=container.clientWidth||320;
     const canvases=[];
