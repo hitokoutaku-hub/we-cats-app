@@ -2336,18 +2336,30 @@ async function renderPdfViewer(dataUrl,containerId){
     const pdf=await pdfjsLib.getDocument({data:bytes,cMapUrl:'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',cMapPacked:true}).promise;
     container.innerHTML='';
     const targetWidth=container.clientWidth||320;
+    const canvases=[];
     for(let p=1;p<=pdf.numPages;p++){
-      const page=await pdf.getPage(p);
-      const baseViewport=page.getViewport({scale:1});
-      const dpr=Math.min(window.devicePixelRatio||1,2);
-      const scale=(targetWidth/baseViewport.width)*dpr;
-      const viewport=page.getViewport({scale});
       const canvas=document.createElement('canvas');
-      canvas.width=viewport.width;canvas.height=viewport.height;
-      canvas.style.width='100%';canvas.style.display='block';canvas.style.marginBottom='10px';canvas.style.borderRadius='10px';canvas.style.border='1.5px solid var(--pink)';
+      canvas.style.width='100%';canvas.style.display='block';canvas.style.marginBottom='10px';canvas.style.borderRadius='10px';canvas.style.border='1.5px solid var(--pink)';canvas.style.background='var(--white)';canvas.style.minHeight='120px';
       container.appendChild(canvas);
-      await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+      canvases.push(canvas);
     }
+    await Promise.all(canvases.map(async(canvas,idx)=>{
+      try{
+        const page=await pdf.getPage(idx+1);
+        const baseViewport=page.getViewport({scale:1});
+        const dpr=Math.min(window.devicePixelRatio||1,2);
+        const scale=(targetWidth/baseViewport.width)*dpr;
+        const viewport=page.getViewport({scale});
+        canvas.width=viewport.width;canvas.height=viewport.height;
+        await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+      }catch(pageErr){
+        canvas.style.minHeight='80px';
+        const errDiv=document.createElement('div');
+        errDiv.style.cssText='text-align:center;padding:16px;color:var(--danger);font-size:12px;border:1.5px solid var(--pink);border-radius:10px;margin-bottom:10px';
+        errDiv.textContent=`⚠️ ${idx+1}ページ目の表示に失敗しました`;
+        canvas.replaceWith(errDiv);
+      }
+    }));
   }catch(e){
     container.innerHTML='<div style="text-align:center;padding:20px;color:var(--danger);font-size:12px">⚠️ PDFのプレビューに失敗しました。下のダウンロードボタンから開いてください。</div>';
   }
