@@ -933,6 +933,11 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <div class="form-group"><label class="form-label">タイトル</label><input type="text" class="form-input" id="articleTitle" placeholder="例：空調の設定方法"></div>
   <div id="articleSteps"></div>
   <button onclick="addArticleStep()" style="width:100%;padding:10px;background:var(--pink-light);border:2px dashed var(--pink-dark);border-radius:10px;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;color:var(--pink-deep);font-weight:700;cursor:pointer;margin-bottom:10px">＋ ステップを追加</button>
+  <div class="form-group">
+    <label class="form-label">PDF添付（任意・Word資料などはPDFに変換してから選んでください）</label>
+    <div id="pdfAttachArea" onclick="document.getElementById('articlePdfInput').click()" style="border:2px dashed var(--pink-dark);border-radius:10px;padding:12px;text-align:center;cursor:pointer;font-size:12px;color:var(--pink-deep);font-weight:700;background:var(--white)">📎 PDFファイルを選ぶ</div>
+    <input type="file" id="articlePdfInput" accept="application/pdf" style="display:none" onchange="handlePdfAttach(event)">
+  </div>
   <button class="modal-submit" onclick="saveArticle()">保存する</button>
 </div></div>
 
@@ -1109,7 +1114,7 @@ setInterval(async()=>{
 async function sbInsert(table,data){
   if(!sbReady){wcQueueAdd(table,'insert',data);return{error:null,offline:true};}
   try{const r=await sb.from(table).insert(data);if(r.error)throw r.error;return r;}
-  catch(e){wcQueueAdd(table,'insert',data);return{error:null,offline:true};}
+  catch(e){wcQueueAdd(table,'insert',data);return{error:e,offline:true,errMsg:(e&&e.message)||String(e)};}
 }
 async function sbUpsert(table,data){
   if(!sbReady){wcQueueAdd(table,'upsert',data);return{error:null,offline:true};}
@@ -1171,6 +1176,7 @@ let editingCatId=null,currentFolderId=null,editingArticleId=null,currentCareType
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth(),calSelectedDay=null,calInputDate=null;
 let photoBuf={daily:[],hospital:[],board:[],cash:[]},selectedEmoji='🐱';
 let articleStepData=[];
+let articleAttachment=null; // {name, data(base64 dataURL)}
 let drinkCache={hot:[],ice:[],cat:[],supply:[],meds:[]},boardCache=[],pinnedCache=[],commentsCache={},boardOffset=0,boardAllLoaded=false,foldersCache=[],articlesCache=[],medCheckState={};
 let currentCatLocationTab='cage';
 let floorOpts={toilet:null,food:null};
@@ -1290,7 +1296,7 @@ async function loadAllCatsOverviewData(){
 function updateHeaderDate(){const now=new Date();document.getElementById('headerDate').innerHTML=`${now.getMonth()+1}/${now.getDate()}<br>${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;}
 function today(){const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;}
 function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');const dur=msg.length>20?4500:2200;clearTimeout(window._toastTimer);window._toastTimer=setTimeout(()=>t.classList.remove('show'),dur);}
 function formatTime(ts){if(!ts)return'';const d=new Date(ts);return`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
 function diffDays(dateStr){const target=new Date(dateStr),now=new Date();now.setHours(0,0,0,0);return Math.floor((target-now)/(1000*60*60*24));}
 
@@ -2095,12 +2101,13 @@ async function submitComment(postId){
   const input=document.getElementById('comment-input-'+postId);
   const content=input.value.trim();if(!content)return;
   input.value='';input.style.height='auto';
-  const{data}=await sb.from('board_comments').insert({post_id:postId,author:userName,content}).select().single();
-  const newComment=data||{post_id:postId,author:userName,content,created_at:new Date().toISOString()};
+  const newComment={id:(window.crypto&&crypto.randomUUID?crypto.randomUUID():String(Date.now())),post_id:postId,author:userName,content,created_at:new Date().toISOString()};
   if(!commentsCache[postId])commentsCache[postId]=[];
   commentsCache[postId].push(newComment);
   const el=document.getElementById('comments-'+postId);if(el)el.dataset.open='1';
   renderComments(postId);
+  const r=await sbInsert('board_comments',newComment);
+  if(r.offline)showToast('⚠️ コメント送信待ち中。復旧後に自動送信されます'+(r.errMsg?'（'+r.errMsg+'）':''));
 }
 function openEditComment(postId,commentId){
   const comments=commentsCache[postId]||[];
@@ -2303,6 +2310,13 @@ function openArticle(articleId){
   if(article.type==='checklist'){const items=(article.content||'').split('\n').filter(s=>s.trim());const ck='check_'+articleId+'_'+today();const state=JSON.parse(localStorage.getItem(ck)||'{}');html+=items.map((item,i)=>`<div class="checklist-item"><div class="checklist-check ${state[i]?'done':''}" onclick="toggleCheck('${ck}',${i},this,'ct-${articleId}-${i}')">${state[i]?'✓':''}</div><div class="checklist-text ${state[i]?'done':''}" id="ct-${articleId}-${i}">${item}</div></div>`).join('');html+=`<button class="reset-check-btn" onclick="resetChecklist('${ck}','${articleId}')">🔄 チェックをリセット</button>`;}
   else if(article.type==='step_article'){try{const steps=JSON.parse(article.content||'[]');html+=steps.map((step,i)=>{const photos=step.photos||[];const hasText=step.text&&step.text.trim();const photoHtml=photos.map(p=>`<img src="${p}" class="step-photo" onclick="openViewer(this.src)" alt="">`).join('');const bodyHtml=hasText?`<div class="step-body"><div class="step-num">${i+1}</div><div class="step-text">${step.text}</div></div>`:`<div class="step-num-float">${i+1}</div>`;return`<div class="step-block${hasText?'':' photo-only'}">${photoHtml}${bodyHtml}</div>`;}).join('');}catch(e){html+=`<div style="font-size:13px">${article.content||''}</div>`;}}
   else{html+=`<div style="font-size:14px;line-height:1.9;white-space:pre-wrap">${article.content||''}</div>`;}
+  if(article.attachment){
+    html+=`<div style="margin-top:16px;border-top:1.5px solid var(--pink);padding-top:14px;">
+      <div style="font-size:13px;font-weight:700;color:var(--pink-deep);margin-bottom:10px;">📎 ${article.attachment_name||'添付PDF'}</div>
+      <a href="${article.attachment}" target="_blank" rel="noopener" style="display:inline-block;margin-right:8px;margin-bottom:8px;padding:10px 16px;background:var(--pink-light);border-radius:10px;font-size:13px;color:var(--pink-deep);font-weight:700;text-decoration:none;">🔍 開く</a>
+      <a href="${article.attachment}" download="${article.attachment_name||'manual.pdf'}" style="display:inline-block;margin-bottom:8px;padding:10px 16px;background:var(--pink-light);border-radius:10px;font-size:13px;color:var(--pink-deep);font-weight:700;text-decoration:none;">⬇ ダウンロード</a>
+    </div>`;
+  }
   document.getElementById('articleDetailContent').innerHTML=html;
 }
 function toggleCheck(ck,idx,el,textId){const state=JSON.parse(localStorage.getItem(ck)||'{}');state[idx]=!state[idx];localStorage.setItem(ck,JSON.stringify(state));el.classList.toggle('done',state[idx]);el.textContent=state[idx]?'✓':'';const t=document.getElementById(textId);if(t)t.classList.toggle('done',state[idx]);}
@@ -2341,7 +2355,25 @@ function openEditFolder(){
   buildFolderPickers();
   openModal('addFolder');
 }
-function initAddArticleModal(){articleStepData=[];document.getElementById('articleTitle').value='';renderArticleSteps();}
+function initAddArticleModal(){articleStepData=[];articleAttachment=null;document.getElementById('articleTitle').value='';renderArticleSteps();renderPdfAttachArea();}
+function handlePdfAttach(event){
+  const file=event.target.files[0];if(!file)return;
+  if(file.type!=='application/pdf'){showToast('PDFファイルを選んでください');event.target.value='';return;}
+  if(file.size>8*1024*1024){showToast('ファイルが大きすぎます（8MBまで）');event.target.value='';return;}
+  const reader=new FileReader();
+  reader.onload=e=>{articleAttachment={name:file.name,data:e.target.result};renderPdfAttachArea();};
+  reader.readAsDataURL(file);
+  event.target.value='';
+}
+function removePdfAttach(){articleAttachment=null;renderPdfAttachArea();}
+function renderPdfAttachArea(){
+  const el=document.getElementById('pdfAttachArea');if(!el)return;
+  if(articleAttachment){
+    el.innerHTML=`📄 ${articleAttachment.name}<span onclick="event.stopPropagation();removePdfAttach()" style="margin-left:8px;color:var(--danger);font-weight:700">✕ 取り消す</span>`;
+  }else{
+    el.innerHTML='📎 PDFファイルを選ぶ';
+  }
+}
 function addArticleStep(){articleStepData.push({text:'',photos:[]});renderArticleSteps();}
 function removeArticleStep(idx){articleStepData.splice(idx,1);renderArticleSteps();}
 function removeStepPhoto(stepIdx,photoIdx){articleStepData[stepIdx].photos.splice(photoIdx,1);renderArticleSteps();}
@@ -2367,7 +2399,7 @@ function renderArticleSteps(){
   }).join('');
 }
 function handleStepPhoto(event,idx){Array.from(event.target.files).forEach(file=>{const reader=new FileReader();reader.onload=e=>{if(!articleStepData[idx].photos)articleStepData[idx].photos=[];articleStepData[idx].photos.push(e.target.result);renderArticleSteps();};reader.readAsDataURL(file);});event.target.value='';}
-async function saveArticle(){const title=document.getElementById('articleTitle').value.trim();if(!title){showToast('タイトルを入力してください');return;}const valid=articleStepData.filter(s=>(s.photos&&s.photos.length)||(s.text&&s.text.trim()));if(!valid.length){showToast('写真または説明を1つ以上入れてください');return;}const r=await sbInsert('manuals',{title,type:'step_article',content:JSON.stringify(valid),folder_id:currentFolderId});await loadFolders();closeModal('addArticle');renderArticles();showToast(r.offline?'⚠️ 通信不良のため保留中。復旧後に自動送信されます':'✓ 記事を追加しました');articleStepData=[];}
+async function saveArticle(){const title=document.getElementById('articleTitle').value.trim();if(!title){showToast('タイトルを入力してください');return;}const valid=articleStepData.filter(s=>(s.photos&&s.photos.length)||(s.text&&s.text.trim()));if(!valid.length&&!articleAttachment){showToast('写真・説明・PDFのいずれか1つ以上入れてください');return;}const payload={title,type:'step_article',content:JSON.stringify(valid),folder_id:currentFolderId};if(articleAttachment){payload.attachment=articleAttachment.data;payload.attachment_name=articleAttachment.name;}const r=await sbInsert('manuals',payload);await loadFolders();closeModal('addArticle');renderArticles();showToast(r.offline?('⚠️ 保存できませんでした。保留中で自動再送信します'+(r.errMsg?'（'+r.errMsg+'）':'')):'✓ 記事を追加しました');articleStepData=[];articleAttachment=null;}
 async function saveChecklist(){const title=document.getElementById('checklistTitle').value.trim(),items=document.getElementById('checklistItems').value.trim();if(!title||!items){showToast('タイトルと項目を入力してください');return;}const r=await sbInsert('manuals',{title,type:'checklist',content:items,folder_id:currentFolderId});await loadFolders();closeModal('addChecklist');renderArticles();showToast(r.offline?'⚠️ 通信不良のため保留中。復旧後に自動送信されます':'✓ チェックリストを追加しました');}
 async function deleteArticle(){if(!confirm('削除しますか？'))return;const r=await sbDelete('manuals',editingArticleId);await loadFolders();goBack();showToast(r.offline?'⚠️ 通信不良のため保留中。復旧後に削除されます':'削除しました');}
 async function deleteFolder(){if(!confirm('このフォルダーと中の記事を全て削除しますか？'))return;const articles=articlesCache.filter(a=>a.folder_id===currentFolderId);for(const a of articles)await sbDelete('manuals',a.id);await sbDelete('manuals',currentFolderId);await loadFolders();switchPage('manual');showToast('削除しました');}
