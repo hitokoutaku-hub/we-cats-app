@@ -339,6 +339,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .shift-detail-card { background: var(--white); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 2px 8px rgba(212,112,138,0.12); }
 .shift-input-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--pink-light); }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 
@@ -2311,11 +2312,7 @@ function openArticle(articleId){
   else if(article.type==='step_article'){try{const steps=JSON.parse(article.content||'[]');html+=steps.map((step,i)=>{const photos=step.photos||[];const hasText=step.text&&step.text.trim();const photoHtml=photos.map(p=>`<img src="${p}" class="step-photo" onclick="openViewer(this.src)" alt="">`).join('');const bodyHtml=hasText?`<div class="step-body"><div class="step-num">${i+1}</div><div class="step-text">${step.text}</div></div>`:`<div class="step-num-float">${i+1}</div>`;return`<div class="step-block${hasText?'':' photo-only'}">${photoHtml}${bodyHtml}</div>`;}).join('');}catch(e){html+=`<div style="font-size:13px">${article.content||''}</div>`;}}
   else{html+=`<div style="font-size:14px;line-height:1.9;white-space:pre-wrap">${article.content||''}</div>`;}
   if(article.attachment){
-    html+=`<div style="margin-top:16px;border-top:1.5px solid var(--pink);padding-top:14px;">
-      <div style="font-size:13px;font-weight:700;color:var(--pink-deep);margin-bottom:10px;">📎 ${article.attachment_name||'添付PDF'}</div>
-      <a href="${article.attachment}" target="_blank" rel="noopener" style="display:inline-block;margin-right:8px;margin-bottom:8px;padding:10px 16px;background:var(--pink-light);border-radius:10px;font-size:13px;color:var(--pink-deep);font-weight:700;text-decoration:none;">🔍 開く</a>
-      <a href="${article.attachment}" download="${article.attachment_name||'manual.pdf'}" style="display:inline-block;margin-bottom:8px;padding:10px 16px;background:var(--pink-light);border-radius:10px;font-size:13px;color:var(--pink-deep);font-weight:700;text-decoration:none;">⬇ ダウンロード</a>
-    </div>`;
+    html+=`<button onclick="downloadAttachment('${article.id}')" style="display:block;width:100%;text-align:center;margin-top:14px;padding:13px;background:var(--pink-light);border:none;border-radius:14px;font-size:14px;color:var(--pink-deep);font-weight:700;cursor:pointer;">⬇ ${article.attachment_name||'添付PDF'}</button>`;
   }
   document.getElementById('articleDetailContent').innerHTML=html;
 }
@@ -2356,20 +2353,80 @@ function openEditFolder(){
   openModal('addFolder');
 }
 function initAddArticleModal(){articleStepData=[];articleAttachment=null;document.getElementById('articleTitle').value='';renderArticleSteps();renderPdfAttachArea();}
-function handlePdfAttach(event){
+async function handlePdfAttach(event){
   const file=event.target.files[0];if(!file)return;
   if(file.type!=='application/pdf'){showToast('PDFファイルを選んでください');event.target.value='';return;}
   if(file.size>8*1024*1024){showToast('ファイルが大きすぎます（8MBまで）');event.target.value='';return;}
+  const el=document.getElementById('pdfAttachArea');if(el)el.innerHTML='⏳ 変換中…';
   const reader=new FileReader();
-  reader.onload=e=>{articleAttachment={name:file.name,data:e.target.result};renderPdfAttachArea();};
+  reader.onload=async e=>{
+    const dataUrl=e.target.result;
+    let pageImages=[];
+    try{
+      pageImages=await renderPdfToImages(dataUrl);
+    }catch(err){
+      console.error('PDF render error',err);
+      showToast('PDFの画像変換に失敗しました。ダウンロードのみ添付します');
+    }
+    articleAttachment={name:file.name,data:dataUrl,pageImages};
+    renderPdfAttachArea();
+  };
   reader.readAsDataURL(file);
   event.target.value='';
+}
+async function renderPdfToImages(dataUrl){
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const bytes=atob(dataUrl.split(',')[1]);
+  const arr=new Uint8Array(bytes.length);
+  for(let i=0;i<bytes.length;i++)arr[i]=bytes.charCodeAt(i);
+  const pdf=await pdfjsLib.getDocument({data:arr}).promise;
+  const images=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const viewport=page.getViewport({scale:1.8});
+    const canvas=document.createElement('canvas');
+    canvas.width=viewport.width;canvas.height=viewport.height;
+    await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+    images.push(canvas.toDataURL('image/jpeg',0.85));
+  }
+  return images;
+}
+function dataUrlToBlob(dataUrl){
+  const parts=dataUrl.split(',');
+  const mime=parts[0].match(/:(.*?);/)[1];
+  const bin=atob(parts[1]);
+  const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type:mime});
+}
+async function downloadAttachment(articleId){
+  const article=articlesCache.find(a=>a.id===articleId);
+  if(!article||!article.attachment){showToast('ファイルが見つかりません');return;}
+  const fname=article.attachment_name||'manual.pdf';
+  const blob=dataUrlToBlob(article.attachment);
+  // iOS Safari等、共有シートに対応している場合はそちらを使う（保存・他アプリで開くが確実にできる）
+  if(navigator.canShare){
+    try{
+      const file=new File([blob],fname,{type:blob.type});
+      if(navigator.canShare({files:[file]})){
+        await navigator.share({files:[file],title:fname});
+        return;
+      }
+    }catch(e){ /* キャンセル等は無視してフォールバックへ */ }
+  }
+  // それ以外（PC等）は通常のBlobダウンロード
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=fname;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
 function removePdfAttach(){articleAttachment=null;renderPdfAttachArea();}
 function renderPdfAttachArea(){
   const el=document.getElementById('pdfAttachArea');if(!el)return;
   if(articleAttachment){
-    el.innerHTML=`📄 ${articleAttachment.name}<span onclick="event.stopPropagation();removePdfAttach()" style="margin-left:8px;color:var(--danger);font-weight:700">✕ 取り消す</span>`;
+    const pageInfo=articleAttachment.pageImages&&articleAttachment.pageImages.length?`（${articleAttachment.pageImages.length}ページを画像化）`:'';
+    el.innerHTML=`📄 ${articleAttachment.name}${pageInfo}<span onclick="event.stopPropagation();removePdfAttach()" style="margin-left:8px;color:var(--danger);font-weight:700">✕ 取り消す</span>`;
   }else{
     el.innerHTML='📎 PDFファイルを選ぶ';
   }
@@ -2399,7 +2456,7 @@ function renderArticleSteps(){
   }).join('');
 }
 function handleStepPhoto(event,idx){Array.from(event.target.files).forEach(file=>{const reader=new FileReader();reader.onload=e=>{if(!articleStepData[idx].photos)articleStepData[idx].photos=[];articleStepData[idx].photos.push(e.target.result);renderArticleSteps();};reader.readAsDataURL(file);});event.target.value='';}
-async function saveArticle(){const title=document.getElementById('articleTitle').value.trim();if(!title){showToast('タイトルを入力してください');return;}const valid=articleStepData.filter(s=>(s.photos&&s.photos.length)||(s.text&&s.text.trim()));if(!valid.length&&!articleAttachment){showToast('写真・説明・PDFのいずれか1つ以上入れてください');return;}const payload={title,type:'step_article',content:JSON.stringify(valid),folder_id:currentFolderId};if(articleAttachment){payload.attachment=articleAttachment.data;payload.attachment_name=articleAttachment.name;}const r=await sbInsert('manuals',payload);await loadFolders();closeModal('addArticle');renderArticles();showToast(r.offline?('⚠️ 保存できませんでした。保留中で自動再送信します'+(r.errMsg?'（'+r.errMsg+'）':'')):'✓ 記事を追加しました');articleStepData=[];articleAttachment=null;}
+async function saveArticle(){const title=document.getElementById('articleTitle').value.trim();if(!title){showToast('タイトルを入力してください');return;}const valid=articleStepData.filter(s=>(s.photos&&s.photos.length)||(s.text&&s.text.trim()));if(articleAttachment&&articleAttachment.pageImages&&articleAttachment.pageImages.length){valid.push({text:'',photos:articleAttachment.pageImages});}if(!valid.length&&!articleAttachment){showToast('写真・説明・PDFのいずれか1つ以上入れてください');return;}const payload={title,type:'step_article',content:JSON.stringify(valid),folder_id:currentFolderId};if(articleAttachment){payload.attachment=articleAttachment.data;payload.attachment_name=articleAttachment.name;}const r=await sbInsert('manuals',payload);await loadFolders();closeModal('addArticle');renderArticles();showToast(r.offline?('⚠️ 保存できませんでした。保留中で自動再送信します'+(r.errMsg?'（'+r.errMsg+'）':'')):'✓ 記事を追加しました');articleStepData=[];articleAttachment=null;}
 async function saveChecklist(){const title=document.getElementById('checklistTitle').value.trim(),items=document.getElementById('checklistItems').value.trim();if(!title||!items){showToast('タイトルと項目を入力してください');return;}const r=await sbInsert('manuals',{title,type:'checklist',content:items,folder_id:currentFolderId});await loadFolders();closeModal('addChecklist');renderArticles();showToast(r.offline?'⚠️ 通信不良のため保留中。復旧後に自動送信されます':'✓ チェックリストを追加しました');}
 async function deleteArticle(){if(!confirm('削除しますか？'))return;const r=await sbDelete('manuals',editingArticleId);await loadFolders();goBack();showToast(r.offline?'⚠️ 通信不良のため保留中。復旧後に削除されます':'削除しました');}
 async function deleteFolder(){if(!confirm('このフォルダーと中の記事を全て削除しますか？'))return;const articles=articlesCache.filter(a=>a.folder_id===currentFolderId);for(const a of articles)await sbDelete('manuals',a.id);await sbDelete('manuals',currentFolderId);await loadFolders();switchPage('manual');showToast('削除しました');}
