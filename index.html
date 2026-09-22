@@ -416,7 +416,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
       <div class="today-check">
         <h3>📅 今日のチェック</h3>
         <div id="dailyDateLabel" style="display:none;font-size:12px;color:var(--pink-deep);font-weight:700;margin-bottom:7px"></div>
-        <div class="check-row"><span class="check-label">🚽 尿</span><div class="check-options" data-key="urine"><button class="check-opt" data-val="あり">あり</button><button class="check-opt" data-val="なし">なし</button></div></div>
+        <div class="check-row"><span class="check-label">🚽 尿</span><div style="display:flex;align-items:center;gap:8px;"><button onclick="adjustUrineCount(-1)" style="width:30px;height:30px;border-radius:50%;border:1.5px solid var(--pink-dark);background:var(--white);font-size:16px;cursor:pointer;font-family:'Zen Maru Gothic',sans-serif;">－</button><span id="urineCount" style="min-width:22px;text-align:center;font-weight:700;font-size:15px;">0</span><button onclick="adjustUrineCount(1)" style="width:30px;height:30px;border-radius:50%;border:1.5px solid var(--pink-dark);background:var(--white);font-size:16px;cursor:pointer;font-family:'Zen Maru Gothic',sans-serif;">＋</button><span style="font-size:11px;color:var(--text-light);">回（した場所の数）</span></div></div>
         <div class="check-row"><span class="check-label">💩 便</span><div class="check-options" data-key="poop"><button class="check-opt" data-val="普通">普通</button><button class="check-opt" data-val="軟便">軟便</button><button class="check-opt" data-val="下痢">下痢</button><button class="check-opt" data-val="なし">なし</button></div></div>
         <div class="check-row"><span class="check-label">🍚 ご飯</span><div class="check-options" data-key="food"><button class="check-opt" data-val="完食">完食</button><button class="check-opt" data-val="残し">残し</button><button class="check-opt" data-val="食べず">食べず</button></div></div>
         <div class="check-row"><span class="check-label">💧 水</span><div class="check-options" data-key="water"><button class="check-opt" data-val="普通">普通</button><button class="check-opt" data-val="多め">多め</button><button class="check-opt" data-val="少なめ">少なめ</button><button class="check-opt" data-val="飲まず">飲まず</button></div></div>
@@ -1409,8 +1409,14 @@ function switchCatTab(tab){
 }
 
 // ===== 毎日チェック =====
+let urineCount=0;
+function adjustUrineCount(delta){
+  urineCount=Math.max(0,urineCount+delta);
+  const el=document.getElementById('urineCount');if(el)el.textContent=urineCount;
+}
 function resetDailyForm(){
   document.querySelectorAll('.check-opt').forEach(b=>b.classList.remove('selected'));
+  urineCount=0;const uc=document.getElementById('urineCount');if(uc)uc.textContent='0';
   document.getElementById('dailyMemo').value='';photoBuf.daily=[];renderPhotoPreview('daily');
   document.getElementById('dailyDateLabel').style.display='none';
 }
@@ -1425,9 +1431,14 @@ function editDailyRecord(id,date){
   const rec=(catRecordsCache[currentCatId]||[]).find(r=>r.id===id);if(!rec)return;
   const d=rec.data||{};
   document.querySelectorAll('.check-opt').forEach(b=>b.classList.remove('selected'));
-  ['urine','poop','food','water','eye','eyetype','vomit'].forEach(key=>{
+  ['poop','food','water','eye','eyetype','vomit'].forEach(key=>{
     if(d[key]){const g=document.querySelector(`.check-options[data-key="${key}"]`);if(g){const b=Array.from(g.querySelectorAll('.check-opt')).find(b=>b.dataset.val===d[key]);if(b)b.classList.add('selected');}}
   });
+  // 尿は回数管理。過去の「あり/なし」データが残っている場合は数値に変換する（あり→1、なし→0）
+  let uVal=d.urine;
+  if(typeof uVal==='string')uVal=(uVal==='あり')?1:0;
+  urineCount=uVal||0;
+  const uc=document.getElementById('urineCount');if(uc)uc.textContent=urineCount;
   document.getElementById('dailyMemo').value=d.memo||'';
   calInputDate=date;
   const l=document.getElementById('dailyDateLabel');l.textContent=`✏️ ${date} の記録を編集中`;l.style.display='block';l.style.color='var(--pink-deep)';
@@ -1438,6 +1449,7 @@ function editDailyRecord(id,date){
 async function saveDailyCheck(){
   const values={};
   document.querySelectorAll('.check-options').forEach(group=>{const sel=group.querySelector('.selected');values[group.dataset.key]=sel?sel.dataset.val:null;});
+  values.urine=urineCount||0;
   values.memo=document.getElementById('dailyMemo').value.trim();
   values.photos=[...photoBuf.daily];
   const dateStr=calInputDate||today();
@@ -1457,7 +1469,7 @@ function renderDailyHistory(){
       <button class="record-delete" onclick="editDailyRecord('${r.id}','${r.date}')" style="float:right;background:none;border:none;font-size:13px;cursor:pointer;color:var(--pink-deep);opacity:0.8">✏️</button>
       <div class="record-date">${r.date}</div>
       <div class="record-content">
-        ${d.urine?`<span class="record-tag">🚽 尿：${d.urine}</span>`:''}
+        ${(d.urine!==undefined&&d.urine!==null)?`<span class="record-tag">🚽 尿：${typeof d.urine==='number'?d.urine+'回':d.urine}</span>`:''}
         ${d.poop?`<span class="record-tag">💩 便：${d.poop}</span>`:''}
         ${d.food?`<span class="record-tag">🍚 ご飯：${d.food}</span>`:''}
         ${d.water?`<span class="record-tag">💧 水：${d.water}</span>`:''}
@@ -1624,7 +1636,7 @@ function showCalDayDetail(d,recs){
   let html=`<div class="cal-day-detail"><h4>${label}の記録</h4>`;
   if(!recs||(!recs.daily.length&&!recs.hospital.length&&!recs.care.length)){html+=`<div class="cal-detail-item" style="color:var(--text-light)">記録なし</div>`;}
   else{
-    if(recs.daily.length){html+=`<div class="cal-detail-sep">📋 毎日チェック</div>`;recs.daily.forEach(r=>{const d=r.data||{};html+=`<div class="cal-detail-item">`;if(d.urine)html+=`🚽 ${d.urine}　`;if(d.poop)html+=`💩 ${d.poop}　`;if(d.food)html+=`🍚 ${d.food}　`;if(d.water)html+=`💧 ${d.water}`;if(d.memo)html+=`<br>📝 ${d.memo}`;html+=`</div>`;});}
+    if(recs.daily.length){html+=`<div class="cal-detail-sep">📋 毎日チェック</div>`;recs.daily.forEach(r=>{const d=r.data||{};html+=`<div class="cal-detail-item">`;if(d.urine!==undefined&&d.urine!==null)html+=`🚽 ${typeof d.urine==='number'?d.urine+'回':d.urine}　`;if(d.poop)html+=`💩 ${d.poop}　`;if(d.food)html+=`🍚 ${d.food}　`;if(d.water)html+=`💧 ${d.water}`;if(d.memo)html+=`<br>📝 ${d.memo}`;html+=`</div>`;});}
     if(recs.hospital.length){html+=`<div class="cal-detail-sep">🏥 病院</div>`;recs.hospital.forEach(r=>{const d=r.data||{};if(d.symptom)html+=`<div class="cal-detail-item">🤒 ${d.symptom}</div>`;if(d.diagnosis)html+=`<div class="cal-detail-item">🩺 ${d.diagnosis}</div>`;});}
     if(recs.care.length){html+=`<div class="cal-detail-sep">✂️ ケア</div>`;recs.care.forEach(r=>{const d=r.data||{};const ct=CARE_TYPES.find(c=>c.key===d.careType);html+=`<div class="cal-detail-item">${ct?ct.emoji+' '+ct.label:d.careType||''}</div>`;});}
   }
