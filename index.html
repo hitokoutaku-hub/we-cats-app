@@ -2015,7 +2015,7 @@ async function loadBoard(loadMore=false){
   const since=new Date();since.setDate(since.getDate()-3);const sinceStr=since.toISOString();
   // ピン留めは常に全件取得（別クエリ）、通常投稿は直近3日分
   const[{data:pinned},{data:recent},{data:comments}]=await Promise.all([
-    sb.from('board_posts').select('*').eq('pinned',true).order('created_at',{ascending:false}),
+    sb.from('board_posts').select('*').eq('pinned',true).order('created_at',{ascending:false}).limit(20),
     sb.from('board_posts').select('*').eq('pinned',false).gte('created_at',sinceStr).order('created_at',{ascending:false}),
     sb.from('board_comments').select('*').gte('created_at',sinceStr).order('created_at')
   ]);
@@ -2259,7 +2259,7 @@ async function openFloorHistory(){
 }
 
 // ===== マニュアル =====
-async function loadFolders(){const{data}=await sb.from('manuals').select('*').order('created_at');foldersCache=(data||[]).filter(m=>m.type==='folder');articlesCache=(data||[]).filter(m=>m.type!=='folder');}
+async function loadFolders(){const{data}=await sb.from('manuals').select('id,type,title,content,folder_id,created_at,attachment_name').order('created_at');foldersCache=(data||[]).filter(m=>m.type==='folder');articlesCache=(data||[]).filter(m=>m.type!=='folder');}
 // フォルダーの絵文字・色パレット
 const FOLDER_ICONS = ['📁','🌙','🐱','🧹','💴','📦','☎️','🎫','⚠️','🍽️','🚪','🔑','📋','🧴','🌡️','💊','🎀','📸','🗓️','✨'];
 const FOLDER_COLORS = [
@@ -2316,9 +2316,15 @@ function renderArticles(){
     return`<div class="article-card" onclick="openArticle('${a.id}')">${thumbHtml}<div class="article-card-body"><div class="article-type">${typeLabel}</div><div class="article-title">${a.title}</div>${preview?`<div class="article-preview">${preview}</div>`:''}</div></div>`;
   }).join('');
 }
-function openArticle(articleId){
+async function openArticle(articleId){
   const article=articlesCache.find(a=>a.id===articleId);editingArticleId=articleId;
   currentPage='articledetail';document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-articledetail').classList.add('active');document.getElementById('backBtn').style.display='inline-block';document.getElementById('headerTitle').textContent=article.title;
+  document.getElementById('articleDetailContent').innerHTML='<div style="text-align:center;padding:30px;color:var(--text-light)">読み込み中...</div>';
+  // 添付の元PDFデータ（一番重い部分）だけは一覧読み込み時に取得していないので、開いた時にこの記事の分だけ取得する
+  if(article.attachment_name && article.attachment===undefined){
+    const{data}=await sb.from('manuals').select('attachment').eq('id',articleId).single();
+    article.attachment=data?.attachment||null;
+  }
   let html=`<div class="article-detail-title">${article.title}</div>`;
   if(article.type==='checklist'){const items=(article.content||'').split('\n').filter(s=>s.trim());const ck='check_'+articleId+'_'+today();const state=JSON.parse(localStorage.getItem(ck)||'{}');html+=items.map((item,i)=>`<div class="checklist-item"><div class="checklist-check ${state[i]?'done':''}" onclick="toggleCheck('${ck}',${i},this,'ct-${articleId}-${i}')">${state[i]?'✓':''}</div><div class="checklist-text ${state[i]?'done':''}" id="ct-${articleId}-${i}">${item}</div></div>`).join('');html+=`<button class="reset-check-btn" onclick="resetChecklist('${ck}','${articleId}')">🔄 チェックをリセット</button>`;}
   else if(article.type==='step_article'){try{const steps=JSON.parse(article.content||'[]');html+=steps.map((step,i)=>{const photos=step.photos||[];const hasText=step.text&&step.text.trim();const photoHtml=photos.map(p=>`<img src="${p}" class="step-photo" onclick="openViewer(this.src)" alt="">`).join('');const bodyHtml=hasText?`<div class="step-body"><div class="step-num">${i+1}</div><div class="step-text">${step.text}</div></div>`:`<div class="step-num-float">${i+1}</div>`;return`<div class="step-block${hasText?'':' photo-only'}">${photoHtml}${bodyHtml}</div>`;}).join('');}catch(e){html+=`<div style="font-size:13px">${article.content||''}</div>`;}}
