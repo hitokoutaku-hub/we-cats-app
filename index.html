@@ -441,6 +441,9 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
       <div id="dailyHistory"></div>
     </div>
     <div class="tab-panel" id="cat-tab-hospital">
+      <div id="activeCaseBox" style="display:none;background:#fff3d6;border-radius:12px;padding:12px;margin-bottom:14px;"></div>
+      <button class="add-record-btn" onclick="openMedCaseModal()" style="background:#a06010;">🩺 経過観察ケースを登録・更新</button>
+      <div style="margin-top:14px"></div>
       <button class="add-record-btn" onclick="openModal('hospitalPlan')">＋ 病院予定を追加</button>
       <div class="section-title">📅 今後の予定</div>
       <div id="hospitalPlanList"></div>
@@ -628,9 +631,20 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
     <button class="manual-add-btn" onclick="initAddFolderModal();openModal('addFolder')">📁 フォルダーを追加</button>
   </div>
 </div>
+<div class="page" id="page-activecases">
+  <div class="manual-wrap">
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">今、対応中（経過観察・検査結果待ちなど）のケースがある猫だけがここに並びます。登録が古い順に並んでいます。猫をタップすると、その猫の病院タブに移動します。</div>
+    <div id="activeCasesList"></div>
+  </div>
+</div>
 <div class="page" id="page-vaccineoverview">
   <div class="manual-wrap">
-    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">最後にワクチンを打った日が古い猫（または未接種の猫）が上に来るように並んでいます。猫をタップすると、その猫の病院タブに移動します。</div>
+    <select class="form-input" id="periodicOverviewType" onchange="renderVaccineOverview()" style="margin-bottom:10px;">
+      <option value="vaccine">💉 ワクチン</option>
+      <option value="deworm">💊 駆虫薬</option>
+      <option value="checkup">🩺 健康診断</option>
+    </select>
+    <div style="font-size:12px;color:var(--text-light);margin-bottom:12px;">最後に実施した日が古い猫（または未実施の猫）が上に来るように並んでいます。猫をタップすると、その猫の病院タブに移動します。</div>
     <div id="vaccineOverviewList"></div>
   </div>
 </div>
@@ -738,10 +752,32 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <button class="more-menu-item" onclick="switchPage('weight');closeModal('moreMenu')"><span class="more-icon">⚖️</span>体重</button>
   <button class="more-menu-item" onclick="switchPage('cash');closeModal('moreMenu')"><span class="more-icon">💰</span>現金</button>
   <button class="more-menu-item" onclick="switchPage('manual');closeModal('moreMenu')"><span class="more-icon">📌</span>マニュアル</button>
-  <button class="more-menu-item" onclick="switchPage('vaccineoverview');closeModal('moreMenu')"><span class="more-icon">💉</span>全頭ワクチン一覧</button>
+  <button class="more-menu-item" onclick="switchPage('activecases');closeModal('moreMenu')"><span class="more-icon">🩺</span>今、対応中の猫一覧</button>
+  <button class="more-menu-item" onclick="switchPage('vaccineoverview');closeModal('moreMenu')"><span class="more-icon">💉</span>全頭 定期ケア一覧</button>
   <button class="more-menu-item" onclick="switchPage('careoverview');closeModal('moreMenu')"><span class="more-icon">✂️</span>全頭ケア一覧</button>
   <button class="more-menu-item" onclick="switchPage('shift');closeModal('moreMenu')"><span class="more-icon">📅</span>シフト</button>
   <button class="more-menu-item" id="moreMenuAdminItem" style="display:none" onclick="switchPage('loginlog');closeModal('moreMenu')"><span class="more-icon">👑</span>管理</button>
+</div></div>
+
+<div class="modal-overlay" id="modalMedCase"><div class="modal">
+  <button class="modal-close" onclick="closeModal('medCase')">✕</button>
+  <h3>🩺 経過観察ケース</h3>
+  <div class="form-group"><label class="form-label">症状・病名</label><input type="text" class="form-input" id="mcSymptom" placeholder="例：耳のしこり、リンパ節腫れ"></div>
+  <div class="form-group"><label class="form-label">今の状況</label><input type="text" class="form-input" id="mcStatus" placeholder="例：経過観察、検査結果待ち、1週間後検査"></div>
+  <div class="form-group"><label class="form-label">対応・薬</label><input type="text" class="form-input" id="mcTreatment" placeholder="例：耳ピュア使用中"></div>
+  <div class="form-group"><label class="form-label">備考・連絡先など</label><textarea class="form-textarea" id="mcNote" placeholder="例：連絡は社長の携帯に"></textarea></div>
+  <div class="form-group"><label class="form-label">📷 写真（傷・薬など）</label>
+    <div class="photo-upload-area" onclick="document.getElementById('medCasePhotoInput').click()">
+      <input type="file" id="medCasePhotoInput" accept="image/*" multiple onchange="handlePhoto(event,'medcase')">
+      <div style="font-size:12px;color:var(--text-light)">📷 タップして追加</div>
+    </div>
+    <div class="photo-preview-grid" id="medcasePhotoPreview"></div>
+  </div>
+  <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+    <input type="checkbox" id="mcActive" checked style="width:18px;height:18px;">
+    <label for="mcActive" style="margin:0;font-size:13px;">現在も対応中（一覧に表示する）</label>
+  </div>
+  <button class="modal-submit" onclick="saveMedCase()">保存する</button>
 </div></div>
 
 <div class="modal-overlay" id="modalHospitalPlan"><div class="modal">
@@ -756,9 +792,14 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <button class="modal-close" onclick="closeModal('hospital')">✕</button>
   <h3>🏥 受診記録を追加</h3>
   <div class="form-group"><label class="form-label">受診日</label><input type="date" class="form-input" id="hDate"></div>
-  <div class="form-group" style="display:flex;align-items:center;gap:8px;background:#fff3d6;padding:10px 12px;border-radius:10px;">
-    <input type="checkbox" id="hIsVaccine" style="width:18px;height:18px;">
-    <label for="hIsVaccine" style="font-size:13px;font-weight:700;color:#a06010;margin:0;">💉 この記録はワクチン接種です</label>
+  <div class="form-group" style="background:#fff3d6;padding:10px 12px;border-radius:10px;">
+    <label class="form-label" style="color:#a06010;">この受診は定期ケアですか？（該当する場合だけ選択）</label>
+    <select class="form-input" id="hPeriodicType">
+      <option value="">— 通常の受診（対象外）—</option>
+      <option value="vaccine">💉 ワクチン</option>
+      <option value="deworm">💊 駆虫薬</option>
+      <option value="checkup">🩺 健康診断</option>
+    </select>
   </div>
   <div class="form-group"><label class="form-label">症状</label><textarea class="form-textarea" id="hSymptom" placeholder="例：くしゃみが多い"></textarea></div>
   <div class="form-group"><label class="form-label">診断</label><textarea class="form-textarea" id="hDiagnosis" placeholder="例：軽度の上気道炎"></textarea></div>
@@ -1201,7 +1242,7 @@ let userName='',currentPage='cats',currentCatId=null,currentCatTab='daily';
 let currentDrinkTab='hot',currentPostType='report';
 let editingCatId=null,currentFolderId=null,editingArticleId=null,currentCareType=null;
 let calYear=new Date().getFullYear(),calMonth=new Date().getMonth(),calSelectedDay=null,calInputDate=null;
-let photoBuf={daily:[],hospital:[],board:[],cash:[]},selectedEmoji='🐱';
+let photoBuf={daily:[],hospital:[],board:[],cash:[],medcase:[]},selectedEmoji='🐱';
 let articleStepData=[];
 let articleAttachment=null; // {name, data(base64 dataURL)}
 let drinkCache={hot:[],ice:[],cat:[],supply:[],meds:[]},boardCache=[],pinnedCache=[],commentsCache={},boardOffset=0,boardAllLoaded=false,foldersCache=[],articlesCache=[],medCheckState={};
@@ -1224,6 +1265,7 @@ const CAT_EMOJIS=[
   '🐯','🐻','🐼','🐨','🐰','🦊','🐷','🐹','🐭','🐶','🐝','🐞','🦋','🐌'
 ];
 const CARE_TYPES=[{key:'nail',label:'爪切り',emoji:'✂️'},{key:'brush',label:'ブラッシング',emoji:'🪮'},{key:'hairball',label:'毛玉取り',emoji:'🧶'},{key:'ear',label:'耳掃除',emoji:'👂'},{key:'teeth',label:'歯磨き',emoji:'🦷'},{key:'shampoo',label:'シャンプー',emoji:'🛁'}];
+const PERIODIC_TYPES=[{key:'vaccine',label:'ワクチン',emoji:'💉'},{key:'deworm',label:'駆虫薬',emoji:'💊'},{key:'checkup',label:'健康診断',emoji:'🩺'}];
 
 window.onload=()=>{
   updateHeaderDate(); setInterval(updateHeaderDate,1000); loadStaffList();
@@ -1345,6 +1387,7 @@ function switchPage(page){
   if(page==='reservation')initResPage();
   if(page==='vaccineoverview')loadVaccineOverview();
   if(page==='careoverview')loadCareOverview();
+  if(page==='activecases')loadActiveCasesOverview();
 }
 function goBack(){
   if(currentPage==='catdetail')switchPage('cats');
@@ -1409,16 +1452,26 @@ function renderCatList(){
   ab.onclick=()=>{renderEmojiPicker('emojiPicker');openModal('addCat');};
   grid.appendChild(ab);
 }
+let periodicOverviewData=null;
 async function loadVaccineOverview(){
   const el=document.getElementById('vaccineOverviewList');
   el.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-light)">読み込み中...</div>';
   // 一覧表示に必要なのは日付だけなので、写真等の重いデータは含めず軽量に取得する
-  const{data,error}=await sb.from('wecats_records').select('cat_id,vaccine_date').eq('type','hospital').not('vaccine_date','is',null);
+  const{data,error}=await sb.from('wecats_records').select('cat_id,periodic_type,periodic_date,vaccine_date').eq('type','hospital').or('periodic_date.not.is.null,vaccine_date.not.is.null');
   if(error){el.innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><p>読み込みに失敗しました</p></div>';return;}
+  // 旧データ（periodic_typeがなくvaccine_dateだけある記録）もワクチンとして扱えるよう変換しておく
+  periodicOverviewData=(data||[]).map(r=>({cat_id:r.cat_id,type:r.periodic_type||(r.vaccine_date?'vaccine':null),date:r.periodic_date||r.vaccine_date})).filter(r=>r.type&&r.date);
+  renderVaccineOverview();
+}
+function renderVaccineOverview(){
+  const el=document.getElementById('vaccineOverviewList');
+  if(!periodicOverviewData)return;
+  const selType=document.getElementById('periodicOverviewType').value;
+  const ptInfo=PERIODIC_TYPES.find(p=>p.key===selType);
   const latestByCat={};
-  (data||[]).forEach(r=>{if(!latestByCat[r.cat_id]||r.vaccine_date>latestByCat[r.cat_id])latestByCat[r.cat_id]=r.vaccine_date;});
+  periodicOverviewData.forEach(r=>{if(r.type!==selType)return;if(!latestByCat[r.cat_id]||r.date>latestByCat[r.cat_id])latestByCat[r.cat_id]=r.date;});
   const rows=catsCache.map(cat=>({cat,lastDate:latestByCat[cat.id]||null}));
-  // 未接種・古い順（＝要注意なもの）が上に来るように並べる
+  // 未実施・古い順（＝要注意なもの）が上に来るように並べる
   rows.sort((a,b)=>{
     if(!a.lastDate&&!b.lastDate)return a.cat.name.localeCompare(b.cat.name,'ja');
     if(!a.lastDate)return -1;
@@ -1430,8 +1483,8 @@ async function loadVaccineOverview(){
     const days=lastDate?diffDays(lastDate)*-1:null; // diffDaysは未来向けの日数なので符号を反転して経過日数にする
     const overdue=lastDate?days>365:true;
     const statusHtml=lastDate
-      ? `<div style="font-size:12px;color:${overdue?'#d9534f':'var(--text-light)'};font-weight:${overdue?'700':'400'}">最終接種：${lastDate}（${days}日前）${overdue?' ・そろそろ確認を':''}</div>`
-      : `<div style="font-size:12px;color:#d9534f;font-weight:700">ワクチン記録なし</div>`;
+      ? `<div style="font-size:12px;color:${overdue?'#d9534f':'var(--text-light)'};font-weight:${overdue?'700':'400'}">最終実施：${lastDate}（${days}日前）${overdue?' ・そろそろ確認を':''}</div>`
+      : `<div style="font-size:12px;color:#d9534f;font-weight:700">${ptInfo?ptInfo.label:''}記録なし</div>`;
     return `<div class="record-item" style="cursor:pointer;display:flex;align-items:center;gap:10px;" onclick="jumpToVaccineHistory('${cat.id}')">
       <div style="font-size:26px;">${cat.emoji||'🐱'}</div>
       <div style="flex:1;"><div style="font-weight:700;font-size:14px;">${cat.name}</div>${statusHtml}</div>
@@ -1487,6 +1540,84 @@ async function jumpToCareHistory(catId){
   await openCatDetail(catId);
   switchCatTab('care');
 }
+// ===== 経過観察ケース =====
+let currentMedCase=null;
+function openMedCaseModal(){
+  const rec=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='medcase').sort((a,b)=>b.date.localeCompare(a.date))[0];
+  currentMedCase=rec||null;
+  const d=rec?rec.data||{}:{};
+  document.getElementById('mcSymptom').value=d.symptom||'';
+  document.getElementById('mcStatus').value=d.status||'';
+  document.getElementById('mcTreatment').value=d.treatment||'';
+  document.getElementById('mcNote').value=d.note||'';
+  document.getElementById('mcActive').checked=rec?!!rec.case_active:true;
+  photoBuf.medcase=d.photos||[];renderPhotoPreview('medcase');
+  document.getElementById('modalMedCase').classList.add('open');
+}
+async function saveMedCase(){
+  const symptom=document.getElementById('mcSymptom').value.trim();
+  if(!symptom){showToast('症状・病名を入力してください');return;}
+  const data={symptom,status:document.getElementById('mcStatus').value.trim(),treatment:document.getElementById('mcTreatment').value.trim(),note:document.getElementById('mcNote').value.trim(),photos:[...photoBuf.medcase]};
+  const case_active=document.getElementById('mcActive').checked;
+  const date=today();
+  if(currentMedCase){await sbUpdate('wecats_records',currentMedCase.id,{data,case_active,date});}
+  else{await sbInsert('wecats_records',{id:'rec_'+Date.now(),cat_id:currentCatId,type:'medcase',date,data,case_active});}
+  await loadCatDetail(currentCatId);photoBuf.medcase=[];closeModal('medCase');showToast('✓ ケースを保存しました');renderActiveCaseBox();
+}
+function renderActiveCaseBox(){
+  const box=document.getElementById('activeCaseBox');if(!box)return;
+  const rec=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='medcase').sort((a,b)=>b.date.localeCompare(a.date))[0];
+  if(!rec||!rec.case_active){box.style.display='none';return;}
+  const d=rec.data||{};
+  box.style.display='block';
+  box.innerHTML=`<div style="font-size:12px;font-weight:700;color:#a06010;margin-bottom:6px;">🩺 対応中のケース（${rec.date}時点）</div>
+    <div style="font-size:14px;font-weight:700;">${d.symptom||''}</div>
+    ${d.status?`<div style="font-size:13px;color:var(--text-secondary);margin-top:2px;">状況：${d.status}</div>`:''}
+    ${d.treatment?`<div style="font-size:13px;color:var(--text-secondary);">対応：${d.treatment}</div>`:''}
+    ${d.note?`<div style="font-size:12px;color:var(--text-light);margin-top:4px;">${d.note}</div>`:''}
+    ${d.photos&&d.photos.length?`<div class="record-photos" style="margin-top:6px;">${d.photos.map(s=>`<img src="${s}" onclick="openViewer(this.src)" alt="">`).join('')}</div>`:''}
+    <button onclick="resolveMedCase('${rec.id}')" style="margin-top:8px;padding:6px 14px;background:none;border:1.5px solid #a06010;border-radius:10px;color:#a06010;font-size:12px;font-weight:700;cursor:pointer;">✓ 対応完了にする</button>`;
+}
+async function resolveMedCase(id){
+  await sbUpdate('wecats_records',id,{case_active:false});
+  await loadCatDetail(currentCatId);renderActiveCaseBox();showToast('✓ 対応完了にしました');
+}
+let activeCasesData=null;
+async function loadActiveCasesOverview(){
+  const el=document.getElementById('activeCasesList');
+  el.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-light)">読み込み中...</div>';
+  const{data,error}=await sb.from('wecats_records').select('id,cat_id,date,data,case_active').eq('type','medcase').eq('case_active',true).order('date',{ascending:false});
+  if(error){el.innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><p>読み込みに失敗しました</p></div>';return;}
+  const latestByCat={};
+  (data||[]).forEach(r=>{if(!latestByCat[r.cat_id])latestByCat[r.cat_id]=r;});
+  activeCasesData=latestByCat;
+  renderActiveCasesOverview();
+}
+function renderActiveCasesOverview(){
+  const el=document.getElementById('activeCasesList');
+  const rows=catsCache.map(cat=>({cat,rec:activeCasesData[cat.id]||null})).filter(r=>r.rec);
+  if(!rows.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">🩺</div><p>今、対応中のケースはありません</p></div>';return;}
+  rows.sort((a,b)=>a.rec.date.localeCompare(b.rec.date));
+  el.innerHTML=rows.map(({cat,rec})=>{
+    const d=rec.data||{};
+    return `<div class="record-item" style="cursor:pointer;" onclick="jumpToMedCase('${cat.id}')">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+        <div style="font-size:22px;">${cat.emoji||'🐱'}</div>
+        <div style="font-weight:700;font-size:14px;">${cat.name}</div>
+        <div style="font-size:11px;color:var(--text-light);margin-left:auto;">${rec.date}〜</div>
+      </div>
+      <div style="font-size:14px;font-weight:700;color:#a06010;">${d.symptom||''}</div>
+      ${d.status?`<div style="font-size:12px;color:var(--text-secondary);">状況：${d.status}</div>`:''}
+      ${d.treatment?`<div style="font-size:12px;color:var(--text-secondary);">対応：${d.treatment}</div>`:''}
+      ${d.note?`<div style="font-size:11px;color:var(--text-light);margin-top:2px;">${d.note}</div>`:''}
+      ${d.photos&&d.photos.length?`<div class="record-photos" style="margin-top:6px;">${d.photos.map(s=>`<img src="${s}" onclick="event.stopPropagation();openViewer(this.src)" alt="">`).join('')}</div>`:''}
+    </div>`;
+  }).join('');
+}
+async function jumpToMedCase(catId){
+  await openCatDetail(catId);
+  switchCatTab('hospital');
+}
 async function openCatDetail(catId){
   currentCatId=catId;const cat=catsCache.find(c=>c.id===catId);
   document.getElementById('detailEmoji').textContent=cat.emoji;
@@ -1508,7 +1639,7 @@ function switchCatTab(tab){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('cat-tab-'+tab).classList.add('active');
   if(tab==='daily'){resetDailyForm();renderDailyHistory();}
-  if(tab==='hospital'){renderHospPlanList();renderHospitalList();}
+  if(tab==='hospital'){renderHospPlanList();renderHospitalList();renderActiveCaseBox();}
   if(tab==='care'){renderCareGrid();renderCareHistory();}
   if(tab==='meds')renderMedList();
   if(tab==='calendar'){calYear=new Date().getFullYear();calMonth=new Date().getMonth();calSelectedDay=null;document.getElementById('calDayDetail').innerHTML='';renderCalendar();}
@@ -1589,7 +1720,7 @@ function renderDailyHistory(){
 
 // ===== 病院 =====
 function openModal(type){
-  if(type==='hospital'){document.getElementById('hDate').value=today();['hSymptom','hDiagnosis','hMemo'].forEach(id=>document.getElementById(id).value='');document.getElementById('hMedicine').value='';document.getElementById('hIsVaccine').checked=false;photoBuf.hospital=[];renderPhotoPreview('hospital');document.getElementById('modalHospital').dataset.editId='';}
+  if(type==='hospital'){document.getElementById('hDate').value=today();['hSymptom','hDiagnosis','hMemo'].forEach(id=>document.getElementById(id).value='');document.getElementById('hMedicine').value='';document.getElementById('hPeriodicType').value='';photoBuf.hospital=[];renderPhotoPreview('hospital');document.getElementById('modalHospital').dataset.editId='';}
   if(type==='hospitalPlan'){document.getElementById('hpDate').value='';document.getElementById('hpMemo').value='';}
   document.getElementById('modal'+cap(type)).classList.add('open');
 }
@@ -1614,25 +1745,27 @@ function editHospitalRecord(id){
   document.getElementById('hDate').value=rec.date||'';document.getElementById('hSymptom').value=d.symptom||'';
   document.getElementById('hDiagnosis').value=d.diagnosis||'';document.getElementById('hMedicine').value=d.medicine||'';
   document.getElementById('hMemo').value=d.memo||'';photoBuf.hospital=d.photos||[];renderPhotoPreview('hospital');
-  document.getElementById('hIsVaccine').checked=!!rec.vaccine_date;
+  document.getElementById('hPeriodicType').value=rec.periodic_type||(rec.vaccine_date?'vaccine':'');
   document.getElementById('modalHospital').dataset.editId=id;
   document.getElementById('modalHospital').classList.add('open');
 }
 async function saveHospital(){
   const date=document.getElementById('hDate').value;if(!date){showToast('日付を入力してください');return;}
   const data={date,symptom:document.getElementById('hSymptom').value.trim(),diagnosis:document.getElementById('hDiagnosis').value.trim(),medicine:document.getElementById('hMedicine').value.trim(),memo:document.getElementById('hMemo').value.trim(),photos:[...photoBuf.hospital]};
-  const isVaccine=document.getElementById('hIsVaccine').checked;
-  const vaccine_date=isVaccine?date:null;
+  const periodicType=document.getElementById('hPeriodicType').value||null;
+  const periodic_date=periodicType?date:null;
+  // 旧バージョンとの互換のため、ワクチンの時だけvaccine_dateにも同じ日付を入れておく
+  const vaccine_date=periodicType==='vaccine'?date:null;
   const editId=document.getElementById('modalHospital').dataset.editId;
-  if(editId){await sbUpdate('wecats_records',editId,{data,vaccine_date});document.getElementById('modalHospital').dataset.editId='';}
-  else{await sbInsert('wecats_records',{id:'rec_'+Date.now(),cat_id:currentCatId,type:'hospital',date,data,vaccine_date});}
+  if(editId){await sbUpdate('wecats_records',editId,{data,periodic_type:periodicType,periodic_date,vaccine_date});document.getElementById('modalHospital').dataset.editId='';}
+  else{await sbInsert('wecats_records',{id:'rec_'+Date.now(),cat_id:currentCatId,type:'hospital',date,data,periodic_type:periodicType,periodic_date,vaccine_date});}
   await loadCatDetail(currentCatId);photoBuf.hospital=[];closeModal('hospital');showToast('✓ 受診記録を保存しました');renderHospitalList();
 }
 function renderHospitalList(){
   const records=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='hospital').sort((a,b)=>b.date.localeCompare(a.date));
   const el=document.getElementById('hospitalList');
   if(!records.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">🏥</div><p>受診記録がありません</p></div>';return;}
-  el.innerHTML=records.map(r=>{const d=r.data||{};return`<div class="record-item"><button class="record-delete" onclick="delRecord('${r.id}','hospital')" style="float:right;margin-left:4px">🗑</button><button class="record-delete" onclick="editHospitalRecord('${r.id}')" style="float:right;background:none;border:none;font-size:13px;cursor:pointer;color:var(--pink-deep);opacity:0.8">✏️</button><div class="record-date">📅 ${r.date}${r.vaccine_date?' <span style="background:#fff3d6;color:#a06010;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">💉 ワクチン</span>':''}</div>${d.symptom?`<div class="record-content">🤒 <strong>症状：</strong>${d.symptom}</div>`:''}${d.diagnosis?`<div class="record-content">🩺 <strong>診断：</strong>${d.diagnosis}</div>`:''}${d.medicine?`<div class="record-content">💊 <strong>薬：</strong>${d.medicine}</div>`:''}${d.memo?`<div class="record-content">📝 ${d.memo}</div>`:''}${d.photos&&d.photos.length?`<div class="record-photos">${d.photos.map(s=>`<img src="${s}" onclick="openViewer(this.src)" alt="">`).join('')}</div>`:''}</div>`;}).join('');
+  el.innerHTML=records.map(r=>{const d=r.data||{};const pType=r.periodic_type||(r.vaccine_date?'vaccine':null);const pt=PERIODIC_TYPES.find(p=>p.key===pType);return`<div class="record-item"><button class="record-delete" onclick="delRecord('${r.id}','hospital')" style="float:right;margin-left:4px">🗑</button><button class="record-delete" onclick="editHospitalRecord('${r.id}')" style="float:right;background:none;border:none;font-size:13px;cursor:pointer;color:var(--pink-deep);opacity:0.8">✏️</button><div class="record-date">📅 ${r.date}${pt?` <span style="background:#fff3d6;color:#a06010;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;">${pt.emoji} ${pt.label}</span>`:''}</div>${d.symptom?`<div class="record-content">🤒 <strong>症状：</strong>${d.symptom}</div>`:''}${d.diagnosis?`<div class="record-content">🩺 <strong>診断：</strong>${d.diagnosis}</div>`:''}${d.medicine?`<div class="record-content">💊 <strong>薬：</strong>${d.medicine}</div>`:''}${d.memo?`<div class="record-content">📝 ${d.memo}</div>`:''}${d.photos&&d.photos.length?`<div class="record-photos">${d.photos.map(s=>`<img src="${s}" onclick="openViewer(this.src)" alt="">`).join('')}</div>`:''}</div>`;}).join('');
 }
 
 // ===== ケア =====
