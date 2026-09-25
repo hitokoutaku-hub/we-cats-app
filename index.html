@@ -1487,6 +1487,7 @@ async function jumpToCareHistory(catId){
   await openCatDetail(catId);
   switchCatTab('care');
 }
+async function openCatDetail(catId){
   currentCatId=catId;const cat=catsCache.find(c=>c.id===catId);
   document.getElementById('detailEmoji').textContent=cat.emoji;
   document.getElementById('detailName').textContent=cat.name;
