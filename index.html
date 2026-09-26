@@ -1457,8 +1457,9 @@ async function loadVaccineOverview(){
   const el=document.getElementById('vaccineOverviewList');
   el.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-light)">読み込み中...</div>';
   // 一覧表示に必要なのは日付だけなので、写真等の重いデータは含めず軽量に取得する
-  const{data,error}=await sb.from('wecats_records').select('cat_id,periodic_type,periodic_date,vaccine_date').eq('type','hospital').or('periodic_date.not.is.null,vaccine_date.not.is.null');
-  if(error){el.innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><p>読み込みに失敗しました</p></div>';return;}
+  // （or()の書き方でエラーが起きる可能性を避けるため、type='hospital'の分を全部取ってから絞り込む）
+  const{data,error}=await sb.from('wecats_records').select('cat_id,periodic_type,periodic_date,vaccine_date').eq('type','hospital');
+  if(error){console.error('定期ケア一覧の読み込みエラー:',error);el.innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><p>読み込みに失敗しました</p><p style="font-size:11px;color:var(--text-light);margin-top:6px;">${error.message||''}</p></div>`;return;}
   // 旧データ（periodic_typeがなくvaccine_dateだけある記録）もワクチンとして扱えるよう変換しておく
   periodicOverviewData=(data||[]).map(r=>({cat_id:r.cat_id,type:r.periodic_type||(r.vaccine_date?'vaccine':null),date:r.periodic_date||r.vaccine_date})).filter(r=>r.type&&r.date);
   renderVaccineOverview();
@@ -1470,7 +1471,7 @@ function renderVaccineOverview(){
   const ptInfo=PERIODIC_TYPES.find(p=>p.key===selType);
   const latestByCat={};
   periodicOverviewData.forEach(r=>{if(r.type!==selType)return;if(!latestByCat[r.cat_id]||r.date>latestByCat[r.cat_id])latestByCat[r.cat_id]=r.date;});
-  const rows=catsCache.map(cat=>({cat,lastDate:latestByCat[cat.id]||null}));
+  const rows=catsCache.filter(c=>!c.archived).map(cat=>({cat,lastDate:latestByCat[cat.id]||null}));
   // 未実施・古い順（＝要注意なもの）が上に来るように並べる
   rows.sort((a,b)=>{
     if(!a.lastDate&&!b.lastDate)return a.cat.name.localeCompare(b.cat.name,'ja');
@@ -1501,7 +1502,7 @@ async function loadCareOverview(){
   const el=document.getElementById('careOverviewList');
   el.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-light)">読み込み中...</div>';
   const{data,error}=await sb.from('wecats_records').select('cat_id,date,data').eq('type','care');
-  if(error){el.innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><p>読み込みに失敗しました</p></div>';return;}
+  if(error){console.error('ケア一覧の読み込みエラー:',error);el.innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><p>読み込みに失敗しました</p><p style="font-size:11px;color:var(--text-light);margin-top:6px;">${error.message||''}</p></div>`;return;}
   careOverviewData=data||[];
   renderCareOverview();
 }
@@ -1515,7 +1516,7 @@ function renderCareOverview(){
     if(d.careType!==careType)return;
     if(!latestByCat[r.cat_id]||r.date>latestByCat[r.cat_id])latestByCat[r.cat_id]=r.date;
   });
-  const rows=catsCache.map(cat=>({cat,lastDate:latestByCat[cat.id]||null}));
+  const rows=catsCache.filter(c=>!c.archived).map(cat=>({cat,lastDate:latestByCat[cat.id]||null}));
   rows.sort((a,b)=>{
     if(!a.lastDate&&!b.lastDate)return a.cat.name.localeCompare(b.cat.name,'ja');
     if(!a.lastDate)return -1;
@@ -1587,7 +1588,7 @@ async function loadActiveCasesOverview(){
   const el=document.getElementById('activeCasesList');
   el.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-light)">読み込み中...</div>';
   const{data,error}=await sb.from('wecats_records').select('id,cat_id,date,data,case_active').eq('type','medcase').eq('case_active',true).order('date',{ascending:false});
-  if(error){el.innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><p>読み込みに失敗しました</p></div>';return;}
+  if(error){console.error('対応中ケース一覧の読み込みエラー:',error);el.innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><p>読み込みに失敗しました</p><p style="font-size:11px;color:var(--text-light);margin-top:6px;">${error.message||''}</p></div>`;return;}
   const latestByCat={};
   (data||[]).forEach(r=>{if(!latestByCat[r.cat_id])latestByCat[r.cat_id]=r;});
   activeCasesData=latestByCat;
@@ -1595,7 +1596,7 @@ async function loadActiveCasesOverview(){
 }
 function renderActiveCasesOverview(){
   const el=document.getElementById('activeCasesList');
-  const rows=catsCache.map(cat=>({cat,rec:activeCasesData[cat.id]||null})).filter(r=>r.rec);
+  const rows=catsCache.filter(c=>!c.archived).map(cat=>({cat,rec:activeCasesData[cat.id]||null})).filter(r=>r.rec);
   if(!rows.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">🩺</div><p>今、対応中のケースはありません</p></div>';return;}
   rows.sort((a,b)=>a.rec.date.localeCompare(b.rec.date));
   el.innerHTML=rows.map(({cat,rec})=>{
