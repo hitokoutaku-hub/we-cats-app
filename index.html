@@ -338,6 +338,35 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .shift-tag.定休 { background: #D6EAFF; color: #2050a0; }
 .shift-detail-card { background: var(--white); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 2px 8px rgba(212,112,138,0.12); }
 .shift-input-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--pink-light); }
+/* SNS やること */
+.sns-tabs{display:flex;gap:6px;margin-bottom:10px}
+.sns-tab{flex:1;padding:10px;border-radius:12px;border:2px solid #ede9fe;background:var(--white);color:#6d28d9;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
+.sns-tab.on{background:#6d28d9;border-color:#6d28d9;color:#fff}
+.sns-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.sns-sum div{background:var(--white);border-radius:10px;padding:8px 2px;text-align:center;font-size:10px;color:var(--text-light);font-weight:700}
+.sns-sum b{display:block;font-size:18px;color:var(--text)}
+.sns-sec{font-size:12px;font-weight:700;color:#6d28d9;margin:14px 0 6px}
+.sns-card{background:var(--white);border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 2px 8px rgba(109,40,217,0.1);border:2px solid transparent}
+.sns-card.over{border-color:#f87171}.sns-card.soon{border-color:#facc15}
+.sns-row{display:flex;align-items:center;gap:8px}
+.sns-pill{border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;white-space:nowrap}
+.sns-p-purple{background:#ede9fe;color:#6d28d9}.sns-p-red{background:#fee2e2;color:#dc2626}.sns-p-yellow{background:#fef9c3;color:#a16207}.sns-p-gray{background:#f3f4f6;color:#6b7280}
+.sns-btn{padding:6px 12px;border-radius:10px;border:1.5px solid #c4b5fd;background:var(--white);color:#6d28d9;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.sns-btn.main{background:#6d28d9;border-color:#6d28d9;color:#fff}
+.sns-btn.red{border-color:#f87171;color:#dc2626}
+.sns-meta{font-size:11px;color:var(--text-light);margin-top:4px;line-height:1.6}
+.sns-bar{height:6px;background:#ede9fe;border-radius:3px;overflow:hidden;margin-top:8px}
+.sns-bar i{display:block;height:100%;background:#7c3aed}
+.sns-step{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid #f3f0ff;font-size:13px}
+.sns-ck{width:22px;height:22px;border-radius:7px;border:2px solid #a78bfa;background:var(--white);color:#fff;font-size:13px;cursor:pointer;flex-shrink:0;line-height:1}
+.sns-ck.on{background:#7c3aed;border-color:#7c3aed}
+.sns-warn{background:#fef9c3;color:#854d0e;border-radius:12px;padding:10px 12px;font-size:12px;font-weight:700;margin-bottom:10px}
+.sns-hint{background:#ede9fe;color:#5b21b6;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.6;margin-bottom:10px}
+.sns-choices{display:flex;flex-wrap:wrap;gap:6px}
+.sns-choice{padding:8px 12px;border-radius:10px;border:1.5px solid var(--pink);background:var(--pink-bg);font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;color:var(--text);cursor:pointer}
+.sns-choice.on{background:#6d28d9;border-color:#6d28d9;color:#fff}
+.sns-empty{text-align:center;font-size:12px;color:var(--text-light);padding:10px 0}
+.sns-menu-badge{margin-left:auto;background:var(--danger);color:#fff;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
@@ -359,7 +388,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 <div class="header">
   <div style="display:flex;align-items:center;gap:4px">
     <button class="back-btn" id="backBtn" style="display:none" onclick="goBack()">←</button>
-    <button class="back-btn" id="menuBtn" style="font-size:14px;display:flex;align-items:center;gap:3px;white-space:nowrap" onclick="openMoreMenu()" title="メニュー"><span style="font-size:20px">☰</span>メニュー</button>
+    <button class="back-btn" id="menuBtn" style="position:relative;font-size:14px;display:flex;align-items:center;gap:3px;white-space:nowrap" onclick="openMoreMenu()" title="メニュー"><span style="font-size:20px">☰</span>メニュー<span id="menuSnsDot" style="display:none;position:absolute;top:4px;left:18px;width:9px;height:9px;border-radius:50%;background:var(--danger)"></span></button>
   </div>
   <h1 id="headerTitle">🐱 WE CATS</h1>
   <div style="display:flex;align-items:center;gap:2px">
@@ -704,8 +733,14 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
     <div id="snsWorkArea" style="display:none;margin-top:16px">
       <div style="background:linear-gradient(135deg,#6d28d9,#4c1d95);border-radius:14px;padding:14px;margin-bottom:10px">
         <div style="font-size:13px;font-weight:700;color:#e9d5ff;margin-bottom:4px">📱 SNS作業管理</div>
-        <div style="font-size:11px;color:#c4b5fd">高橋さんのSNS作業日程</div>
+        <div style="font-size:11px;color:#c4b5fd">オーナー・高橋さんのみ表示</div>
       </div>
+      <div class="sns-tabs">
+        <button class="sns-tab on" id="snsTabTodo" onclick="switchSnsTab('todo')">✅ TODOリスト</button>
+        <button class="sns-tab" id="snsTabLog" onclick="switchSnsTab('log')">📅 作業日程</button>
+      </div>
+      <div id="snsPaneTodo"></div>
+      <div id="snsPaneLog" style="display:none">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <button onclick="changeSnsMonth(-1)" style="background:#ede9fe;border:none;border-radius:50%;width:34px;height:34px;font-size:18px;cursor:pointer;color:#6d28d9;font-weight:700">‹</button>
         <span id="snsMonthLabel" style="font-size:14px;font-weight:700;color:#6d28d9"></span>
@@ -714,6 +749,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
       <div id="snsWorkList"></div>
       <div id="snsOwnerEdit" style="display:none">
         <button onclick="openSnsAddModal()" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:12px;border-radius:14px;border:2px dashed #7c3aed;background:none;color:#6d28d9;font-size:14px;font-weight:700;cursor:pointer;font-family:'Zen Maru Gothic',sans-serif;margin-top:8px">＋ SNS作業を追加</button>
+      </div>
       </div>
     </div>
   </div>
@@ -756,6 +792,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
   <button class="more-menu-item" onclick="switchPage('vaccineoverview');closeModal('moreMenu')"><span class="more-icon">💉</span>全頭 定期ケア一覧</button>
   <button class="more-menu-item" onclick="switchPage('careoverview');closeModal('moreMenu')"><span class="more-icon">✂️</span>全頭ケア一覧</button>
   <button class="more-menu-item" onclick="switchPage('shift');closeModal('moreMenu')"><span class="more-icon">📅</span>シフト</button>
+  <button class="more-menu-item" id="moreMenuSnsItem" style="display:none" onclick="openSnsTodoPage()"><span class="more-icon">✅</span>TODOリスト<span id="snsMenuBadge" class="sns-menu-badge" style="display:none"></span></button>
   <button class="more-menu-item" id="moreMenuAdminItem" style="display:none" onclick="switchPage('loginlog');closeModal('moreMenu')"><span class="more-icon">👑</span>管理</button>
 </div></div>
 
@@ -1070,6 +1107,10 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 </div></div>
 
 
+<div class="modal-overlay" id="modalSnsTodo"><div class="modal">
+  <button class="modal-close" onclick="closeModal('snsTodo')">✕</button>
+  <div id="snsTodoBody"></div>
+</div></div>
 <div class="modal-overlay" id="modalSnsAdd"><div class="modal">
   <button class="modal-close" onclick="closeModal('snsAdd')">✕</button>
   <h3 id="snsAddTitle">📱 SNS作業を追加</h3>
@@ -1346,6 +1387,7 @@ async function init(){
   if(prefetchPromise)await prefetchPromise;
   else{await loadCatsData();await Promise.all([loadAllCatsOverviewData(),loadDrinks(),loadFolders(),loadReservations(),loadShiftTypes()]);}
   renderCatList(); checkHospitalAlerts();
+  snsTodos = []; refreshSnsBadge();
 }
 async function loadAllCatsOverviewData(){
   const ids=catsCache.map(c=>c.id);
@@ -3010,8 +3052,11 @@ async function initSnsArea() {
   if (ownerEdit) ownerEdit.style.display = currentStaffIsOwner ? 'block' : 'none';
   snsYear = new Date().getFullYear();
   snsMonth = new Date().getMonth();
-  await loadSnsWorks();
+  switchSnsTab('todo');
+  await Promise.all([loadSnsWorks(), loadSnsTodos(), loadSnsTodayShift()]);
   renderSnsWorks();
+  renderSnsTodos();
+  refreshSnsBadge();
 }
 
 function changeSnsMonth(delta) {
@@ -3043,6 +3088,7 @@ function renderSnsWorks() {
 }
 
 function openSnsAddModal() {
+  snsAllowInsert = false;
   document.getElementById('snsEditId').value = '';
   document.getElementById('snsDate').value = today();
   document.getElementById('snsPlace').value = '';
@@ -3077,7 +3123,8 @@ async function saveSnsWork() {
   if (editId) {
     await sbUpdate('wecats_sns_works', editId, { date, place, content, memo });
     showToast('✓ 更新しました');
-  } else if (currentStaffIsOwner) {
+  } else if (currentStaffIsOwner || snsAllowInsert) {
+    snsAllowInsert = false;
     await sbInsert('wecats_sns_works', { id: 'sns_' + Date.now(), date, place, content, memo });
     showToast('✓ 追加しました');
   } else {
@@ -3097,6 +3144,366 @@ async function deleteSnsWork() {
   closeModal('snsAdd');
   renderSnsWorks();
   showToast('削除しました');
+}
+
+// ===== SNS やること（TODO・オーナーと高橋のみ） =====
+let snsTab = 'todo', snsTodos = [], snsTodosReady = true, snsTodayShift = [], snsDoneOpen = false, snsAllowInsert = false, snsForm = null;
+const SNS_TAKAHASHI = '高橋';
+const SNS_OVERLOAD = 5;
+const SNS_STEP_TEMPLATES = { none: { label: 'なし', steps: [] }, reel: { label: 'リール', steps: ['撮影','編集','文章','投稿'] }, post: { label: '投稿', steps: ['撮影','文章','投稿'] }, story: { label: 'ストーリー', steps: ['撮影','投稿'] } };
+const SNS_REASONS = ['今は手が回らない','他のスタッフにお願い','内容が理解できない','複数で話し合いたい'];
+
+function snsEsc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function snsOwnerNames() { return staffCache.filter(s => s.is_owner).map(s => s.name); }
+function snsIsOwnerName(n) { return snsOwnerNames().includes(n); }
+function snsOtherStaff() { return staffCache.map(s => s.name).filter(n => n !== SNS_TAKAHASHI && !snsIsOwnerName(n)); }
+function snsDaysLeft(due) { if (!due) return null; const t = new Date(today() + 'T00:00:00'), d = new Date(due + 'T00:00:00'); return Math.round((d - t) / 86400000); }
+function snsMD(due) { if (!due) return ''; const [, m, d] = due.split('-'); return `${parseInt(m)}/${parseInt(d)}`; }
+function snsAddDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function snsById(id) { return snsTodos.find(t => t.id === id); }
+
+async function loadSnsTodos() {
+  try {
+    const { data, error } = await sb.from('wecats_sns_todos').select('*').order('created_at');
+    if (error) throw error;
+    snsTodos = (data || []).map(t => ({ ...t, steps: Array.isArray(t.steps) ? t.steps : [] }));
+    snsTodosReady = true;
+  } catch (e) { snsTodos = []; snsTodosReady = false; }
+}
+async function loadSnsTodayShift() {
+  try {
+    const { data } = await sb.from('wecats_shifts').select('staff_name,shift_type').eq('date', today());
+    snsTodayShift = (data || []).filter(s => !['休み','定休'].includes(s.shift_type)).map(s => s.staff_name);
+  } catch (e) { snsTodayShift = []; }
+}
+
+// 高橋さんが今持っている作業の数（段階単位）
+function snsLoadOf(name) {
+  let n = 0;
+  snsTodos.filter(t => t.status === 'todo').forEach(t => {
+    if (!t.steps.length) { if (t.assignee === name) n++; }
+    else t.steps.forEach(s => { if (!s.done && (s.who || t.assignee) === name) n++; });
+  });
+  return n;
+}
+function snsIsOverdue(t) { const d = snsDaysLeft(t.due); return t.status === 'todo' && d !== null && d < 0; }
+function snsNeedsMe(t) {
+  if (currentStaffIsOwner) {
+    if (t.status === 'proposed') return !snsIsOwnerName(t.proposed_by);
+    if (t.status === 'consult' || t.status === 'review') return true;
+    if (snsIsOverdue(t)) return snsIsOwnerName(t.assignee);
+    return false;
+  }
+  if (t.status === 'proposed') return snsIsOwnerName(t.proposed_by);
+  if (snsIsOverdue(t)) return !snsIsOwnerName(t.assignee);
+  return false;
+}
+
+// メニューのバッジ
+async function refreshSnsBadge() {
+  const item = document.getElementById('moreMenuSnsItem');
+  const badge = document.getElementById('snsMenuBadge');
+  const dot = document.getElementById('menuSnsDot');
+  if (!item) return;
+  if (!isSnsVisible()) { item.style.display = 'none'; if (dot) dot.style.display = 'none'; return; }
+  item.style.display = 'flex';
+  if (!snsTodos.length) await loadSnsTodos();
+  const n = snsTodos.filter(snsNeedsMe).length;
+  const over = snsTodos.filter(t => snsIsOverdue(t) && snsNeedsMe(t)).length;
+  if (n) { badge.style.display = 'inline-block'; badge.textContent = over ? `${n}件（期限切れ${over}）` : `${n}件`; }
+  else badge.style.display = 'none';
+  if (dot) dot.style.display = n ? 'block' : 'none';
+}
+async function openSnsTodoPage() {
+  closeModal('moreMenu');
+  switchPage('shift');
+  setTimeout(() => { const a = document.getElementById('snsWorkArea'); if (a) a.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 600);
+}
+
+function switchSnsTab(tab) {
+  snsTab = tab;
+  document.getElementById('snsTabTodo').classList.toggle('on', tab === 'todo');
+  document.getElementById('snsTabLog').classList.toggle('on', tab === 'log');
+  document.getElementById('snsPaneTodo').style.display = tab === 'todo' ? 'block' : 'none';
+  document.getElementById('snsPaneLog').style.display = tab === 'log' ? 'block' : 'none';
+}
+
+function snsDueBadge(t) {
+  if (!t.due) return '<span class="sns-pill sns-p-gray">期限なし</span>';
+  const d = snsDaysLeft(t.due);
+  if (d < 0) return `<span class="sns-pill sns-p-red">期限切れ（${snsMD(t.due)}）</span>`;
+  if (d === 0) return '<span class="sns-pill sns-p-red">今日まで</span>';
+  if (d <= 3) return `<span class="sns-pill sns-p-yellow">あと${d}日（${snsMD(t.due)}）</span>`;
+  return `<span class="sns-pill sns-p-gray">${snsMD(t.due)}まで</span>`;
+}
+function snsSortByDue(a, b) { return (a.due || '9999') < (b.due || '9999') ? -1 : (a.due || '9999') > (b.due || '9999') ? 1 : 0; }
+
+function renderSnsTodos() {
+  const el = document.getElementById('snsPaneTodo');
+  if (!el) return;
+  if (!snsTodosReady) {
+    el.innerHTML = '<div class="sns-warn">やることリストの保存先がまだありません。Supabaseで表を作成してから、もう一度開いてください。</div>';
+    return;
+  }
+  const me = userName, owner = currentStaffIsOwner;
+  const proposed = snsTodos.filter(t => t.status === 'proposed');
+  const consult = snsTodos.filter(t => t.status === 'consult');
+  const todos = snsTodos.filter(t => t.status === 'todo').sort(snsSortByDue);
+  const review = snsTodos.filter(t => t.status === 'review');
+  const finished = snsTodos.filter(t => t.status === 'done' || t.status === 'skipped').sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+  const overdue = todos.filter(snsIsOverdue).length;
+  const load = snsLoadOf(SNS_TAKAHASHI);
+  let h = `<div class="sns-sum">
+    <div><b style="${overdue ? 'color:#dc2626' : ''}">${overdue}</b>期限切れ</div>
+    <div><b>${consult.length}</b>相談中</div>
+    <div><b>${proposed.length}</b>未決定</div>
+    <div><b>${review.length}</b>確認待ち</div></div>`;
+  if (!owner && load >= SNS_OVERLOAD) h += `<div class="sns-warn">⚠️ 担当が${load}つあります。誰かにお願いしませんか？</div>`;
+  h += `<button onclick="openSnsPropose()" style="display:flex;align-items:center;justify-content:center;width:100%;padding:12px;border-radius:14px;border:2px dashed #7c3aed;background:none;color:#6d28d9;font-size:14px;font-weight:700;cursor:pointer;font-family:'Zen Maru Gothic',sans-serif">＋ やってほしいことを出す</button>`;
+
+  // 相談中
+  h += '<div class="sns-sec">💬 相談中</div>';
+  h += consult.length ? consult.map(t => {
+    const extra = t.consult_reason === '内容が理解できない' && t.consult_note ? `<div class="sns-meta">わからないところ：${snsEsc(t.consult_note)}</div>`
+      : t.consult_reason === '複数で話し合いたい' && t.consult_with ? `<div class="sns-meta">話し合いたい人：${snsEsc(t.consult_with)}</div>` : '';
+    const action = owner
+      ? `<div class="sns-meta">高橋さんの担当中：${load}件</div><div class="sns-row" style="margin-top:8px;gap:6px"><button class="sns-btn main" onclick="openSnsDecide('${t.id}')">決める</button></div>`
+      : `<div class="sns-meta">オーナーの返事待ち（直接話してみましょう）</div>`;
+    return `<div class="sns-card" style="border-color:#c4b5fd"><div class="sns-row"><span style="flex:1;font-size:13px;font-weight:700">${snsEsc(t.title)}</span><span class="sns-pill sns-p-purple">${snsEsc(t.consult_reason || '')}</span></div>${extra}${action}</div>`;
+  }).join('') : '<div class="sns-empty">相談中のものはありません</div>';
+
+  // 未決定
+  h += '<div class="sns-sec">📥 未決定（まだ決めていないお願い）</div>';
+  h += proposed.length ? proposed.map(t => {
+    const mine = t.proposed_by === me;
+    let btns = '';
+    if (owner) btns = `<button class="sns-btn main" onclick="openSnsDecide('${t.id}')">決める</button>`;
+    else if (snsIsOwnerName(t.proposed_by)) btns = `<button class="sns-btn main" onclick="openSnsDecide('${t.id}')">やる</button><button class="sns-btn" onclick="openSnsConsult('${t.id}')">相談したい</button>`;
+    else btns = '<span class="sns-meta" style="margin:0">オーナーの判断待ち</span>';
+    if (mine) btns += `<button class="sns-btn red" onclick="withdrawSnsTodo('${t.id}')">取り下げ</button>`;
+    return `<div class="sns-card"><div class="sns-row"><span class="sns-pill sns-p-purple">${snsEsc(t.proposed_by)}</span><span style="flex:1;font-size:13px;font-weight:700">${snsEsc(t.title)}</span></div>
+      ${t.detail ? `<div class="sns-meta">${snsEsc(t.detail).replace(/\n/g, '<br>')}</div>` : ''}
+      ${t.due ? `<div class="sns-meta">希望の期限：${snsMD(t.due)}</div>` : ''}
+      <div class="sns-row" style="margin-top:8px;gap:6px;flex-wrap:wrap">${btns}</div></div>`;
+  }).join('') : '<div class="sns-empty">未決定のものはありません</div>';
+
+  // TODO
+  h += '<div class="sns-sec">📋 TODO（期限が近い順）</div>';
+  h += todos.length ? todos.map(t => {
+    const d = snsDaysLeft(t.due);
+    const cls = d === null ? '' : d < 0 ? 'over' : d <= 3 ? 'soon' : '';
+    const st = t.steps;
+    const done = st.filter(s => s.done).length;
+    const allDone = !st.length || done === st.length;
+    const otherAssignee = t.assignee && t.assignee !== SNS_TAKAHASHI && !snsIsOwnerName(t.assignee);
+    const steps = st.map((s, i) => {
+      const who = s.who || t.assignee || '';
+      const asked = s.who && s.who !== SNS_TAKAHASHI && !snsIsOwnerName(s.who);
+      const askBtn = !s.done && !owner && who === SNS_TAKAHASHI ? `<button class="sns-btn" style="padding:4px 8px;font-size:11px" onclick="openSnsAsk('${t.id}',${i})">お願いする</button>` : '';
+      return `<div class="sns-step"><button class="sns-ck ${s.done ? 'on' : ''}" onclick="toggleSnsStep('${t.id}',${i})" aria-label="${snsEsc(s.name)}">${s.done ? '✓' : ''}</button>
+        <span style="flex:1;${s.done ? 'text-decoration:line-through;color:var(--text-light)' : ''}">${snsEsc(s.name)}</span>
+        ${who ? `<span class="sns-pill sns-p-purple">${snsEsc(who)}${asked ? '（お願い済み）' : ''}</span>` : ''}${askBtn}</div>`;
+    }).join('');
+    return `<div class="sns-card ${cls}"><div class="sns-row"><span style="flex:1;font-size:14px;font-weight:700">${snsEsc(t.title)}</span>${snsDueBadge(t)}</div>
+      <div class="sns-meta">担当：${snsEsc(t.assignee || '')}さん${otherAssignee ? '（高橋さんがお願い済み）' : ''}　出した人：${snsEsc(t.proposed_by)}さん</div>
+      ${t.detail ? `<div class="sns-meta">${snsEsc(t.detail).replace(/\n/g, '<br>')}</div>` : ''}
+      ${st.length ? `<div class="sns-bar"><i style="width:${Math.round(done / st.length * 100)}%"></i></div><div class="sns-meta">${done} / ${st.length} 完了</div><div style="margin-top:4px">${steps}</div>` : ''}
+      <div class="sns-row" style="margin-top:8px;gap:6px;justify-content:flex-end">
+        ${owner ? `<button class="sns-btn" onclick="openSnsDecide('${t.id}')">変更</button>` : ''}
+        ${allDone ? `<button class="sns-btn main" onclick="finishSnsTodo('${t.id}')">できた</button>` : ''}
+      </div></div>`;
+  }).join('') : '<div class="sns-empty">TODOはありません</div>';
+
+  // 確認待ち
+  h += '<div class="sns-sec">⏳ 確認待ち</div>';
+  h += review.length ? review.map(t => `<div class="sns-card"><div class="sns-row"><span style="flex:1;font-size:13px;font-weight:700">${snsEsc(t.title)}</span>
+      ${owner ? `<button class="sns-btn main" onclick="reviewSnsTodo('${t.id}',true)">OK</button><button class="sns-btn" onclick="reviewSnsTodo('${t.id}',false)">やり直し</button>` : '<span class="sns-meta" style="margin:0">オーナーのOK待ち</span>'}
+    </div></div>`).join('') : '<div class="sns-empty">確認待ちのものはありません</div>';
+
+  // 終わったもの
+  h += `<div class="sns-sec" style="cursor:pointer" onclick="snsDoneOpen=!snsDoneOpen;renderSnsTodos()">📦 終わったもの（${finished.length}件）${snsDoneOpen ? '▲' : '▼'}</div>`;
+  if (snsDoneOpen) h += finished.length ? finished.map(t => `<div class="sns-card" style="box-shadow:none;background:#faf8ff"><div class="sns-row">
+      <span style="flex:1;font-size:12px">${snsEsc(t.title)}</span>
+      <span class="sns-pill ${t.status === 'done' ? 'sns-p-purple' : 'sns-p-gray'}">${t.status === 'done' ? '完了' : 'やらない'}</span></div>
+      ${t.status === 'skipped' && t.consult_note ? `<div class="sns-meta">理由：${snsEsc(t.consult_note)}</div>` : ''}</div>`).join('') : '<div class="sns-empty">まだありません</div>';
+  el.innerHTML = h;
+}
+
+// ── モーダル共通
+function snsModal(html) { document.getElementById('snsTodoBody').innerHTML = html; document.getElementById('modalSnsTodo').classList.add('open'); }
+function snsChoice(key, val, label) { return `<button class="sns-choice ${snsForm[key] === val ? 'on' : ''}" onclick="snsSetForm('${key}',${JSON.stringify(val).replace(/"/g, '&quot;')})">${snsEsc(label)}</button>`; }
+function snsSetForm(k, v) { snsCaptureInputs(); snsForm[k] = v; snsForm.render(); }
+function snsCaptureInputs() {
+  ['title','detail','due','note','stepsCustom','skipNote'].forEach(k => { const e = document.getElementById('snsF_' + k); if (e) snsForm[k] = e.value; });
+}
+
+// ── やってほしいことを出す
+function openSnsPropose() {
+  snsForm = { title: '', detail: '', due: '', render: renderSnsPropose };
+  renderSnsPropose();
+}
+function renderSnsPropose() {
+  snsModal(`<h3>📥 やってほしいことを出す</h3>
+    <div class="form-group"><label class="form-label">やってほしいこと</label><input class="form-input" id="snsF_title" value="${snsEsc(snsForm.title)}" placeholder="例：新入り猫の紹介リール"></div>
+    <div class="form-group"><label class="form-label">くわしく（任意）</label><textarea class="form-textarea" id="snsF_detail" style="min-height:60px" placeholder="例：顔のアップと遊んでいるところ">${snsEsc(snsForm.detail)}</textarea></div>
+    <div class="form-group"><label class="form-label">希望の期限（任意）</label><input type="date" class="form-input" id="snsF_due" value="${snsForm.due}"></div>
+    <div class="sns-meta" style="margin-bottom:6px">${currentStaffIsOwner ? '高橋さんが「やる」か「相談したい」を選びます。' : 'オーナーがやるかどうか・期限・担当を決めます。オーナーにお願いしたいことも出せます。'}</div>
+    <button class="modal-submit" style="background:#6d28d9" onclick="saveSnsPropose()">出す</button>`);
+}
+async function saveSnsPropose() {
+  snsCaptureInputs();
+  if (!snsForm.title.trim()) { showToast('やってほしいことを入力してください'); return; }
+  const row = { id: 'snstodo_' + Date.now(), title: snsForm.title.trim(), detail: snsForm.detail.trim(), due: snsForm.due || null, proposed_by: userName, status: 'proposed', steps: [], updated_at: new Date().toISOString() };
+  const r = await sbInsert('wecats_sns_todos', row);
+  if (r && r.error && !r.offline) { showToast('保存できませんでした'); return; }
+  snsTodos.push(row);
+  closeModal('snsTodo'); renderSnsTodos(); refreshSnsBadge(); showToast('✓ 出しました');
+}
+async function withdrawSnsTodo(id) {
+  if (!confirm('取り下げますか？')) return;
+  await sbDelete('wecats_sns_todos', id);
+  snsTodos = snsTodos.filter(t => t.id !== id);
+  renderSnsTodos(); refreshSnsBadge(); showToast('取り下げました');
+}
+
+// ── 決める（やる／やらない、期限、担当、段階）
+function openSnsDecide(id, preset) {
+  const t = snsById(id); if (!t) return;
+  const others = snsOtherStaff();
+  let assignKind = '', other = '';
+  if (t.assignee) { if (others.includes(t.assignee)) { assignKind = 'other'; other = t.assignee; } else assignKind = t.assignee; }
+  snsForm = { id, go: t.status === 'todo' ? 'yes' : '', due: t.due || snsAddDays(7), assignKind, other, tpl: t.steps.length ? 'keep' : 'none', stepsCustom: '', skipNote: '', render: renderSnsDecide, ...(preset || {}) };
+  renderSnsDecide();
+}
+function renderSnsDecide() {
+  const t = snsById(snsForm.id); const owner = currentStaffIsOwner;
+  const people = [SNS_TAKAHASHI, ...snsOwnerNames()];
+  let h = `<h3>📝 ${owner ? '決める' : 'やる'}</h3><div style="font-size:14px;font-weight:700;margin-bottom:2px">${snsEsc(t.title)}</div><div class="sns-meta" style="margin-bottom:12px">${snsEsc(t.proposed_by)}さんから${t.consult_reason ? `／相談：${snsEsc(t.consult_reason)}` : ''}</div>`;
+  if (owner && t.status !== 'todo') h += `<div class="form-group"><label class="form-label">やる？</label><div class="sns-choices">${snsChoice('go', 'yes', 'やる')}${snsChoice('go', 'no', 'やらない')}</div></div>`;
+  else snsForm.go = 'yes';
+  if (snsForm.go === 'yes') {
+    h += `<div class="form-group"><label class="form-label">期限</label><input type="date" class="form-input" id="snsF_due" value="${snsForm.due}"></div>`;
+    h += `<div class="form-group"><label class="form-label">担当</label><div class="sns-choices">${people.map(p => snsChoice('assignKind', p, p + 'さん')).join('')}${snsChoice('assignKind', 'other', '他のスタッフ')}</div></div>`;
+    if (snsForm.assignKind === 'other') {
+      const onShift = snsOtherStaff().filter(n => snsTodayShift.includes(n));
+      h += `<div class="sns-hint">💬 ${onShift.length ? `今日シフトの${onShift.map(n => snsEsc(n) + 'さん').join('・')}に` : '他のスタッフに'}直接声をかけてみましょう。引き受けてもらえたら名前を選んでください。</div>
+        <div class="form-group"><div class="sns-choices">${snsOtherStaff().map(n => snsChoice('other', n, n + 'さん' + (snsTodayShift.includes(n) ? '（今日シフト）' : ''))).join('') || '<span class="sns-meta">他のスタッフが登録されていません</span>'}</div></div>`;
+    }
+    const tpls = Object.entries(SNS_STEP_TEMPLATES).map(([k, v]) => snsChoice('tpl', k, v.label)).join('');
+    h += `<div class="form-group"><label class="form-label">段階に分ける</label><div class="sns-choices">${t.steps.length ? snsChoice('tpl', 'keep', '今のまま') : ''}${tpls}${snsChoice('tpl', 'custom', '自分で入力')}</div>
+      ${snsForm.tpl === 'custom' ? `<input class="form-input" id="snsF_stepsCustom" style="margin-top:8px" value="${snsEsc(snsForm.stepsCustom)}" placeholder="例：撮影、編集、投稿（「、」で区切る）">` : ''}</div>`;
+    h += `<button class="modal-submit" style="background:#6d28d9" onclick="saveSnsDecide()">決定する</button>`;
+  } else if (snsForm.go === 'no') {
+    h += `<div class="form-group"><label class="form-label">やらない理由（任意）</label><input class="form-input" id="snsF_skipNote" value="${snsEsc(snsForm.skipNote)}" placeholder="例：今月は別の企画を優先"></div>
+      <button class="modal-submit" style="background:#6b7280" onclick="saveSnsDecide()">やらないことにする</button>`;
+  }
+  snsModal(h);
+}
+async function saveSnsDecide() {
+  snsCaptureInputs();
+  const t = snsById(snsForm.id); if (!t) return;
+  if (!snsForm.go) { showToast('やるかどうかを選んでください'); return; }
+  let upd;
+  if (snsForm.go === 'no') {
+    upd = { status: 'skipped', consult_note: snsForm.skipNote.trim() || t.consult_note || '', updated_at: new Date().toISOString() };
+  } else {
+    if (!snsForm.assignKind) { showToast('担当を選んでください'); return; }
+    if (snsForm.assignKind === 'other' && !snsForm.other) { showToast('お願いした人を選んでください'); return; }
+    const assignee = snsForm.assignKind === 'other' ? snsForm.other : snsForm.assignKind;
+    let steps = t.steps;
+    if (snsForm.tpl === 'custom') {
+      const names = snsForm.stepsCustom.split(/[、,，\s]+/).map(s => s.trim()).filter(Boolean);
+      if (!names.length) { showToast('段階を入力してください'); return; }
+      steps = names.map(n => ({ name: n, done: false, who: '' }));
+    } else if (snsForm.tpl !== 'keep') steps = SNS_STEP_TEMPLATES[snsForm.tpl].steps.map(n => ({ name: n, done: false, who: '' }));
+    upd = { status: 'todo', due: snsForm.due || null, assignee, steps, updated_at: new Date().toISOString() };
+  }
+  await sbUpdate('wecats_sns_todos', t.id, upd);
+  Object.assign(t, upd);
+  closeModal('snsTodo'); renderSnsTodos(); refreshSnsBadge();
+  showToast(snsForm.go === 'no' ? 'やらないことにしました' : '✓ TODOに入れました');
+}
+
+// ── 相談したい（高橋さん）
+function openSnsConsult(id) {
+  snsForm = { id, reason: '', note: '', withList: [], render: renderSnsConsult };
+  renderSnsConsult();
+}
+function snsToggleWith(n) { const i = snsForm.withList.indexOf(n); if (i >= 0) snsForm.withList.splice(i, 1); else snsForm.withList.push(n); snsCaptureInputs(); renderSnsConsult(); }
+function renderSnsConsult() {
+  const t = snsById(snsForm.id);
+  if (snsForm.reason === '他のスタッフにお願い') { openSnsDecide(snsForm.id, { assignKind: 'other' }); return; }
+  let h = `<h3>💬 相談したい</h3><div style="font-size:14px;font-weight:700;margin-bottom:12px">${snsEsc(t.title)}</div>
+    <div class="form-group"><label class="form-label">理由</label><div class="sns-choices">${SNS_REASONS.map(r => snsChoice('reason', r, r)).join('')}</div></div>`;
+  if (snsForm.reason === '今は手が回らない') h += `<div class="sns-hint">高橋さんが今持っている作業は ${snsLoadOf(SNS_TAKAHASHI)}件 です。オーナーにもこの数が伝わります。</div>`;
+  if (snsForm.reason === '内容が理解できない') h += `<div class="form-group"><label class="form-label">どこがわからない？（一言でOK）</label><input class="form-input" id="snsF_note" value="${snsEsc(snsForm.note)}" placeholder="例：どの猫を撮ればいいか"></div>`;
+  if (snsForm.reason === '複数で話し合いたい') {
+    const names = staffCache.map(s => s.name).filter(n => n !== userName);
+    h += `<div class="form-group"><label class="form-label">誰と話したい？</label><div class="sns-choices">${names.map(n => `<button class="sns-choice ${snsForm.withList.includes(n) ? 'on' : ''}" onclick="snsToggleWith('${snsEsc(n)}')">${snsEsc(n)}さん</button>`).join('')}</div></div>
+      <div class="sns-meta" style="margin-bottom:8px">話し合いは直接集まって行います。アプリには「話し合い待ち」と表示されます。</div>`;
+  }
+  if (snsForm.reason) h += `<button class="modal-submit" style="background:#6d28d9" onclick="saveSnsConsult()">相談中にする</button>`;
+  snsModal(h);
+}
+async function saveSnsConsult() {
+  snsCaptureInputs();
+  const t = snsById(snsForm.id); if (!t) return;
+  if (snsForm.reason === '複数で話し合いたい' && !snsForm.withList.length) { showToast('話したい人を選んでください'); return; }
+  const upd = { status: 'consult', consult_reason: snsForm.reason, consult_note: snsForm.reason === '内容が理解できない' ? snsForm.note.trim() : '', consult_with: snsForm.reason === '複数で話し合いたい' ? snsForm.withList.join('、') : '', updated_at: new Date().toISOString() };
+  await sbUpdate('wecats_sns_todos', t.id, upd);
+  Object.assign(t, upd);
+  closeModal('snsTodo'); renderSnsTodos(); refreshSnsBadge(); showToast('相談中にしました');
+}
+
+// ── 段階を他のスタッフにお願いする（高橋さん）
+function openSnsAsk(id, idx) {
+  const t = snsById(id); const s = t.steps[idx];
+  const others = snsOtherStaff();
+  const onShift = others.filter(n => snsTodayShift.includes(n));
+  snsModal(`<h3>🙋 お願いする</h3><div style="font-size:14px;font-weight:700;margin-bottom:10px">${snsEsc(t.title)}：${snsEsc(s.name)}</div>
+    <div class="sns-hint">💬 ${onShift.length ? `今日シフトの${onShift.map(n => snsEsc(n) + 'さん').join('・')}に` : '他のスタッフに'}直接声をかけてみましょう。<br>引き受けてもらえたら、下から名前を選んでください。</div>
+    <div class="sns-choices">${others.map(n => `<button class="sns-choice" onclick="saveSnsAsk('${id}',${idx},'${snsEsc(n)}')">${snsEsc(n)}さん${snsTodayShift.includes(n) ? '（今日シフト）' : ''}</button>`).join('') || '<span class="sns-meta">他のスタッフが登録されていません</span>'}</div>`);
+}
+async function saveSnsAsk(id, idx, name) {
+  const t = snsById(id); if (!t) return;
+  const steps = t.steps.map((s, i) => i === idx ? { ...s, who: name } : s);
+  await sbUpdate('wecats_sns_todos', id, { steps, updated_at: new Date().toISOString() });
+  t.steps = steps;
+  closeModal('snsTodo'); renderSnsTodos(); showToast(`✓ ${name}さんにお願いしました`);
+}
+
+// ── 段階のチェック → 作業日程にも記録
+async function toggleSnsStep(id, idx) {
+  const t = snsById(id); if (!t) return;
+  const steps = t.steps.map((s, i) => i === idx ? { ...s, done: !s.done } : s);
+  await sbUpdate('wecats_sns_todos', id, { steps, updated_at: new Date().toISOString() });
+  t.steps = steps;
+  renderSnsTodos();
+  if (steps[idx].done && confirm('作業日程にも記録しますか？')) snsOpenLogFromTodo(`${t.title}：${steps[idx].name}`);
+}
+function snsOpenLogFromTodo(content) {
+  openSnsAddModal();
+  snsAllowInsert = true;
+  document.getElementById('snsContent').value = content;
+}
+
+// ── 完了・確認
+async function finishSnsTodo(id) {
+  const t = snsById(id); if (!t) return;
+  const upd = { status: currentStaffIsOwner ? 'done' : 'review', updated_at: new Date().toISOString() };
+  await sbUpdate('wecats_sns_todos', id, upd);
+  Object.assign(t, upd);
+  renderSnsTodos(); refreshSnsBadge();
+  showToast(currentStaffIsOwner ? '✓ 完了にしました' : '✓ オーナーの確認待ちにしました');
+  if (!t.steps.length && confirm('作業日程にも記録しますか？')) snsOpenLogFromTodo(t.title);
+}
+async function reviewSnsTodo(id, ok) {
+  const t = snsById(id); if (!t) return;
+  const upd = { status: ok ? 'done' : 'todo', updated_at: new Date().toISOString() };
+  await sbUpdate('wecats_sns_todos', id, upd);
+  Object.assign(t, upd);
+  renderSnsTodos(); refreshSnsBadge();
+  showToast(ok ? '✓ 完了にしました' : 'TODOに戻しました。高橋さんに直接伝えてください');
 }
 
 document.querySelectorAll('.modal-overlay').forEach(overlay=>{overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open');});});
