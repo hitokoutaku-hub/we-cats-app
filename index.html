@@ -531,6 +531,34 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   #printArea .psign { margin-top: 8px; font-size: 12px; }
   #printArea .sbox { display: inline-block; min-width: 70px; border-bottom: 1px solid #333; margin: 0 8px; padding: 0 4px; text-align: center; }
 }
+
+/* 連絡ボード：さがす・カレンダー */
+.board-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--white); border-radius: 14px; padding: 5px; margin-bottom: 12px; box-shadow: var(--shadow); }
+.board-mode button { padding: 12px 6px; border: none; border-radius: 10px; background: none; font-family: inherit; font-size: 15px; font-weight: 700; color: var(--text-light); cursor: pointer; }
+.board-mode button.on { background: var(--pink-deep); color: #fff; }
+.bs-panel { background: var(--white); border-radius: 14px; padding: 12px; margin-bottom: 12px; box-shadow: var(--shadow); }
+.bs-search { display: flex; gap: 6px; margin-bottom: 8px; }
+.bs-search input { flex: 1; min-width: 0; padding: 12px; border: 2px solid var(--pink-dark); border-radius: 10px; font-family: inherit; font-size: 15px; background: var(--pink-bg); outline: none; }
+.bs-search button { padding: 0 16px; border: none; border-radius: 10px; background: var(--pink-deep); color: #fff; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.bs-author { width: 100%; padding: 11px; border: 2px solid var(--pink-dark); border-radius: 10px; font-family: inherit; font-size: 15px; background: var(--white); margin-bottom: 10px; }
+.bs-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.bs-cal-head > div { font-size: 18px; font-weight: 700; }
+.bs-cal-head small { font-size: 12px; color: var(--text-light); font-weight: 400; margin-left: 6px; }
+.bs-cal-head button { width: 42px; height: 42px; border-radius: 50%; border: none; background: var(--pink-light); color: var(--pink-deep); font-size: 20px; font-weight: 700; cursor: pointer; }
+.bs-week, .bs-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.bs-week span { text-align: center; font-size: 12px; color: var(--text-light); font-weight: 700; padding: 2px 0; }
+.sun { color: #c0392b !important; } .sat { color: #2f6f8f !important; }
+.bs-day { aspect-ratio: 1 / 1.05; border: none; border-radius: 10px; background: none; font-family: inherit; font-size: 14px; color: #c9b5bb; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; }
+.bs-day.has { background: var(--pink-bg); color: var(--text); cursor: pointer; font-weight: 700; }
+.bs-day i { font-style: normal; font-size: 10px; background: var(--pink-deep); color: #fff; border-radius: 999px; min-width: 18px; padding: 0 4px; line-height: 16px; }
+.bs-day.today { outline: 2px solid var(--pink-dark); }
+.bs-day.sel { background: var(--pink-deep); color: #fff !important; }
+.bs-day.sel i { background: #fff; color: var(--pink-deep); }
+.bs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 700; margin: 4px 2px 10px; }
+.bs-head b { margin-left: 6px; color: var(--pink-deep); font-size: 16px; }
+.bs-head button { flex-shrink: 0; border: 1.5px solid var(--pink-dark); background: var(--white); border-radius: 999px; padding: 6px 12px; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--text-light); cursor: pointer; }
+.bs-loading { text-align: center; padding: 24px; color: var(--text-light); font-size: 14px; }
+mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
@@ -739,6 +767,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 <!-- ===== 連絡ボード ===== -->
 <div class="page" id="page-board">
   <div class="board-wrap">
+    <div class="board-mode"><button id="bmRecent" class="on" onclick="setBoardMode('recent')">🕒 最近の連絡</button><button id="bmSearch" onclick="setBoardMode('search')">📅 さがす</button></div>
+    <div id="boardSearchPanel" style="display:none">
+      <div class="bs-panel">
+        <div class="bs-search"><input type="search" id="bsKeyword" placeholder="言葉でさがす（例：ワクチン こきん）" oninput="bsOnKeyword(event)" onkeydown="if(event.key==='Enter'&&!event.isComposing)bsSearchNow()"><button onclick="bsSearchNow()">検索</button></div>
+        <select id="bsAuthor" class="bs-author" onchange="bsSetAuthor(this.value)"></select>
+        <div id="bsCal"></div>
+      </div>
+      <div id="bsResults"></div>
+    </div>
     <div id="boardMustRead"></div>
     <div class="board-toolbar">
       <button class="board-write-btn" id="composerToggle" onclick="toggleComposer()">✏️ 書く</button>
@@ -3127,7 +3164,7 @@ async function loadBoard(loadMore=false){
   commentsCache={};
   (comments||[]).forEach(c=>{if(!commentsCache[c.post_id])commentsCache[c.post_id]=[];commentsCache[c.post_id].push(c);});
   await loadBoardReads([...pinnedCache,...boardCache]);
-  renderBoard();
+  if(boardMode==='search')await runBoardSearch();else renderBoard();
 }
 async function loadOlderPosts(){
   const oldest=boardCache.length?boardCache[boardCache.length-1].created_at:new Date().toISOString();
@@ -3162,7 +3199,7 @@ async function submitPost(){
   photoBuf.board=[];renderPhotoPreview('board');toggleComposer(false);await loadBoard();
 }
 function openEditPost(id){
-  const all=[...boardCache,...pinnedCache,...boardHandovers,...boardImportant];
+  const all=[...boardCache,...pinnedCache,...boardHandovers,...boardImportant,...bsResults];
   const post=all.find(p=>String(p.id)===String(id));if(!post)return;
   currentPostType=POST_TYPES[post.role]?post.role:'report';
   if(post.target_date)handoverTarget=post.target_date;
@@ -3173,6 +3210,7 @@ function openEditPost(id){
 }
 function setBoardFilter(f){boardFilter=f;renderBoard();}
 function renderBoard(){
+  if(boardMode==='search'){renderSearchResults();return;}
   renderMustRead();
   const counts={all:boardCache.length};Object.keys(POST_TYPES).forEach(k=>counts[k]=boardCache.filter(p=>(p.role||'report')===k).length);
   document.getElementById('boardFilter').innerHTML=[['all','すべて'],...Object.entries(POST_TYPES).map(([k,v])=>[k,v.label])]
@@ -3206,8 +3244,8 @@ function buildPostCard(post){
   const tgt=post.role==='handover'&&post.target_date?`<span class="mr-target">→ ${esc(relDay(post.target_date))}の人へ</span>`:'';
   return`<div class="post-card ${post.pinned?'pinned-card':''} ${pt.cls}">
     <div class="post-header"><span class="post-badge ${pt.cls}">${pt.badge}</span>${tgt}<span class="post-author">${esc(post.author)}</span><span class="post-time">${formatTime(post.created_at)}</span><button class="pin-btn ${post.pinned?'pinned':''}" onclick="togglePin('${pid}',${!!post.pinned})" aria-label="ピン留め">${pinIcon}</button>${post.author===userName||currentStaffIsOwner?`<button class="post-delete" onclick="openEditPost('${pid}')" aria-label="編集">✏️</button><button class="post-delete" onclick="deletePost('${pid}')" aria-label="削除">🗑</button>`:''}</div>
-    <div class="post-content ${long?'clamp':''}" id="pc-${pid}">${nl2br(text)}</div>
-    ${long?`<button class="post-more" id="pcb-${pid}" onclick="togglePostExpand('${pid}')">▼ 続きを読む</button>`:''}
+    <div class="post-content ${long&&!bsHighlightOn(text)?'clamp':''}" id="pc-${pid}">${hlText(text)}</div>
+    ${long&&!bsHighlightOn(text)?`<button class="post-more" id="pcb-${pid}" onclick="togglePostExpand('${pid}')">▼ 続きを読む</button>`:''}
     ${postPhotos.length?`<div class="record-photos">${postPhotos.map(s=>`<img src="${esc(s)}" onclick="openViewer(this.src)" alt="">`).join('')}</div>`:''}
     ${confirmRowHtml(post,{compact:true})}
     <div class="comments-area" id="comments-${pid}"></div></div>`;
@@ -3224,6 +3262,128 @@ async function printBoardToday(){
     <div class="psign">確認したら名前に○：${sign.map(n=>`<span class="sbox">${esc(n)}</span>`).join('')}</div></div>`).join('')
     :'<p>今日の申し送り・重要なお知らせはありません。</p>';
   openPrint(`<h1>📝 ${mdw(t)} の申し送り・お知らせ</h1>${names.length?`<p class="lead">今日のシフト：${names.map(esc).join('・')}</p>`:''}${body}<p class="foot">印刷日時：${new Date().toLocaleString('ja-JP')}　WE CATS</p>`);
+}
+
+// ===== 連絡ボード：さがす・カレンダー =====
+let boardMode='recent';
+let bsMonth=null,bsDay=null,bsAuthor='',bsKeyword='',bsResults=[],bsMonthCounts={},bsScopeLabel='',bsTimer=null,bsSeq=0;
+
+function bsWords(){return bsKeyword.trim().split(/[\s　]+/).filter(Boolean);}
+function bsHighlightOn(text){const w=bsWords();return boardMode==='search'&&w.length>0&&w.some(x=>String(text).toLowerCase().includes(x.toLowerCase()));}
+// 検索した言葉に黄色い印をつける
+function hlText(text){
+  const words=boardMode==='search'?bsWords():[];
+  let h=esc(text);
+  if(words.length){
+    const re=new RegExp('('+words.map(w=>esc(w).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi');
+    h=h.replace(re,'<mark>$1</mark>');
+  }
+  return h.replace(/\n/g,'<br>');
+}
+function setBoardMode(mode){
+  boardMode=mode;
+  document.getElementById('bmRecent').classList.toggle('on',mode==='recent');
+  document.getElementById('bmSearch').classList.toggle('on',mode==='search');
+  document.getElementById('boardSearchPanel').style.display=mode==='search'?'block':'none';
+  ['boardMustRead','boardFilter','pinnedPosts','boardPosts'].forEach(id=>{const el=document.getElementById(id);el.style.display=mode==='search'?'none':'';if(mode==='search')el.innerHTML='';});
+  document.getElementById('bsResults').innerHTML='';
+  if(mode==='search'){
+    if(!bsMonth){const d=new Date();bsMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
+    const sel=document.getElementById('bsAuthor');
+    sel.innerHTML='<option value="">書いた人：全員</option>'+staffCache.map(s=>`<option value="${esc(s.name)}" ${s.name===bsAuthor?'selected':''}>${esc(s.name)}</option>`).join('');
+    runBoardSearch();
+  }else{bsResults=[];renderBoard();}
+}
+function bsOnKeyword(e){
+  if(e&&e.isComposing)return;
+  clearTimeout(bsTimer);
+  bsTimer=setTimeout(()=>{bsKeyword=document.getElementById('bsKeyword').value;if(bsKeyword.trim())bsDay=null;runBoardSearch();},500);
+}
+function bsSearchNow(){clearTimeout(bsTimer);bsKeyword=document.getElementById('bsKeyword').value;if(bsKeyword.trim())bsDay=null;runBoardSearch();}
+function bsClear(){document.getElementById('bsKeyword').value='';bsKeyword='';bsAuthor='';bsDay=null;document.getElementById('bsAuthor').value='';runBoardSearch();}
+function bsSetAuthor(v){bsAuthor=v;runBoardSearch();}
+function bsMoveMonth(n){const[y,m]=bsMonth.split('-').map(Number);const d=new Date(y,m-1+n,1);bsMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;bsDay=null;runBoardSearch();}
+function bsPickDay(d){bsDay=bsDay===d?null:d;runBoardSearch();}
+function bsMonthRange(){const[y,m]=bsMonth.split('-').map(Number);return[new Date(y,m-1,1),new Date(y,m,1)];}
+function bsLike(w){return`%${w.replace(/[\\%_]/g,'\\$&')}%`;}
+
+async function runBoardSearch(){
+  const seq=++bsSeq;
+  const words=bsWords();
+  const[mStart,mEnd]=bsMonthRange();
+  document.getElementById('bsResults').innerHTML='<div class="bs-loading">さがしています…</div>';
+  // カレンダー用：その月の投稿数（書いた人・言葉でしぼり込み）
+  let cq=sb.from('board_posts').select('id,created_at').gte('created_at',mStart.toISOString()).lt('created_at',mEnd.toISOString()).limit(2000);
+  if(bsAuthor)cq=cq.eq('author',bsAuthor);
+  words.forEach(w=>{cq=cq.ilike('content',bsLike(w));});
+  // 結果：日付を選んだらその日、言葉があれば全期間、どちらもなければ表示中の月
+  let from=null,to=null;
+  if(bsDay){from=new Date(bsDay+'T00:00:00');to=new Date(bsDay+'T00:00:00');to.setDate(to.getDate()+1);bsScopeLabel=`${mdw(bsDay)}の投稿`;}
+  else if(words.length){bsScopeLabel='すべての期間から';}
+  else{from=mStart;to=mEnd;bsScopeLabel=`${mStart.getFullYear()}年${mStart.getMonth()+1}月の投稿`;}
+  let rq=sb.from('board_posts').select('*').order('created_at',{ascending:false}).limit(100);
+  if(from)rq=rq.gte('created_at',from.toISOString()).lt('created_at',to.toISOString());
+  if(bsAuthor)rq=rq.eq('author',bsAuthor);
+  words.forEach(w=>{rq=rq.ilike('content',bsLike(w));});
+  // 言葉がコメントの中にある投稿も拾う
+  let kq=null;
+  if(words.length){
+    kq=sb.from('board_comments').select('post_id,created_at').limit(200);
+    if(from)kq=kq.gte('created_at',from.toISOString()).lt('created_at',to.toISOString());
+    words.forEach(w=>{kq=kq.ilike('content',bsLike(w));});
+  }
+  const[cr,rr,kr]=await Promise.all([cq,rq,kq||Promise.resolve({data:[]})]);
+  if(seq!==bsSeq)return;
+  if(rr.error){document.getElementById('bsResults').innerHTML='<div class="bs-loading">読み込めませんでした。電波を確認してください</div>';return;}
+  bsMonthCounts={};(cr.data||[]).forEach(p=>{const k=ymd(new Date(p.created_at));bsMonthCounts[k]=(bsMonthCounts[k]||0)+1;});
+  let posts=rr.data||[];
+  const extraIds=[...new Set((kr.data||[]).map(c=>String(c.post_id)))].filter(id=>!posts.some(p=>String(p.id)===id));
+  if(extraIds.length){
+    let eq=sb.from('board_posts').select('*').in('id',extraIds);
+    if(bsAuthor)eq=eq.eq('author',bsAuthor);
+    const{data}=await eq;
+    posts=[...posts,...(data||[])].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
+  }
+  if(seq!==bsSeq)return;
+  bsResults=posts;
+  const ids=posts.map(p=>String(p.id));
+  if(ids.length){
+    const{data:cm}=await sb.from('board_comments').select('*').in('post_id',ids).order('created_at');
+    ids.forEach(id=>{commentsCache[id]=[];});
+    (cm||[]).forEach(c=>{(commentsCache[c.post_id]=commentsCache[c.post_id]||[]).push(c);});
+    await loadBoardReads(posts);
+  }
+  if(seq!==bsSeq)return;
+  renderSearchResults();
+}
+function renderBsCalendar(){
+  const[mStart]=bsMonthRange();
+  const y=mStart.getFullYear(),m=mStart.getMonth();
+  const first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();
+  let cells='';
+  for(let i=0;i<first;i++)cells+='<div></div>';
+  for(let d=1;d<=days;d++){
+    const k=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const n=bsMonthCounts[k]||0,dow=(first+d-1)%7;
+    cells+=`<button class="bs-day ${n?'has':''} ${k===bsDay?'sel':''} ${k===today()?'today':''} ${dow===0?'sun':dow===6?'sat':''}" ${n||k===bsDay?`onclick="bsPickDay('${k}')"`:'disabled'}><span>${d}</span>${n?`<i>${n}</i>`:''}</button>`;
+  }
+  const total=Object.values(bsMonthCounts).reduce((a,b)=>a+b,0);
+  document.getElementById('bsCal').innerHTML=`
+    <div class="bs-cal-head"><button onclick="bsMoveMonth(-1)" aria-label="前の月">‹</button><div>${y}年${m+1}月<small>${total}件</small></div><button onclick="bsMoveMonth(1)" aria-label="次の月">›</button></div>
+    <div class="bs-week">${'日月火水木金土'.split('').map((w,i)=>`<span class="${i===0?'sun':i===6?'sat':''}">${w}</span>`).join('')}</div>
+    <div class="bs-grid">${cells}</div>`;
+}
+function renderSearchResults(){
+  renderBsCalendar();
+  const conds=[];
+  if(bsKeyword.trim())conds.push(`「${esc(bsKeyword.trim())}」`);
+  if(bsAuthor)conds.push(`${esc(bsAuthor)}さん`);
+  const head=`<div class="bs-head"><div>${esc(bsScopeLabel)}${conds.length?'（'+conds.join('・')+'）':''}<b>${bsResults.length}${bsResults.length>=100?'件以上':'件'}</b></div>${bsDay||bsAuthor||bsKeyword.trim()?'<button onclick="bsClear()">条件をクリア</button>':''}</div>`;
+  if(!bsResults.length){document.getElementById('bsResults').innerHTML=head+'<div class="empty-state"><div class="empty-icon">🔍</div><p>見つかりませんでした</p></div>';return;}
+  const groups={};bsResults.forEach(p=>{const k=ymd(new Date(p.created_at));(groups[k]=groups[k]||[]).push(p);});
+  document.getElementById('bsResults').innerHTML=head+Object.keys(groups).sort((a,b)=>b.localeCompare(a)).map(k=>
+    `<div class="board-day"><div class="board-day-label">📅 ${mdw(k)}（${groups[k].length}件）</div>${groups[k].map(p=>buildPostCard(p)).join('')}</div>`).join('');
+  bsResults.forEach(p=>renderComments(p.id));
 }
 
 function renderComments(postId){
