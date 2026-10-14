@@ -561,6 +561,20 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .bs-head button { flex-shrink: 0; border: 1.5px solid var(--pink-dark); background: var(--white); border-radius: 999px; padding: 6px 12px; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--text-light); cursor: pointer; }
 .bs-loading { text-align: center; padding: 24px; color: var(--text-light); font-size: 14px; }
 mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; }
+
+/* 見送り */
+.dose-btn.skip { border: 2.5px solid #d08a2a; background: #fff3dc; }
+.dose-btn.skip .dose-s { color: #8a5a10; font-weight: 700; }
+.skip-link { display: block; margin: 8px 0 0 auto; border: none; background: none; color: #a06010; font-family: inherit; font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 4px 0; }
+.mh-legend { margin-left: auto; font-size: 10px; color: var(--text-light); }
+.mt-checkwrap { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+.mt-check.skip { background: #d08a2a; border: 2.5px solid #d08a2a; }
+.mt-check.skip small { color: #fff; }
+.mt-skip { border: 1.5px solid #d9b07a; background: #fffaf0; color: #8a5a10; border-radius: 999px; font-family: inherit; font-size: 11px; font-weight: 700; padding: 3px 10px; cursor: pointer; }
+.mt-by.skip { color: #8a5a10; }
+.mt-row.skipped .mt-cat, .mt-row.skipped .mt-med { opacity: .7; }
+.ms-warn { font-size: 12px; color: var(--text-light); background: #fff8ec; border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; line-height: 1.6; }
+.record-by { font-size: 11px; color: var(--text-light); margin: 2px 0 4px; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
@@ -1100,6 +1114,17 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
   <button class="modal-submit" onclick="saveMedication()">保存する</button>
 </div></div>
 
+<div class="modal-overlay" id="modalMedSkip"><div class="modal">
+  <button class="modal-close" onclick="closeModal('medSkip')">✕</button>
+  <h3>💊 あげられなかった（見送り）</h3>
+  <p id="msName" style="font-size:15px;font-weight:700;margin-bottom:12px;line-height:1.6"></p>
+  <div class="form-group"><label class="form-label">どの回？</label><div class="chip-row" id="msTimingOpts"></div></div>
+  <div class="form-group"><label class="form-label">理由</label><div class="chip-row" id="msReasonOpts"></div></div>
+  <div class="form-group"><label class="form-label">メモ（任意）</label><input type="text" class="form-input" id="msNote" placeholder="例：半分だけ飲めた。夜にもう一度ためす"></div>
+  <div class="ms-warn">見送りにすると、この回は「済み」になり、次の人が二重にあげるのを防げます。あとからあげられたら、見送りを取り消してから「あげた」を押してください。</div>
+  <button class="modal-submit" onclick="saveMedSkip()">見送りを記録する</button>
+</div></div>
+
 <div class="modal-overlay" id="modalMedEnd"><div class="modal">
   <button class="modal-close" onclick="closeModal('medEnd')">✕</button>
   <h3>💊 投薬を終了する</h3>
@@ -1410,7 +1435,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
 <script>
 const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
-const APP_VERSION='10/14 合体版（安全ログイン＋投薬＋連絡＋TODO進捗）';
+const APP_VERSION='10/14-4（TODO削除：作った人も）';
 // ─── ログイン中のトークン（サーバー側で照合する合言葉） ─────────
 let wcToken='';
 try{const s=JSON.parse(sessionStorage.getItem('wecats_session')||'null');if(s&&s.token)wcToken=s.token;}catch(e){}
@@ -2008,7 +2033,7 @@ async function saveMedCase(){
   const case_active=document.getElementById('mcActive').checked;
   const date=today();
   if(currentMedCase){await sbUpdate('wecats_records',currentMedCase.id,{data,case_active,date});}
-  else{await sbInsert('wecats_records',{id:'rec_'+Date.now(),cat_id:currentCatId,type:'medcase',date,data,case_active});}
+  else{await sbInsert('wecats_records',{id:wcId('rec'),cat_id:currentCatId,type:'medcase',date,data,case_active});}
   await loadCatDetail(currentCatId);photoBuf.medcase=[];closeModal('medCase');showToast('✓ ケースを保存しました');renderActiveCaseBox();
 }
 function renderActiveCaseBox(){
@@ -2103,6 +2128,7 @@ function resetDailyForm(){
   urineCount=0;const uc=document.getElementById('urineCount');if(uc)uc.textContent='0';
   document.getElementById('dailyMemo').value='';photoBuf.daily=[];renderPhotoPreview('daily');
   document.getElementById('dailyDateLabel').style.display='none';
+  if(typeof dailyEditingId!=='undefined')dailyEditingId=null;
 }
 document.querySelectorAll('.check-options').forEach(group=>{
   group.addEventListener('click',e=>{
@@ -2124,12 +2150,23 @@ function editDailyRecord(id,date){
   urineCount=uVal||0;
   const uc=document.getElementById('urineCount');if(uc)uc.textContent=urineCount;
   document.getElementById('dailyMemo').value=d.memo||'';
-  calInputDate=date;
+  calInputDate=date;dailyEditingId=id;
   const l=document.getElementById('dailyDateLabel');l.textContent=`✏️ ${date} の記録を編集中`;l.style.display='block';l.style.color='var(--pink-deep)';
   photoBuf.daily=d.photos||[];renderPhotoPreview('daily');
   document.querySelector('.today-check').scrollIntoView({behavior:'smooth'});
   showToast('記録をフォームに読み込みました。編集して保存してください');
 }
+
+// ===== 共通：重ならないID =====
+function wcId(prefix){
+  let u='';
+  try{u=crypto.randomUUID();}catch(e){u=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10);}
+  return`${prefix}_${u}`;
+}
+
+// ===== 毎日チェック：記録した人を残す・同じ日の記録を上書きで消さない =====
+let dailyEditingId=null;
+const DAILY_KEYS=['poop','food','water','eye','eyetype','vomit'];
 async function saveDailyCheck(){
   const values={};
   document.querySelectorAll('.check-options').forEach(group=>{const sel=group.querySelector('.selected');values[group.dataset.key]=sel?sel.dataset.val:null;});
@@ -2137,12 +2174,67 @@ async function saveDailyCheck(){
   values.memo=document.getElementById('dailyMemo').value.trim();
   values.photos=[...photoBuf.daily];
   const dateStr=calInputDate||today();
-  calInputDate=null;document.getElementById('dailyDateLabel').style.display='none';
-  const existing=(catRecordsCache[currentCatId]||[]).find(r=>r.type==='daily'&&r.date===dateStr);
-  if(existing){await sbUpdate('wecats_records',existing.id,{data:values});}
-  else{await sbInsert('wecats_records',{id:'rec_'+Date.now(),cat_id:currentCatId,type:'daily',date:dateStr,data:values});}
-  await loadCatDetail(currentCatId);showToast('✓ 保存しました');photoBuf.daily=[];renderPhotoPreview('daily');resetDailyForm();renderDailyHistory();
+  const editingId=dailyEditingId;
+  const stamp={name:userName,at:new Date().toISOString()};
+  // サーバーの最新を確認（他の人が先に保存しているかもしれないので）
+  let existing=null;
+  if(editingId)existing=(catRecordsCache[currentCatId]||[]).find(r=>r.id===editingId)||null;
+  else{
+    try{
+      const{data,error}=await sb.from('wecats_records').select('*').eq('cat_id',currentCatId).eq('type','daily').eq('date',dateStr).order('id').limit(1);
+      if(!error&&data&&data.length)existing=data[0];
+    }catch(e){}
+    if(!existing)existing=(catRecordsCache[currentCatId]||[]).find(r=>r.type==='daily'&&r.date===dateStr)||null;
+  }
+  calInputDate=null;dailyEditingId=null;document.getElementById('dailyDateLabel').style.display='none';
+  let merged=false;
+  if(existing){
+    const old=existing.data||{};
+    const recs=Array.isArray(old.recorders)?[...old.recorders]:[];
+    recs.push(stamp);
+    let data;
+    if(editingId){
+      // ✏️ で開いて直した場合は、直した内容で置きかえる（記録した人の履歴は残す）
+      data={...old,...values,recorders:recs};
+    }else{
+      // 新しく入れた場合は、前の人の内容に「足す」（空欄は前の内容を残す）
+      merged=true;
+      data={...old,recorders:recs};
+      DAILY_KEYS.forEach(k=>{if(values[k])data[k]=values[k];});
+      const ou=typeof old.urine==='number'?old.urine:(old.urine==='あり'?1:0);
+      data.urine=Math.max(ou,values.urine||0);
+      if(values.memo&&!String(old.memo||'').includes(values.memo))data.memo=old.memo?`${old.memo}\n（${userName}）${values.memo}`:values.memo;
+      data.photos=[...(old.photos||[]),...values.photos.filter(p=>!(old.photos||[]).includes(p))];
+    }
+    const r=await sbUpdate('wecats_records',existing.id,{data});
+    if(r.failed)return;
+  }else{
+    const r=await sbInsert('wecats_records',{id:wcId('rec'),cat_id:currentCatId,type:'daily',date:dateStr,data:{...values,recorders:[stamp]}});
+    if(r.failed)return;
+  }
+  await loadCatDetail(currentCatId);
+  const others=existing&&merged?[...new Set((existing.data?.recorders||[]).map(x=>x.name).filter(n=>n&&n!==userName))]:[];
+  showToast(others.length?`✓ 保存しました（${others.join('・')}さんの記録に追加）`:'✓ 保存しました');
+  photoBuf.daily=[];renderPhotoPreview('daily');resetDailyForm();renderDailyHistory();
 }
+function dailyRecorderLine(d){
+  const recs=Array.isArray(d.recorders)?d.recorders:[];
+  if(!recs.length)return'';
+  return`<div class="record-by">✍️ ${recs.map(x=>`${esc(x.name||'')} ${hhmm(x.at)}`).join('、')}</div>`;
+}
+
+// ===== 受診記録の処方薬 → 投薬に登録 =====
+function offerMedFromHospital(date,medicine,diagnosis){
+  if(!medicine)return;
+  if(!confirm(`処方薬「${medicine}」を、投薬にも登録しますか？\n（朝・夕などを選ぶだけで、毎日のチェックができるようになります）`))return;
+  switchCatTab('meds');
+  openMedModal(null);
+  document.getElementById('medName').value=medicine;
+  document.getElementById('medStart').value=date>today()?date:today();
+  document.getElementById('medMemo').value=`${mdw(date)}の受診で処方${diagnosis?`（${diagnosis}）`:''}`;
+  showToast('薬の名前を確認して、量・いつあげるか・期間を選んでください');
+}
+
 function renderDailyHistory(){
   const records=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='daily').sort((a,b)=>b.date.localeCompare(a.date));
   const el=document.getElementById('dailyHistory');
@@ -2152,6 +2244,7 @@ function renderDailyHistory(){
       <button class="record-delete" onclick="delRecord('${r.id}','daily')" style="float:right;margin-left:4px">🗑</button>
       <button class="record-delete" onclick="editDailyRecord('${r.id}','${r.date}')" style="float:right;background:none;border:none;font-size:13px;cursor:pointer;color:var(--pink-deep);opacity:0.8">✏️</button>
       <div class="record-date">${r.date}</div>
+      ${dailyRecorderLine(d)}
       <div class="record-content">
         ${(d.urine!==undefined&&d.urine!==null)?`<span class="record-tag">🚽 尿：${typeof d.urine==='number'?d.urine+'回':d.urine}</span>`:''}
         ${d.poop?`<span class="record-tag">💩 便：${d.poop}</span>`:''}
@@ -2176,7 +2269,7 @@ function openMoreMenu(){openModal('moreMenu');}
 async function saveHospitalPlan(){
   const date=document.getElementById('hpDate').value,memo=document.getElementById('hpMemo').value.trim();
   if(!date){showToast('日付を入力してください');return;}
-  await sbInsert('wecats_hospital_plans', {id:'hp_'+Date.now(),cat_id:currentCatId,date,memo});
+  await sbInsert('wecats_hospital_plans', {id:wcId('hp'),cat_id:currentCatId,date,memo});
   await loadCatDetail(currentCatId);closeModal('hospitalPlan');showToast('✓ 病院予定を追加しました');renderHospPlanList();checkHospitalAlerts();
 }
 function renderHospPlanList(){
@@ -2205,8 +2298,9 @@ async function saveHospital(){
   const vaccine_date=periodicType==='vaccine'?date:null;
   const editId=document.getElementById('modalHospital').dataset.editId;
   if(editId){await sbUpdate('wecats_records',editId,{data,periodic_type:periodicType,periodic_date,vaccine_date});document.getElementById('modalHospital').dataset.editId='';}
-  else{await sbInsert('wecats_records',{id:'rec_'+Date.now(),cat_id:currentCatId,type:'hospital',date,data,periodic_type:periodicType,periodic_date,vaccine_date});}
+  else{await sbInsert('wecats_records',{id:wcId('rec'),cat_id:currentCatId,type:'hospital',date,data,periodic_type:periodicType,periodic_date,vaccine_date});}
   await loadCatDetail(currentCatId);photoBuf.hospital=[];closeModal('hospital');showToast('✓ 受診記録を保存しました');renderHospitalList();
+  if(!editId&&data.medicine)setTimeout(()=>offerMedFromHospital(date,data.medicine,data.diagnosis),300);
 }
 function renderHospitalList(){
   const records=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='hospital').sort((a,b)=>b.date.localeCompare(a.date));
@@ -2231,7 +2325,7 @@ function openCareModal(key,label,emoji){
 async function saveCare(){
   const date=document.getElementById('cDate').value;if(!date){showToast('日付を入力してください');return;}
   const data={careType:currentCareType,memo:document.getElementById('cMemo').value.trim()};
-  await sbInsert('wecats_records',{id:'rec_'+Date.now(),cat_id:currentCatId,type:'care',date,data});
+  await sbInsert('wecats_records',{id:wcId('rec'),cat_id:currentCatId,type:'care',date,data});
   await loadCatDetail(currentCatId);calInputDate=null;closeModal('care');showToast('✓ ケア記録を保存しました');renderCareGrid();renderCareHistory();
 }
 function renderCareHistory(){
@@ -2262,6 +2356,12 @@ let medForm={kind:'飲み薬',timings:[],interval:1};
 let medTodayDate=null;
 
 function medLogId(medId,date,timing){return`ml_${medId}_${date}_${timing}`;}
+// 見送り（あげられなかった）は note の先頭に【見送り】を付けて記録する（表の作り直し不要）
+const SKIP_PREFIX='【見送り】';
+const MED_SKIP_REASONS=['嫌がって飲まない','吐いた・吐き戻し','食欲がない・体調不良','捕まえられない・暴れる','獣医の指示で中止','その他'];
+function isSkip(lg){return!!lg&&String(lg.note||'').startsWith(SKIP_PREFIX);}
+function skipReason(lg){return String(lg.note||'').slice(SKIP_PREFIX.length);}
+function skipShort(lg){return skipReason(lg).split('：')[0];}
 function kindEmoji(k){const f=MED_KINDS.find(x=>x.v===k);return f?f.e:'💊';}
 function medTimings(m){
   if(Number(m.interval_days)===0)return['prn'];
@@ -2299,9 +2399,9 @@ function medPeriodText(m){
 function prnLogs(medId,date){return Object.values(medLogById).filter(l=>l.med_id===medId&&l.date===date&&l.timing==='prn').sort((a,b)=>(a.given_at||'').localeCompare(b.given_at||''));}
 // その日に「まだ」の回数
 function medRemainingFor(meds,date){
-  let total=0,left=0;
-  meds.forEach(m=>{if(!medDueOn(m,date))return;medTimings(m).forEach(t=>{if(t==='prn')return;total++;if(!medLogById[medLogId(m.id,date,t)])left++;});});
-  return{total,left};
+  let total=0,left=0,skipped=0;
+  meds.forEach(m=>{if(!medDueOn(m,date))return;medTimings(m).forEach(t=>{if(t==='prn')return;total++;const lg=medLogById[medLogId(m.id,date,t)];if(!lg)left++;else if(isSkip(lg))skipped++;});});
+  return{total,left,skipped};
 }
 function activeCats(){return catsCache.filter(c=>!c.archived);}
 function allActiveMeds(){const out=[];activeCats().forEach(c=>(catMedsCache[c.id]||[]).forEach(m=>{if(m.active!==false)out.push(m);}));return out;}
@@ -2325,7 +2425,7 @@ async function toggleMedDose(medId,catId,date,timing){
   const id=medLogId(medId,date,timing);
   const ex=medLogById[id];
   if(ex){
-    if(!confirm(`${ex.given_by||'だれか'}さんの「${TIMING_INFO[timing].label}」のチェックを取り消しますか？`))return;
+    if(!confirm(isSkip(ex)?`${ex.given_by||'だれか'}さんの「${TIMING_INFO[timing].label}」の見送り（${skipShort(ex)}）を取り消しますか？\n※あとからあげられた場合は、取り消してから「あげた」を押してください`:`${ex.given_by||'だれか'}さんの「${TIMING_INFO[timing].label}」のチェックを取り消しますか？`))return;
     delete medLogById[id];refreshMedViews();
     const r=await sbDelete('wecats_med_logs',id);
     if(r.failed){medLogById[id]=ex;refreshMedViews();return;}
@@ -2338,14 +2438,14 @@ async function toggleMedDose(medId,catId,date,timing){
   if(r.dup){
     await loadMedLogs(date,date,catId);refreshMedViews();
     const cur=medLogById[id];
-    showToast(`ℹ️ もう${cur&&cur.given_by?cur.given_by+'さんが':'他の人が'}チェック済みでした。二重にあげないでください`);
+    showToast(isSkip(cur)?`ℹ️ ${cur.given_by||'他の人'}さんが「見送り（${skipShort(cur)}）」を記録済みでした`:`ℹ️ もう${cur&&cur.given_by?cur.given_by+'さんが':'他の人が'}チェック済みでした。二重にあげないでください`);
     return;
   }
   if(r.failed){delete medLogById[id];refreshMedViews();return;}
   showToast(`✓ ${TIMING_INFO[timing].label}の分「あげた」を記録しました`);
 }
 async function addPrnDose(medId,catId,date){
-  const row={id:medLogId(medId,date,'prn_'+Date.now()),med_id:medId,cat_id:catId,date,timing:'prn',given_by:userName,given_at:new Date().toISOString()};
+  const row={id:medLogId(medId,date,wcId('prn')),med_id:medId,cat_id:catId,date,timing:'prn',given_by:userName,given_at:new Date().toISOString()};
   medLogById[row.id]=row;refreshMedViews();
   const r=await sbInsert('wecats_med_logs',row);
   if(r.failed){delete medLogById[row.id];refreshMedViews();return;}
@@ -2367,8 +2467,9 @@ function doseButtons(m,date){
   }
   return`<div class="dose-row">${ts.map(t=>{
     const lg=medLogById[medLogId(m.id,date,t)];const ti=TIMING_INFO[t];
-    return`<button class="dose-btn ${lg?'done':''}" onclick="toggleMedDose('${esc(m.id)}','${esc(m.cat_id)}','${date}','${t}')"><span class="dose-t">${ti.emoji} ${ti.label}</span><span class="dose-s">${lg?`✓ ${esc(lg.given_by||'')} ${hhmm(lg.given_at)}`:'まだ'}</span></button>`;
-  }).join('')}</div>`;
+    const sk=isSkip(lg);
+    return`<button class="dose-btn ${lg?(sk?'skip':'done'):''}" onclick="toggleMedDose('${esc(m.id)}','${esc(m.cat_id)}','${date}','${t}')"><span class="dose-t">${ti.emoji} ${ti.label}</span><span class="dose-s">${lg?(sk?`見送り：${esc(skipShort(lg))}<br>${esc(lg.given_by||'')} ${hhmm(lg.given_at)}`:`✓ ${esc(lg.given_by||'')} ${hhmm(lg.given_at)}`):'まだ'}</span></button>`;
+  }).join('')}</div>${ts.some(t=>!medLogById[medLogId(m.id,date,t)])?`<button class="skip-link" onclick="openMedSkip('${esc(m.id)}','${esc(m.cat_id)}','${date}')">あげられなかった → 見送りを記録</button>`:''}`;
 }
 function medHistoryHtml(m){
   const ts=medTimings(m);if(ts[0]==='prn')return'';
@@ -2377,12 +2478,12 @@ function medHistoryHtml(m){
     const d=addDays(today(),-i);
     if(!medActiveOn(m,d))continue;
     if(!medDueOn(m,d)){cells.push(`<span class="mh-day off"><b>${Number(d.slice(8))}日</b>休</span>`);continue;}
-    const marks=ts.map(t=>medLogById[medLogId(m.id,d,t)]?'●':'○').join('');
+    const marks=ts.map(t=>{const l=medLogById[medLogId(m.id,d,t)];return!l?'○':isSkip(l)?'△':'●';}).join('');
     const miss=marks.includes('○');
     cells.push(`<span class="mh-day ${miss?'miss':''}"><b>${Number(d.slice(8))}日</b>${marks}</span>`);
   }
   if(!cells.length)return'';
-  return`<div class="mh-row"><span class="mh-label">ここ数日</span>${cells.join('')}</div>`;
+  return`<div class="mh-row"><span class="mh-label">ここ数日</span>${cells.join('')}<span class="mh-legend">●あげた △見送り ○記録なし</span></div>`;
 }
 function renderMedList(){
   const allMeds=catMedsCache[currentCatId]||[];
@@ -2459,7 +2560,7 @@ async function saveMedication(){
   const row={name,dose:document.getElementById('medDose').value.trim(),med_kind:medForm.kind,timings,interval_days:interval,
     start_date:start,end_date:end,memo:document.getElementById('medMemo').value.trim()};
   row.frequency=medFreqText(row);
-  const r=editingMedId?await sbUpdate('wecats_medications',editingMedId,row):await sbInsert('wecats_medications',{id:'med_'+Date.now(),cat_id:currentCatId,active:true,...row});
+  const r=editingMedId?await sbUpdate('wecats_medications',editingMedId,row):await sbInsert('wecats_medications',{id:wcId('med'),cat_id:currentCatId,active:true,...row});
   if(r.failed)return;
   await loadCatDetail(currentCatId);closeModal('medication');
   showToast(editingMedId?'✓ 投薬を更新しました':'✓ 投薬を追加しました');
@@ -2485,9 +2586,9 @@ function updateMedTodayButton(){
   const meds=allActiveMeds();
   if(!meds.length){btn.style.display='none';return;}
   btn.style.display='flex';
-  const{total,left}=medRemainingFor(meds,today());
+  const{total,left,skipped}=medRemainingFor(meds,today());
   const cnt=document.getElementById('medTodayCount');
-  cnt.textContent=total===0?'今日の予定なし':left?`残り ${left}回`:'✓ 全部あげました';
+  cnt.textContent=total===0?'今日の予定なし':left?`残り ${left}回`:skipped?`✓ 完了（見送り${skipped}）`:'✓ 全部あげました';
   btn.classList.toggle('all-done',total>0&&!left);
 }
 function currentTimingKey(){const h=new Date().getHours();return h<11?'morning':h<15?'noon':h<19?'evening':'night';}
@@ -2508,10 +2609,11 @@ function renderMedToday(){
     if(!medDueOn(m,d))return;
     medTimings(m).forEach(t=>groups[t].push({cat,m,t}));
   }));
-  const meds=allActiveMeds();const{total,left}=medRemainingFor(meds,d);
+  const meds=allActiveMeds();
+  const{total,left,skipped}=medRemainingFor(meds,d);
   document.getElementById('mtSummary').innerHTML=total===0&&!groups.prn.length
     ?`<div class="mt-sum done">この日にあげる薬はありません</div>`
-    :`<div class="mt-sum ${left?'':'done'}">${left?`あと <b>${left}</b> 回`:'✓ 全部あげました'}<span>（予定 ${total}回）</span></div>`;
+    :`<div class="mt-sum ${left?'':'done'}">${left?`あと <b>${left}</b> 回`:skipped?'✓ 全部おわりました':'✓ 全部あげました'}<span>（予定 ${total}回${skipped?`・うち見送り ${skipped}回`:''}）</span></div>`;
   const now=isToday?currentTimingKey():'';
   const html=TIMING_ORDER.filter(t=>groups[t].length).map(t=>{
     const ti=TIMING_INFO[t];const items=groups[t];
@@ -2520,17 +2622,18 @@ function renderMedToday(){
       <h3>${ti.emoji} ${t==='day'?'1日1回（時間の指定なし）':ti.label}${t===now?'<span class="mt-now">いまの時間</span>':''}<span class="mt-left">${t==='prn'?'':leftN?`残り${leftN}`:'✓ 完了'}</span></h3>
       ${items.map(({cat,m})=>{
         const lg=t==='prn'?null:medLogById[medLogId(m.id,d,t)];
+        const rowCls=lg?(isSkip(lg)?'skipped':'done'):'';
         const btn=t==='prn'
           ?`<button class="mt-check prn" onclick="addPrnDose('${esc(m.id)}','${esc(cat.id)}','${d}')">🆘<small>あげた</small></button>`
-          :`<button class="mt-check ${lg?'done':''}" onclick="toggleMedDose('${esc(m.id)}','${esc(cat.id)}','${d}','${t}')">${lg?'✓':''}<small>${lg?esc(lg.given_by||''):'まだ'}</small></button>`;
+          :`<div class="mt-checkwrap"><button class="mt-check ${lg?(isSkip(lg)?'skip':'done'):''}" onclick="toggleMedDose('${esc(m.id)}','${esc(cat.id)}','${d}','${t}')">${lg?(isSkip(lg)?'△':'✓'):''}<small>${lg?esc(lg.given_by||''):'まだ'}</small></button>${lg?'':`<button class="mt-skip" onclick="openMedSkip('${esc(m.id)}','${esc(cat.id)}','${d}','${t}')">見送り</button>`}</div>`;
         const prn=t==='prn'?prnLogs(m.id,d):[];
-        return`<div class="mt-row ${lg?'done':''}">
+        return`<div class="mt-row ${rowCls}">
           ${btn}
           <div class="mt-info" onclick="openCatMeds('${esc(cat.id)}')">
             <div class="mt-cat">${esc(cat.emoji||'🐱')} ${esc(cat.name)}</div>
             <div class="mt-med">${kindEmoji(m.med_kind)} ${esc(m.name)}${m.dose?` <b>${esc(m.dose)}</b>`:''}</div>
             ${m.memo?`<div class="mt-memo">${esc(m.memo)}</div>`:''}
-            ${lg?`<div class="mt-by">${hhmm(lg.given_at)} ${esc(lg.given_by||'')}さん</div>`:''}
+            ${lg?(isSkip(lg)?`<div class="mt-by skip">見送り（${esc(skipReason(lg))}） ${hhmm(lg.given_at)} ${esc(lg.given_by||'')}さん</div>`:`<div class="mt-by">${hhmm(lg.given_at)} ${esc(lg.given_by||'')}さん</div>`):''}
             ${prn.length?`<div class="mt-by">${prn.map(l=>`${hhmm(l.given_at)} ${esc(l.given_by||'')}`).join(' / ')}</div>`:''}
           </div>
         </div>`;
@@ -2559,12 +2662,12 @@ function printMedSheet(){
       if(!medDueOn(m,d))return`<td class="off">―</td>`;
       if(t==='prn'){const l=prnLogs(m.id,d);return`<td class="prn">${l.map(x=>`${hhmm(x.given_at)} ${esc(x.given_by||'')}`).join('<br>')}</td>`;}
       const lg=medLogById[medLogId(m.id,d,t)];
-      return lg?`<td class="done">✓ ${esc(lg.given_by||'')}</td>`:`<td><span class="box"></span></td>`;
+      return lg?(isSkip(lg)?`<td class="done">見送り<br>${esc(skipShort(lg))}</td>`:`<td class="done">✓ ${esc(lg.given_by||'')}</td>`):`<td><span class="box"></span></td>`;
     }).join('');
     return`<tr><td class="t">${ti.emoji} ${ti.label}</td><td class="c">${esc(cat.name)}</td><td class="m">${esc(m.name)}${m.dose?`<br><b>${esc(m.dose)}</b>`:''}${m.memo?`<div class="memo">${esc(m.memo)}</div>`:''}</td>${cells}</tr>`;
   }).join('');
   openPrint(`<h1>💊 投薬チェック表　${mdw(days[0])} 〜 ${mdw(days[6])}</h1>
-    <p class="lead">あげたら □ に名前を書いてください。あとでアプリの「今日の投薬」にもチェックをお願いします。「―」はお休みの日です。</p>
+    <p class="lead">あげたら □ に名前を、あげられなかったら「×」と理由を書いてください。あとでアプリの「今日の投薬」にも入力をお願いします。「―」はお休みの日です。</p>
     <table class="sheet">${head}${body}</table>
     <p class="foot">印刷日時：${new Date().toLocaleString('ja-JP')}　WE CATS</p>`);
 }
@@ -2577,6 +2680,40 @@ function openPrint(html){
   setTimeout(()=>window.print(),50);
 }
 
+// --- 見送り（あげられなかった）を記録 ---
+let medSkipCtx=null;
+function openMedSkip(medId,catId,date,timing){
+  const m=Object.values(catMedsCache).flat().find(x=>x.id===medId);if(!m)return;
+  const cat=catsCache.find(c=>c.id===catId);
+  const pending=medTimings(m).filter(t=>t!=='prn'&&!medLogById[medLogId(m.id,date,t)]);
+  if(!pending.length){showToast('この日の分は、もう全部記録されています');return;}
+  medSkipCtx={medId,catId,date,timing:timing&&pending.includes(timing)?timing:(pending.length===1?pending[0]:null),reason:null,pending};
+  document.getElementById('msName').innerHTML=`${esc(cat?cat.name:'')}　${kindEmoji(m.med_kind)} ${esc(m.name)}${m.dose?` <b>${esc(m.dose)}</b>`:''}<br><small>${mdw(date)}</small>`;
+  document.getElementById('msNote').value='';
+  renderMedSkipChips();
+  openModal('medSkip');
+}
+function renderMedSkipChips(){
+  const c=medSkipCtx;
+  document.getElementById('msTimingOpts').innerHTML=c.pending.map(t=>`<button type="button" class="chip big ${c.timing===t?'on':''}" onclick="medSkipCtx.timing='${t}';renderMedSkipChips()">${TIMING_INFO[t].emoji} ${TIMING_INFO[t].label}</button>`).join('');
+  document.getElementById('msReasonOpts').innerHTML=MED_SKIP_REASONS.map((r,i)=>`<button type="button" class="chip ${c.reason===r?'on':''}" onclick="medSkipCtx.reason=MED_SKIP_REASONS[${i}];renderMedSkipChips()">${esc(r)}</button>`).join('');
+}
+async function saveMedSkip(){
+  const c=medSkipCtx;if(!c)return;
+  if(!c.timing){showToast('どの回か選んでください');return;}
+  if(!c.reason){showToast('理由を選んでください');return;}
+  const memo=document.getElementById('msNote').value.trim();
+  if(c.reason==='その他'&&!memo){showToast('「その他」のときは、メモに理由を書いてください');return;}
+  const id=medLogId(c.medId,c.date,c.timing);
+  const row={id,med_id:c.medId,cat_id:c.catId,date:c.date,timing:c.timing,given_by:userName,given_at:new Date().toISOString(),note:SKIP_PREFIX+c.reason+(memo?'：'+memo:'')};
+  closeModal('medSkip');
+  medLogById[id]=row;refreshMedViews();
+  const r=await sbInsert('wecats_med_logs',row);
+  if(r.dup){await loadMedLogs(c.date,c.date,c.catId);refreshMedViews();const cur=medLogById[id];showToast(`ℹ️ もう${cur&&cur.given_by?cur.given_by+'さんが':'他の人が'}この回を記録済みでした`);return;}
+  if(r.failed){delete medLogById[id];refreshMedViews();return;}
+  showToast(`△ ${TIMING_INFO[c.timing].label}の分を「見送り」で記録しました`);
+}
+
 async function delMedication(id){if(!confirm('この投薬記録を削除しますか？'))return;await sbDelete('wecats_medications',id);await loadCatDetail(currentCatId);renderMedList();renderCatList();showToast('削除しました');}
 async function delRecord(id,tab){if(!confirm('この記録を削除しますか？'))return;await sbDelete('wecats_records',id);await loadCatDetail(currentCatId);showToast('削除しました');switchCatTab(tab||currentCatTab);}
 
@@ -2584,7 +2721,7 @@ async function delRecord(id,tab){if(!confirm('この記録を削除しますか�
 async function reloadCatsAndRender(){await loadCatsData();await loadAllCatsOverviewData();renderCatList();checkHospitalAlerts();}
 function renderEmojiPicker(id){document.getElementById(id).innerHTML=CAT_EMOJIS.map(e=>`<span class="emoji-opt ${e===selectedEmoji?'selected':''}" onclick="selectEmoji(this,'${e}','${id}')">${e}</span>`).join('');}
 function selectEmoji(el,e,id){selectedEmoji=e;document.querySelectorAll(`#${id} .emoji-opt`).forEach(x=>x.classList.remove('selected'));el.classList.add('selected');}
-async function addCat(){const name=document.getElementById('newCatName').value.trim();if(!name){showToast('名前を入力してください');return;}await sbInsert('wecats_cats',{id:'cat_'+Date.now(),name,emoji:selectedEmoji,sort_order:catsCache.length});await reloadCatsAndRender();closeModal('addCat');showToast(`✓ ${name} を追加しました`);}
+async function addCat(){const name=document.getElementById('newCatName').value.trim();if(!name){showToast('名前を入力してください');return;}await sbInsert('wecats_cats',{id:wcId('cat'),name,emoji:selectedEmoji,sort_order:catsCache.length});await reloadCatsAndRender();closeModal('addCat');showToast(`✓ ${name} を追加しました`);}
 function openEditCat(catId){
   editingCatId=catId;const cat=catsCache.find(c=>c.id===catId);
   document.getElementById('editCatName').value=cat.name;selectedEmoji=cat.emoji;renderEmojiPicker('editEmojiPicker');
@@ -2887,7 +3024,7 @@ async function saveRes(){
   const editId=document.getElementById('resEditId').value;
   const payload={date,time,customer_name:name,pax:resPax,phone,memo,staff,channel,res_type:resType||'normal'};
   if(editId){await sbUpdate('wecats_reservations',editId,payload);showToast('✓ 予約を更新しました');}
-  else{await sbInsert('wecats_reservations',{id:'res_'+Date.now(),...payload});showToast('✓ 予約を追加しました');}
+  else{await sbInsert('wecats_reservations',{id:wcId('res'),...payload});showToast('✓ 予約を追加しました');}
   await loadReservations();closeModal('res');renderTodaySummary();
   if(resTab==='calendar')renderResCalendar();else renderResList();
 }
@@ -3494,7 +3631,7 @@ async function saveCashRecord(){
   if(!date||!amount||amount<=0){showToast('日付と金額を入力してください');return;}
   const currentBalance=cashCache.length?cashCache[0].balance:0;const newBalance=currentCashType==='expense'?currentBalance-amount:currentBalance+amount;
   if(newBalance<0){showToast('残金が不足しています');return;}
-  await sbInsert('wecats_cash',{id:'cash_'+Date.now(),date,type:currentCashType,description,amount,balance:newBalance,receipt_photo:photoBuf.cash[0]||'',memo:document.getElementById('cashMemo').value.trim()});
+  await sbInsert('wecats_cash',{id:wcId('cash'),date,type:currentCashType,description,amount,balance:newBalance,receipt_photo:photoBuf.cash[0]||'',memo:document.getElementById('cashMemo').value.trim()});
   photoBuf.cash=[];closeModal('cash');showToast('✓ 保存しました');await initCashPage();
 }
 async function viewReceipt(id){
@@ -3546,7 +3683,7 @@ async function saveFloorCheck(){
   const date=document.getElementById('floorDate').value;if(!date){showToast('日付を入力してください');return;}
   const data={toilet:floorOpts.toilet,food:floorOpts.food,concern:document.getElementById('floorConcern').value.trim(),memo:document.getElementById('floorMemo').value.trim()};
   const existing=await sb.from('wecats_records').select('*').eq('cat_id','floor').eq('type','floor_check').eq('date',date).single();
-  if(existing.data){await sbUpdate('wecats_records',existing.data.id,{data});}else{await sbInsert('wecats_records',{id:'floor_'+Date.now(),cat_id:'floor',type:'floor_check',date,data});}
+  if(existing.data){await sbUpdate('wecats_records',existing.data.id,{data});}else{await sbInsert('wecats_records',{id:wcId('floor'),cat_id:'floor',type:'floor_check',date,data});}
   closeModal('floorCheck');showToast('✓ フロアチェックを保存しました');
 }
 async function openFloorHistory(){
@@ -4020,7 +4157,7 @@ async function saveShiftType() {
     await sbUpdate('wecats_shift_types', editId, { name, time_range, color, fg_color });
     showToast('✓ 更新しました');
   } else {
-    await sbInsert('wecats_shift_types', { id: 'st_' + Date.now(), name, time_range, color, fg_color, sort_order: shiftTypesCache.length + 1 });
+    await sbInsert('wecats_shift_types', { id: wcId('st'), name, time_range, color, fg_color, sort_order: shiftTypesCache.length + 1 });
     showToast('✓ 追加しました');
   }
   await loadShiftTypes();
@@ -4135,7 +4272,7 @@ async function saveSnsWork() {
     showToast('✓ 更新しました');
   } else if (currentStaffIsOwner || snsAllowInsert) {
     snsAllowInsert = false;
-    await sbInsert('wecats_sns_works', { id: 'sns_' + Date.now(), date, place, content, memo });
+    await sbInsert('wecats_sns_works', { id: wcId('sns'), date, place, content, memo });
     showToast('✓ 追加しました');
   } else {
     showToast('追加はオーナーのみできます');
@@ -4276,7 +4413,7 @@ function todoProgressHtml(t, allDone) {
   return `<div style="margin-top:10px"><div class="td-meta" style="margin:0 0 6px">進捗状況</div><div class="td-choices">${btns}${done}</div></div>`;
 }
 async function todoAutoReport(t, body) {
-  const row = { id: 'rep_' + Date.now() + Math.floor(Math.random() * 1000), todo_id: t.id, author: userName, body, created_at: todoNow() };
+  const row = { id: wcId('rep'), todo_id: t.id, author: userName, body, created_at: todoNow() };
   await sbInsert('wecats_todo_reports', row);
   (todoReports[t.id] = todoReports[t.id] || []).push(row);
 }
@@ -4314,7 +4451,7 @@ async function sendTodoReport(id) {
   const t = todoById(id); const inp = document.getElementById('tdR_' + id);
   const body = (inp && inp.value || '').trim();
   if (!body) { showToast('報告を入力してください'); return; }
-  const row = { id: 'rep_' + Date.now(), todo_id: id, author: userName, body, created_at: todoNow() };
+  const row = { id: wcId('rep'), todo_id: id, author: userName, body, created_at: todoNow() };
   const r = await sbInsert('wecats_todo_reports', row);
   if (r && r.error && !r.offline) { showToast('送れませんでした'); return; }
   (todoReports[id] = todoReports[id] || []).push(row);
@@ -4390,6 +4527,7 @@ function renderTodos() {
     let btns = `<button class="td-btn main" onclick="openTodoAssign('${t.id}')">担当を決める</button>`;
     if (!own && !mine) btns += `<button class="td-btn" onclick="openTodoConsult('${t.id}')">相談したい</button>`;
     if (own) btns += `<button class="td-btn" onclick="skipTodo('${t.id}')">やらない</button>`;
+    if (own) btns += `<button class="td-btn red" onclick="deleteTodo('${t.id}')">🗑 削除</button>`;
     if (mine && !own) btns += `<button class="td-btn red" onclick="withdrawTodo('${t.id}')">取り下げ</button>`;
     return `<div class="td-card"><div class="td-row"><span style="flex:1;font-size:13px;font-weight:700">${tEsc(t.title)}</span>${todoPub(t)}${t.due ? todoDueBadge(t) : ''}</div>
       ${todoWhoLine(t)}${todoDetail(t)}
@@ -4419,7 +4557,7 @@ function renderTodos() {
       <div class="td-meta">担当：${tEsc(t.assignee || '')}さん　出した人：${tEsc(t.proposed_by)}さん</div>${todoDetail(t)}
       ${st.length ? `<div class="td-bar"><i style="width:${Math.round(done / st.length * 100)}%"></i></div><div class="td-meta">${done} / ${st.length} 完了</div><div style="margin-top:4px">${steps}</div>` : ''}
       ${todoProgressHtml(t, allDone)}
-      ${own || t.assignee === me ? `<div class="td-row" style="margin-top:6px;justify-content:flex-end"><button class="td-btn" onclick="openTodoAssign('${t.id}')">担当・期限を変更</button></div>` : ''}
+      ${own || t.assignee === me ? `<div class="td-row" style="margin-top:6px;justify-content:flex-end"><button class="td-btn" onclick="openTodoAssign('${t.id}')">担当・期限を変更</button>${todoCanDelete(t) ? `<button class="td-btn red" style="margin-left:6px" onclick="deleteTodo('${t.id}')">🗑 削除</button>` : ''}</div>` : (todoCanDelete(t) ? `<div class="td-row" style="margin-top:6px;justify-content:flex-end"><button class="td-btn red" onclick="deleteTodo('${t.id}')">🗑 削除</button></div>` : '')}
       ${todoReportsHtml(t)}</div>`;
   }).join('') : '<div class="td-empty">TODOはありません</div>';
 
@@ -4433,7 +4571,7 @@ function renderTodos() {
   h += `<div class="td-sec" style="cursor:pointer" onclick="todoDoneOpen=!todoDoneOpen;renderTodos()">📦 終わったもの（${finished.length}件）${todoDoneOpen ? '▲' : '▼'}</div>`;
   if (todoDoneOpen) h += finished.length ? finished.map(t => `<div class="td-card" style="box-shadow:none;background:#faf8ff"><div class="td-row">
       <span style="flex:1;font-size:12px">${tEsc(t.title)}</span>
-      <span class="td-pill ${t.status === 'done' ? 'td-p-purple' : 'td-p-gray'}">${t.status === 'done' ? '完了' : 'やらない'}</span></div>
+      <span class="td-pill ${t.status === 'done' ? 'td-p-purple' : 'td-p-gray'}">${t.status === 'done' ? '完了' : 'やらない'}</span>${currentStaffIsOwner ? `<button class="td-btn red" style="margin-left:6px;padding:4px 10px" onclick="deleteTodo('${t.id}')">🗑</button>` : ''}</div>
       ${t.status === 'done' && t.assignee ? `<div class="td-meta">担当：${tEsc(t.assignee)}さん</div>` : ''}
       ${t.status === 'skipped' && t.skip_note ? `<div class="td-meta">理由：${tEsc(t.skip_note)}</div>` : ''}</div>`).join('') : '<div class="td-empty">まだありません</div>';
   el.innerHTML = h;
@@ -4500,7 +4638,7 @@ async function saveTodoCreate() {
   let steps = [];
   if (todoForm.assignee) { steps = todoBuildSteps([]); if (!steps) { showToast('段階を入力してください'); return; } }
   const me = userName, a = todoForm.assignee;
-  const row = { id: 'todo_' + Date.now(), title: todoForm.title.trim(), detail: todoForm.detail.trim(), due: todoForm.due || null, proposed_by: me,
+  const row = { id: wcId('todo'), title: todoForm.title.trim(), detail: todoForm.detail.trim(), due: todoForm.due || null, proposed_by: me,
     viewers: todoForm.viewers, assignee: a || null, assigned_by: a ? me : null, status: !a ? 'proposed' : (a === me ? 'todo' : 'asked'),
     steps, progress: 'notyet', is_sns: !!todoForm.isSns, is_public: !!todoForm.isPublic, report_unread: false, updated_at: todoNow() };
   const r = await sbInsert('wecats_todos', row);
@@ -4508,6 +4646,32 @@ async function saveTodoCreate() {
   todoItems.push(row);
   closeModal('todo'); renderTodos(); refreshTodoBadge();
   showToast(a && a !== me ? `✓ ${a}さんにお願いしました` : '✓ 出しました');
+}
+// 削除できる人：オーナーはいつでも。出した本人は、まだ誰も手をつけていない間だけ
+function todoStarted(t) {
+  if (['review', 'done'].includes(t.status)) return true;
+  if (t.progress && t.progress !== 'notyet') return true;
+  if ((t.steps || []).some(s => s.done)) return true;
+  if ((todoReports[t.id] || []).length) return true;
+  return false;
+}
+function todoCanDelete(t) {
+  if (currentStaffIsOwner) return true;
+  return t.proposed_by === userName && t.status !== 'done' && t.status !== 'skipped' && !todoStarted(t);
+}
+async function deleteTodo(id) {
+  const t = todoById(id); if (!t) return;
+  if (!todoCanDelete(t)) { showToast('作業が始まっているので削除できません。オーナーに相談してください'); return; }
+  if (!currentStaffIsOwner) {
+    const { data } = await sb.from('wecats_todo_reports').select('id').eq('todo_id', id).limit(1);
+    if (data && data.length) { showToast('経過報告があるので削除できません。オーナーに相談してください'); return; }
+  }
+  if (!confirm(`「${t.title}」を削除しますか？\n経過報告も一緒に消えます。元に戻せません。\n（記録として残したいときは「やらない」を使ってください）`)) return;
+  const r = await sbDelete('wecats_todos', id);
+  if (r && r.failed) return;
+  await sbDeleteBy('wecats_todo_reports', 'todo_id', id);
+  todoItems = todoItems.filter(x => x.id !== id);
+  renderTodos(); refreshTodoBadge(); showToast('削除しました');
 }
 async function withdrawTodo(id) {
   if (!confirm('取り下げますか？')) return;
