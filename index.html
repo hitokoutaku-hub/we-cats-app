@@ -624,6 +624,11 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
 .check-opt.mood-opt.selected { background: var(--pink-light); color: var(--pink-deep); border-color: var(--pink-deep); border-width: 2.5px; }
 .record-tag.mood-tag { display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; }
 .record-tag.mood-tag svg { vertical-align: middle; }
+.vt-when { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--text-light); margin-top: 10px; }
+.vt-when b { color: var(--text); }
+.vt-when button { margin-left: auto; border: 1.5px solid var(--pink-dark); background: var(--white); border-radius: 999px; padding: 6px 12px; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--pink-deep); cursor: pointer; }
+#vtAt { margin-top: 6px; }
+.vt-late { font-size: 10px; background: #eee3e6; color: var(--text-light); border-radius: 999px; padding: 1px 6px; margin-left: 6px; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
@@ -1497,7 +1502,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
 <script>
 const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
-const APP_VERSION='10/16-2（毎日チェックに調子）';
+const APP_VERSION='10/17（体温をあとから記録）';
 // ─── ログイン中のトークン（サーバー側で照合する合言葉） ─────────
 let wcToken='';
 try{const s=JSON.parse(sessionStorage.getItem('wecats_session')||'null');if(s&&s.token)wcToken=s.token;}catch(e){}
@@ -2178,7 +2183,7 @@ function switchCatTab(tab){
   if(tab==='hospital'){renderHospPlanList();renderHospitalList();renderActiveCaseBox();}
   if(tab==='care'){renderCareGrid();renderCareHistory();}
   if(tab==='meds')renderMedList();
-  if(tab==='vital'){vitalForm={temp:'',mood:null};renderVitalTab();}
+  if(tab==='vital'){vitalForm={temp:'',mood:null,at:''};vitalWhenOpen=false;renderVitalTab();}
   if(tab==='calendar'){calYear=new Date().getFullYear();calMonth=new Date().getMonth();calSelectedDay=null;document.getElementById('calDayDetail').innerHTML='';renderCalendar();}
 }
 
@@ -2358,7 +2363,7 @@ function latestMoodOf(rs){
 }
 function vitalPlanOf(catId){return(catRecordsCache[catId]||[]).filter(r=>r.type==='vital_plan').sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')))[0]||null;}
 
-let vitalForm={temp:'',mood:null};
+let vitalForm={temp:'',mood:null,at:''};
 let vitalOverview={};
 
 // --- 猫ごとの「体調」タブ ---
@@ -2375,9 +2380,9 @@ function renderVitalTab(){
       <button onclick="openVitalPlan()">${active?'設定':'毎日はかる子にする'}</button>
     </div>
     <div class="vt-card">
-      <h3>きょうの体調を記録</h3>
+      <h3>体調を記録</h3>
       <div class="vt-label">調子</div>
-      <div class="vt-moods">${[3,2,1].map(v=>`<button class="vt-mood ${vitalForm.mood===v?'on':''}" style="--mc:${MOODS[v].color}" onclick="vitalForm.mood=${v};renderVitalTab()">${catFaceSvg(v,56)}<span>${MOODS[v].label}</span></button>`).join('')}</div>
+      <div class="vt-moods">${[3,2,1].map(v=>`<button class="vt-mood ${vitalForm.mood===v?'on':''}" style="--mc:${MOODS[v].color}" onclick="vitalForm.mood=${v};renderVitalKeep()">${catFaceSvg(v,56)}<span>${MOODS[v].label}</span></button>`).join('')}</div>
       <div class="vt-label">体温 <small>（はかっていなければ空でOK）</small></div>
       <div class="vt-temp">
         <button onclick="stepVitalTemp(-0.1)" aria-label="0.1度下げる">−</button>
@@ -2385,6 +2390,9 @@ function renderVitalTab(){
         <button onclick="stepVitalTemp(0.1)" aria-label="0.1度上げる">＋</button>
       </div>
       <div class="vt-hint" id="vtHint"></div>
+      <div class="vt-when">🕐 はかった時間：${vitalForm.at?`<b>${esc(vitalWhenLabel(vitalForm.at))}</b>`:'<b>今</b>'}
+        <button onclick="toggleVitalWhen()">${vitalForm.at||vitalWhenOpen?'今にもどす':'記録し忘れた → 時間を変える'}</button></div>
+      ${vitalWhenOpen||vitalForm.at?`<input id="vtAt" class="form-input" type="datetime-local" value="${esc(vitalForm.at||vitalLocalNow())}" max="${vitalLocalNow()}" min="${addDays(today(),-30)}T00:00" onchange="vitalForm.at=this.value;renderVitalKeep()">`:''}
       <input id="vtMemo" class="form-input" placeholder="メモ（例：ご飯半分、ぐったり、お水よく飲む）" style="margin-top:8px">
       <button class="save-btn" style="margin-top:10px" onclick="saveVital()">記録する</button>
     </div>
@@ -2393,6 +2401,16 @@ function renderVitalTab(){
     <div id="vitalList">${vitalListHtml(recs)}</div>`;
   updateVitalHint();
 }
+let vitalWhenOpen=false;
+function vitalLocalNow(){const d=new Date();d.setSeconds(0,0);return`${ymd(d)}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
+function vitalWhenLabel(v){const d=new Date(v);return`${mdw(ymd(d))} ${hhmm(d.toISOString())}`;}
+function toggleVitalWhen(){
+  if(vitalForm.at||vitalWhenOpen){vitalForm.at='';vitalWhenOpen=false;}
+  else{vitalWhenOpen=true;vitalForm.at=vitalLocalNow();}
+  renderVitalKeep();
+}
+// 入力中のメモを消さずに描き直す
+function renderVitalKeep(){const m=document.getElementById('vtMemo');const memo=m?m.value:'';renderVitalTab();const m2=document.getElementById('vtMemo');if(m2)m2.value=memo;}
 function stepVitalTemp(d){
   const cur=Number(vitalForm.temp)||(()=>{const r=vitalRecords(currentCatId).filter(x=>x.data&&x.data.temp!=null).pop();return r?Number(r.data.temp):38.5;})();
   vitalForm.temp=(Math.round((cur+d)*10)/10).toFixed(1);
@@ -2409,14 +2427,21 @@ async function saveVital(){
   if(t!=null&&(isNaN(t)||t<34||t>43)){showToast('体温の数字を確認してください（例：38.6）');return;}
   if(t==null&&!vitalForm.mood){showToast('調子か体温のどちらかを入れてください');return;}
   const memo=document.getElementById('vtMemo').value.trim();
-  const now=new Date().toISOString();
-  const rec={id:wcId('vit'),cat_id:currentCatId,type:'vital',date:today(),data:{temp:t,mood:vitalForm.mood,memo,at:now,by:userName}};
+  let when=new Date();
+  if(vitalForm.at){
+    when=new Date(vitalForm.at);
+    if(isNaN(when)){showToast('はかった時間を確認してください');return;}
+    if(when.getTime()>Date.now()+60000){showToast('未来の時間は選べません');return;}
+    if(ymd(when)<addDays(today(),-30)){showToast('30日より前の記録は入れられません');return;}
+  }
+  const late=!!vitalForm.at;
+  const rec={id:wcId('vit'),cat_id:currentCatId,type:'vital',date:ymd(when),data:{temp:t,mood:vitalForm.mood,memo,at:when.toISOString(),by:userName,...(late?{entered_at:new Date().toISOString()}:{})}};
   const r=await sbInsert('wecats_records',rec);
   if(r.failed)return;
   (catRecordsCache[currentCatId]=catRecordsCache[currentCatId]||[]).push(rec);
   const lv=tempLevel(t);
-  showToast(lv&&lv.key==='fever'?`⚠️ ${t}℃ 高熱です。獣医さんの指示を確認してください`:'✓ 体調を記録しました');
-  vitalForm={temp:'',mood:null};
+  showToast(lv&&lv.key==='fever'?`⚠️ ${t}℃ 高熱です。獣医さんの指示を確認してください`:late?`✓ ${vitalWhenLabel(vitalForm.at)} の記録として保存しました`:'✓ 体調を記録しました');
+  vitalForm={temp:'',mood:null,at:''};vitalWhenOpen=false;
   refreshVitalOverviewFor(currentCatId);renderVitalTab();renderCatList();
 }
 async function deleteVital(id){
@@ -2432,7 +2457,7 @@ function vitalListHtml(recs){
   const byDay={};[...recs].reverse().forEach(r=>{(byDay[r.date]=byDay[r.date]||[]).push(r);});
   return Object.keys(byDay).sort((a,b)=>b.localeCompare(a)).slice(0,14).map(d=>`<div class="vt-day"><div class="vt-day-label">${relDay(d)==='今日'||relDay(d)==='昨日'?relDay(d)+' ':''}${mdw(d)}</div>${byDay[d].map(r=>{
     const x=r.data||{};const lv=tempLevel(x.temp);
-    return`<div class="vt-row">${x.mood?catFaceSvg(x.mood,36):'<span class="vt-noface">―</span>'}<div class="vt-row-main"><b style="color:${lv?lv.color:'var(--text-light)'}">${x.temp!=null?`${Number(x.temp).toFixed(1)}℃`:'体温なし'}</b>${lv&&lv.key!=='ok'?`<span class="vt-tag" style="background:${lv.color}">${lv.label}</span>`:''}${x.mood?`<span class="vt-moodtxt" style="color:${MOODS[x.mood].color}">${MOODS[x.mood].label}</span>`:''}<div class="vt-sub">${hhmm(x.at)} ${esc(x.by||'')}${x.memo?`　${esc(x.memo)}`:''}</div></div>${x.by===userName||currentStaffIsOwner?`<button class="vt-del" onclick="deleteVital('${esc(r.id)}')" aria-label="消す">🗑</button>`:''}</div>`;
+    return`<div class="vt-row">${x.mood?catFaceSvg(x.mood,36):'<span class="vt-noface">―</span>'}<div class="vt-row-main"><b style="color:${lv?lv.color:'var(--text-light)'}">${x.temp!=null?`${Number(x.temp).toFixed(1)}℃`:'体温なし'}</b>${lv&&lv.key!=='ok'?`<span class="vt-tag" style="background:${lv.color}">${lv.label}</span>`:''}${x.mood?`<span class="vt-moodtxt" style="color:${MOODS[x.mood].color}">${MOODS[x.mood].label}</span>`:''}<div class="vt-sub">${hhmm(x.at)} ${esc(x.by||'')}${x.entered_at?`<span class="vt-late">あとから入力</span>`:''}${x.memo?`　${esc(x.memo)}`:''}</div></div>${x.by===userName||currentStaffIsOwner?`<button class="vt-del" onclick="deleteVital('${esc(r.id)}')" aria-label="消す">🗑</button>`:''}</div>`;
   }).join('')}</div>`).join('');
 }
 // 体温のグラフ（ここ14日）。平熱の範囲を緑の帯で表示
