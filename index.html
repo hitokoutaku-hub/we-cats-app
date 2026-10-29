@@ -3136,6 +3136,7 @@ async function loadReservations(){
   const fromStr=from.toISOString().slice(0,10);
   const{data}=await sb.from('wecats_reservations').select('*').gte('date',fromStr).order('date').order('time');
   resCache=data||[];
+  if(typeof updatePlanBadge==='function')updatePlanBadge();
 }
 async function initResPage(){
   resYear=new Date().getFullYear();resMonth=new Date().getMonth();resSelectedDay=null;
@@ -3159,7 +3160,8 @@ async function loadMemberPlans(){
 }
 function updatePlanBadge(){
   const badge=document.getElementById('planNavBadge');if(!badge)return;
-  const n=memberPlans.filter(p=>p.date===today()).length;
+  const n=(typeof resCache!=='undefined'?resCache:[]).filter(r=>r.date===today()).length
+    +memberPlans.filter(p=>p.date===today()).length;
   badge.textContent=n;badge.style.display=n?'flex':'none';
 }
 function renderMemberPlans(){
