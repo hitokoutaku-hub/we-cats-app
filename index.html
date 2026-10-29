@@ -784,6 +784,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
   <div style="padding:12px 16px 0">
     <!-- 今日の予約サマリー -->
     <div id="resTodaySummary" style="margin-bottom:12px"></div>
+    <div id="resPlansBox" style="margin-bottom:12px"></div>
     <!-- 表示切替タブ -->
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <button id="resTabCalBtn" onclick="switchResTab('calendar')"
@@ -1502,7 +1503,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
 <script>
 const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
-const APP_VERSION='10/17（体温をあとから記録）';
+const APP_VERSION='10/29（会員予約を表示）';
 // ─── ログイン中のトークン（サーバー側で照合する合言葉） ─────────
 let wcToken='';
 try{const s=JSON.parse(sessionStorage.getItem('wecats_session')||'null');if(s&&s.token)wcToken=s.token;}catch(e){}
@@ -1737,6 +1738,7 @@ let floorOpts={toilet:null,food:null};
 let staffCache=[],loginLogsCache=[],selectedStaffId=null,currentStaffIsOwner=false;
 // 予約
 let resYear=new Date().getFullYear(),resMonth=new Date().getMonth(),resSelectedDay=null,resTab='calendar',resCache=[],resPax=2,resChannel=null,resType='normal';
+let memberPlans=[];
 // 現金
 let cashCache=[],currentCashType='expense';
 // 体重
@@ -3137,19 +3139,80 @@ async function initResPage(){
   resYear=new Date().getFullYear();resMonth=new Date().getMonth();resSelectedDay=null;
   document.getElementById('resDayDetail').innerHTML='';
   await loadReservations();
+  loadMemberPlans();
   renderTodaySummary();
   switchResTab('calendar');
+}
+// ===== 会員カードからの予約（el_plans） =====
+async function loadMemberPlans(){
+  // 関数がまだ無い環境でもトーストを出さないよう、失敗は静かに諦める
+  try{
+    const{data:d,error}=await sb.rpc('wecats_plan_list',{p_from:today(),p_to:todoAddDays(90)});
+    if(error||!d||!d.ok){memberPlans=[];}
+    else memberPlans=Array.isArray(d.plans)?d.plans:[];
+  }catch(e){memberPlans=[];}
+  renderMemberPlans();
+  renderTodaySummary();
+}
+function renderMemberPlans(){
+  const el=document.getElementById('resPlansBox');
+  if(!el)return;
+  if(!memberPlans.length){el.innerHTML='';return;}
+  const pending=memberPlans.filter(p=>p.status==='pending').length;
+  const WD=['日','月','火','水','木','金','土'];
+  const fmtDate=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(s||''));if(!m)return esc(s);const d=new Date(+m[1],+m[2]-1,+m[3]);return`${+m[2]}/${+m[3]}（${WD[d.getDay()]}）`;};
+  const chip=st=>st==='ok'?`<span style="background:#e3f5e8;color:#2e8b57;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700">予約OK</span>`
+    :st==='declined'?`<span style="background:#eee;color:#888;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700">お断り</span>`
+    :`<span style="background:#fff3cd;color:#b26a00;border:1px solid #f0c36d;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700">確認中</span>`;
+  const btn='padding:7px 10px;border-radius:9px;font-family:"Zen Maru Gothic",sans-serif;font-size:12px;font-weight:700;cursor:pointer';
+  el.innerHTML=`<div style="background:var(--white);border:2px solid var(--pink-dark);border-radius:14px;padding:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:700">📱 会員カードからの予約</div>
+      ${pending?`<span style="background:#e53935;color:white;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700">確認待ち ${pending}件</span>`:''}
+    </div>
+    ${memberPlans.map(p=>{
+      const id=Number(p.id);
+      const kind=p.kind==='night'?'🌙 夜カフェ':p.kind==='day'?'☀️ 昼':'';
+      const actions=p.status==='pending'
+        ?`<div style="display:flex;gap:6px;margin-top:8px">
+            <button onclick="setMemberPlan(${id},'ok')" style="${btn};flex:1;border:2px solid var(--pink-deep);background:var(--pink-deep);color:white">予約OKにする</button>
+            <button onclick="setMemberPlan(${id},'declined')" style="${btn};flex:1;border:2px solid var(--pink-dark);background:var(--white);color:var(--text-light)">お断りする</button>
+          </div>`
+        :`<div style="text-align:right;margin-top:6px"><button onclick="setMemberPlan(${id},'pending')" style="padding:3px 8px;border-radius:8px;border:1px solid var(--pink-dark);background:var(--white);color:var(--text-light);font-family:'Zen Maru Gothic',sans-serif;font-size:10px;cursor:pointer">確認中に戻す</button></div>`;
+      return`<div style="background:${p.status==='pending'?'#fffaf0':'var(--pink-light)'};border-radius:10px;padding:9px 10px;margin-bottom:6px${p.status==='declined'?';opacity:0.7':''}">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div style="font-size:14px;font-weight:900">${fmtDate(p.date)}</div>
+          <div style="font-size:13px;font-weight:700">${p.time?esc(String(p.time).slice(0,5)):'--:--'}</div>
+          ${kind?`<div style="font-size:11px">${kind}</div>`:''}
+          <div style="margin-left:auto">${chip(p.status)}</div>
+        </div>
+        <div style="font-size:12px;margin-top:4px">👤 ${esc(p.member_name||'会員')}　👥 ${esc(p.people??'')}名</div>
+        ${p.note?`<div style="font-size:11px;color:var(--text-light);margin-top:3px;white-space:pre-wrap">📝 ${esc(p.note)}</div>`:''}
+        ${actions}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+async function setMemberPlan(id,status){
+  if(status==='ok'&&!confirm('この会員予約を「予約OK」にしますか？'))return;
+  if(status==='declined'&&!confirm('この会員予約をお断りしますか？'))return;
+  const r=await wcRpc('wecats_plan_set',{p_id:id,p_status:status});
+  if(!r||!r.ok){showToast('できませんでした');return;}
+  showToast('✓ 更新しました');
+  loadMemberPlans();
 }
 function renderTodaySummary(){
   const todayStr=today();
   const todayRes=resCache.filter(r=>r.date===todayStr).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
   const el=document.getElementById('resTodaySummary');
+  const planPending=memberPlans.filter(p=>p.status==='pending').length;
+  const planBanner=planPending?`<div style="background:#e53935;color:white;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;text-align:center;margin-bottom:8px">📱 会員予約の確認待ちが ${planPending}件あります</div>`:'';
   if(!todayRes.length){
-    el.innerHTML=`<div style="background:var(--pink-light);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--text-light);text-align:center">📅 本日の予約はありません</div>`;
+    el.innerHTML=planBanner+`<div style="background:var(--pink-light);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--text-light);text-align:center">📅 本日の予約はありません</div>`;
     return;
   }
   const totalPax=todayRes.reduce((s,r)=>s+(r.pax||0),0);
-  el.innerHTML=`<div style="background:linear-gradient(135deg,var(--pink-deep),#e8507a);border-radius:14px;padding:14px;color:white;margin-bottom:4px">
+  el.innerHTML=planBanner+`<div style="background:linear-gradient(135deg,var(--pink-deep),#e8507a);border-radius:14px;padding:14px;color:white;margin-bottom:4px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div style="font-size:13px;font-weight:700">📅 本日の予約</div>
       <div style="font-size:11px;opacity:0.85">${todayRes.length}件 / 合計${totalPax}名</div>
