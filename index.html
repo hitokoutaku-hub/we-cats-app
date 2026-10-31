@@ -1503,7 +1503,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
 <script>
 const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
-const APP_VERSION='10/29（繰り返しTODO・チェック共有・予約バッジ）';
+const APP_VERSION='10/31（会員予約をカレンダーにも表示）';
 // ─── ログイン中のトークン（サーバー側で照合する合言葉） ─────────
 let wcToken='';
 try{const s=JSON.parse(sessionStorage.getItem('wecats_session')||'null');if(s&&s.token)wcToken=s.token;}catch(e){}
@@ -3157,12 +3157,33 @@ async function loadMemberPlans(){
   renderMemberPlans();
   renderTodaySummary();
   updatePlanBadge();
+  if(typeof currentPage!=='undefined'&&currentPage==='reservation'){if(resTab==='calendar')renderResCalendar();else renderResList();}
 }
 function updatePlanBadge(){
   const badge=document.getElementById('planNavBadge');if(!badge)return;
   const n=(typeof resCache!=='undefined'?resCache:[]).filter(r=>r.date===today()).length
     +memberPlans.filter(p=>p.date===today()).length;
   badge.textContent=n;badge.style.display=n?'flex':'none';
+}
+// 会員予約をカレンダー・一覧・本日の予約に出すための変換（お断り・取消は出さない）
+function memberCalItems(){
+  return memberPlans.filter(p=>(p.status==='ok'||p.status==='pending')&&p.date)
+    .map(p=>({_member:true,id:'mp'+p.id,date:p.date,time:p.time?String(p.time).slice(0,5):'',people:p.people,member_name:p.member_name,note:p.note,status:p.status,kind:p.kind}));
+}
+function buildMemberPlanCard(p){
+  const kind=p.kind==='night'?'🌙 夜カフェ':p.kind==='day'?'☀️ 昼カフェ':'';
+  const chip=p.status==='ok'
+    ?`<span style="background:#e3f5e8;color:#2e8b57;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700">予約OK</span>`
+    :`<span style="background:#fff3cd;color:#b26a00;border:1px solid #f0c36d;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700">確認中</span>`;
+  return`<div class="res-card" style="cursor:default">
+    <div class="res-card-time">${p.time?esc(String(p.time).slice(0,5)):'--:--'}</div>
+    <div class="res-card-body">
+      <div class="res-card-name"><span style="background:#e8507a;color:white;border-radius:6px;font-size:10px;padding:1px 6px;margin-right:4px;font-weight:700">📱 会員</span>${esc(p.member_name||'会員')}</div>
+      <div class="res-card-detail">👥 ${esc(p.people??'')}名${kind?'　'+kind:''}　${chip}</div>
+      ${p.note?`<div class="res-card-memo">📝 ${esc(p.note)}</div>`:''}
+      <div class="res-card-detail" style="font-size:10px">確認・変更は上の「📱 会員カードからの予約」で行ってください</div>
+    </div>
+  </div>`;
 }
 function renderMemberPlans(){
   const el=document.getElementById('resPlansBox');
@@ -3213,23 +3234,25 @@ async function setMemberPlan(id,status){
 }
 function renderTodaySummary(){
   const todayStr=today();
-  const todayRes=resCache.filter(r=>r.date===todayStr).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  const todayRes=resCache.filter(r=>r.date===todayStr);
+  const todayPlans=memberCalItems().filter(p=>p.date===todayStr).map(p=>({_member:true,time:p.time,customer_name:p.member_name||'会員',pax:+p.people||0,phone:'',status:p.status}));
+  const todayAll=[...todayRes,...todayPlans].sort((a,b)=>(a.time||'').localeCompare(b.time||''));
   const el=document.getElementById('resTodaySummary');
   const planPending=memberPlans.filter(p=>p.status==='pending').length;
   const planBanner=planPending?`<div style="background:#e53935;color:white;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;text-align:center;margin-bottom:8px">📱 会員予約の確認待ちが ${planPending}件あります</div>`:'';
-  if(!todayRes.length){
+  if(!todayAll.length){
     el.innerHTML=planBanner+`<div style="background:var(--pink-light);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--text-light);text-align:center">📅 本日の予約はありません</div>`;
     return;
   }
-  const totalPax=todayRes.reduce((s,r)=>s+(r.pax||0),0);
+  const totalPax=todayAll.reduce((s,r)=>s+(r.pax||0),0);
   el.innerHTML=planBanner+`<div style="background:linear-gradient(135deg,var(--pink-deep),#e8507a);border-radius:14px;padding:14px;color:white;margin-bottom:4px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div style="font-size:13px;font-weight:700">📅 本日の予約</div>
-      <div style="font-size:11px;opacity:0.85">${todayRes.length}件 / 合計${totalPax}名</div>
+      <div style="font-size:11px;opacity:0.85">${todayAll.length}件 / 合計${totalPax}名</div>
     </div>
-    ${todayRes.map(r=>`<div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:7px 10px;margin-bottom:5px;display:flex;align-items:center;gap:8px">
+    ${todayAll.map(r=>`<div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:7px 10px;margin-bottom:5px;display:flex;align-items:center;gap:8px">
       <div style="font-size:15px;font-weight:900;min-width:44px">${r.time?r.time.slice(0,5):'--:--'}</div>
-      <div style="flex:1"><div style="font-size:12px;font-weight:700">${esc(r.customer_name)}</div><div style="font-size:10px;opacity:0.85">👥 ${r.pax}名${r.phone?' 📞 '+esc(r.phone):''}</div></div>
+      <div style="flex:1"><div style="font-size:12px;font-weight:700">${r._member?'📱 ':''}${esc(r.customer_name)}${r._member&&r.status==='pending'?'（確認中）':''}</div><div style="font-size:10px;opacity:0.85">👥 ${r.pax}名${r.phone?' 📞 '+esc(r.phone):''}</div></div>
     </div>`).join('')}
   </div>`;
 }
@@ -3272,6 +3295,7 @@ function renderResCalendar(){
   const prefix=`${resYear}-${String(resMonth+1).padStart(2,'0')}`;
   const dayMap={};
   resCache.filter(r=>r.date&&r.date.startsWith(prefix)).forEach(r=>{const d=parseInt(r.date.split('-')[2]);if(!dayMap[d])dayMap[d]=[];dayMap[d].push(r);});
+  memberCalItems().filter(p=>p.date&&p.date.startsWith(prefix)).forEach(p=>{const d=parseInt(p.date.split('-')[2]);if(!dayMap[d])dayMap[d]=[];dayMap[d].push(p);});
   const firstDay=new Date(resYear,resMonth,1).getDay(),daysInMonth=new Date(resYear,resMonth+1,0).getDate();
   const todayDate=new Date(),todayNum=todayDate.getFullYear()===resYear&&todayDate.getMonth()===resMonth?todayDate.getDate():-1;
   const grid=document.getElementById('resCalDays');grid.innerHTML='';
@@ -3279,9 +3303,10 @@ function renderResCalendar(){
   for(let d=1;d<=daysInMonth;d++){
     const cell=document.createElement('div');const count=(dayMap[d]||[]).length;
     const dow=new Date(resYear,resMonth,d).getDay();const isFri=dow===5;
-    const hasNight=(dayMap[d]||[]).some(r=>r.res_type==='night');
+    const hasNight=(dayMap[d]||[]).some(r=>r.res_type==='night'||(r._member&&r.kind==='night'));
+    const hasMember=(dayMap[d]||[]).some(r=>r._member);
     cell.className='res-cal-cell'+(count>0?' has-res':'')+(d===todayNum?' today':'')+(d===resSelectedDay?' selected':'');
-    cell.innerHTML=`<div class="res-cal-day" style="${isFri?'color:#6d28d9;font-weight:900':''}">${d}</div>${hasNight?'<div style="font-size:9px;line-height:1">🌙</div>':count>0?`<div class="res-cal-count">${count}</div>`:''}`;
+    cell.innerHTML=`<div class="res-cal-day" style="${isFri?'color:#6d28d9;font-weight:900':''}">${d}</div>${count>0?`<div class="res-cal-count">${count}</div>`:''}${(hasNight||hasMember)?`<div style="font-size:9px;line-height:1.1;margin-top:1px">${hasNight?'🌙':''}${hasMember?'📱':''}</div>`:''}`;
     cell.onclick=()=>{resSelectedDay=d;renderResCalendar();showResDayDetail(d,dayMap[d]||[]);};
     grid.appendChild(cell);
   }
@@ -3294,7 +3319,7 @@ function showResDayDetail(d,list){
   let html=`<div style="background:var(--pink-light);border-radius:14px;padding:14px">
     <div style="font-size:13px;font-weight:700;color:var(--pink-deep);margin-bottom:10px">${resMonth+1}月${d}日の予約（${list.length}件）</div>`;
   if(!sorted.length){html+=`<div style="font-size:12px;color:var(--text-light);text-align:center;padding:10px 0">予約なし</div>`;}
-  else{html+=sorted.map(r=>buildResCard(r)).join('');}
+  else{html+=sorted.map(r=>r._member?buildMemberPlanCard(r):buildResCard(r)).join('');}
   html+=`<button onclick="openResModal('${dateStr}')" style="width:100%;padding:9px;margin-top:8px;background:var(--white);border:2px dashed var(--pink-dark);border-radius:10px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;color:var(--pink-deep);font-weight:700;cursor:pointer">＋ この日に予約を追加</button></div>`;
   el.innerHTML=html;
 }
@@ -3316,14 +3341,14 @@ function renderResList(){
   const now=new Date();
   const nextMonthEnd=new Date(now.getFullYear(),now.getMonth()+2,0);
   const endStr=`${nextMonthEnd.getFullYear()}-${String(nextMonthEnd.getMonth()+1).padStart(2,'0')}-${String(nextMonthEnd.getDate()).padStart(2,'0')}`;
-  const filtered=resCache.filter(r=>r.date>=todayStr&&r.date<=endStr);
+  const filtered=[...resCache.filter(r=>r.date>=todayStr&&r.date<=endStr),...memberCalItems().filter(p=>p.date>=todayStr&&p.date<=endStr)];
   if(!filtered.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📅</div><p>今後の予約がありません</p></div>';return;}
   const groups={};filtered.forEach(r=>{if(!groups[r.date])groups[r.date]=[];groups[r.date].push(r);});
   let html='';
   Object.keys(groups).sort().forEach(date=>{
     const[y,m,d]=date.split('-');const dow=['日','月','火','水','木','金','土'][new Date(date).getDay()];
     const isToday=date===todayStr;const list=[...groups[date]].sort((a,b)=>(a.time||'').localeCompare(b.time||''));
-    const totalPax=list.reduce((s,r)=>s+(r.pax||0),0);
+    const totalPax=list.reduce((s,r)=>s+(r._member?(+r.people||0):(r.pax||0)),0);
     html+=`<div style="margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <div style="background:${isToday?'var(--pink-deep)':'var(--pink-light)'};color:${isToday?'white':'var(--pink-deep)'};border-radius:10px;padding:5px 12px;font-size:12px;font-weight:700">
@@ -3331,7 +3356,7 @@ function renderResList(){
         </div>
         <div style="font-size:11px;color:var(--text-light)">${list.length}件・${totalPax}名</div>
       </div>
-      ${list.map(r=>buildResCard(r)).join('')}
+      ${list.map(r=>r._member?buildMemberPlanCard(r):buildResCard(r)).join('')}
     </div>`;
   });
   el.innerHTML=html;
