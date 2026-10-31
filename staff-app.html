@@ -664,7 +664,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
   <button class="quick-item active" data-page="cats" onclick="switchPage('cats')"><span class="quick-icon">🐱</span>猫管理</button>
   <button class="quick-item" data-page="drinks" onclick="switchPage('drinks')" style="position:relative"><span class="quick-icon">🥤</span>在庫<div class="nav-badge" id="stockBadge" style="display:none">!</div></button>
   <button class="quick-item" data-page="board" onclick="switchPage('board')"><span class="quick-icon">📋</span>連絡</button>
-  <button class="quick-item" data-page="reservation" onclick="switchPage('reservation')"><span class="quick-icon">📞</span>予約</button>
+  <button class="quick-item" data-page="reservation" onclick="switchPage('reservation')" style="position:relative"><span class="quick-icon">📞</span>予約<div class="nav-badge" id="planNavBadge" style="display:none"></div></button>
 </div>
 
 <div class="hosp-alert" id="hospGlobalAlert"></div>
@@ -1503,7 +1503,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
 <script>
 const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
-const APP_VERSION='10/29（会員予約を表示）';
+const APP_VERSION='10/31（会員予約をカレンダーにも表示）';
 // ─── ログイン中のトークン（サーバー側で照合する合言葉） ─────────
 let wcToken='';
 try{const s=JSON.parse(sessionStorage.getItem('wecats_session')||'null');if(s&&s.token)wcToken=s.token;}catch(e){}
@@ -1739,6 +1739,7 @@ let staffCache=[],loginLogsCache=[],selectedStaffId=null,currentStaffIsOwner=fal
 // 予約
 let resYear=new Date().getFullYear(),resMonth=new Date().getMonth(),resSelectedDay=null,resTab='calendar',resCache=[],resPax=2,resChannel=null,resType='normal';
 let memberPlans=[];
+let manualChecks={};
 // 現金
 let cashCache=[],currentCashType='expense';
 // 体重
@@ -1883,6 +1884,7 @@ async function init(){
   await Promise.all([loadAllCatsOverviewData(),loadDrinks(),loadFolders(),loadReservations(),loadShiftTypes(),loadStaffCache(),loadVitalOverview()]);
   renderCatList(); checkHospitalAlerts(); updateMedTodayButton();
   todoItems = []; refreshTodoBadge();
+  loadMemberPlans();
 }
 async function loadAllCatsOverviewData(){
   const ids=catsCache.map(c=>c.id);
@@ -3134,6 +3136,7 @@ async function loadReservations(){
   const fromStr=from.toISOString().slice(0,10);
   const{data}=await sb.from('wecats_reservations').select('*').gte('date',fromStr).order('date').order('time');
   resCache=data||[];
+  if(typeof updatePlanBadge==='function')updatePlanBadge();
 }
 async function initResPage(){
   resYear=new Date().getFullYear();resMonth=new Date().getMonth();resSelectedDay=null;
@@ -3153,6 +3156,34 @@ async function loadMemberPlans(){
   }catch(e){memberPlans=[];}
   renderMemberPlans();
   renderTodaySummary();
+  updatePlanBadge();
+  if(typeof currentPage!=='undefined'&&currentPage==='reservation'){if(resTab==='calendar')renderResCalendar();else renderResList();}
+}
+function updatePlanBadge(){
+  const badge=document.getElementById('planNavBadge');if(!badge)return;
+  const n=(typeof resCache!=='undefined'?resCache:[]).filter(r=>r.date===today()).length
+    +memberPlans.filter(p=>p.date===today()).length;
+  badge.textContent=n;badge.style.display=n?'flex':'none';
+}
+// 会員予約をカレンダー・一覧・本日の予約に出すための変換（お断り・取消は出さない）
+function memberCalItems(){
+  return memberPlans.filter(p=>(p.status==='ok'||p.status==='pending')&&p.date)
+    .map(p=>({_member:true,id:'mp'+p.id,date:p.date,time:p.time?String(p.time).slice(0,5):'',people:p.people,member_name:p.member_name,note:p.note,status:p.status,kind:p.kind}));
+}
+function buildMemberPlanCard(p){
+  const kind=p.kind==='night'?'🌙 夜カフェ':p.kind==='day'?'☀️ 昼カフェ':'';
+  const chip=p.status==='ok'
+    ?`<span style="background:#e3f5e8;color:#2e8b57;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700">予約OK</span>`
+    :`<span style="background:#fff3cd;color:#b26a00;border:1px solid #f0c36d;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700">確認中</span>`;
+  return`<div class="res-card" style="cursor:default">
+    <div class="res-card-time">${p.time?esc(String(p.time).slice(0,5)):'--:--'}</div>
+    <div class="res-card-body">
+      <div class="res-card-name"><span style="background:#e8507a;color:white;border-radius:6px;font-size:10px;padding:1px 6px;margin-right:4px;font-weight:700">📱 会員</span>${esc(p.member_name||'会員')}</div>
+      <div class="res-card-detail">👥 ${esc(p.people??'')}名${kind?'　'+kind:''}　${chip}</div>
+      ${p.note?`<div class="res-card-memo">📝 ${esc(p.note)}</div>`:''}
+      <div class="res-card-detail" style="font-size:10px">確認・変更は上の「📱 会員カードからの予約」で行ってください</div>
+    </div>
+  </div>`;
 }
 function renderMemberPlans(){
   const el=document.getElementById('resPlansBox');
@@ -3203,23 +3234,25 @@ async function setMemberPlan(id,status){
 }
 function renderTodaySummary(){
   const todayStr=today();
-  const todayRes=resCache.filter(r=>r.date===todayStr).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  const todayRes=resCache.filter(r=>r.date===todayStr);
+  const todayPlans=memberCalItems().filter(p=>p.date===todayStr).map(p=>({_member:true,time:p.time,customer_name:p.member_name||'会員',pax:+p.people||0,phone:'',status:p.status}));
+  const todayAll=[...todayRes,...todayPlans].sort((a,b)=>(a.time||'').localeCompare(b.time||''));
   const el=document.getElementById('resTodaySummary');
   const planPending=memberPlans.filter(p=>p.status==='pending').length;
   const planBanner=planPending?`<div style="background:#e53935;color:white;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;text-align:center;margin-bottom:8px">📱 会員予約の確認待ちが ${planPending}件あります</div>`:'';
-  if(!todayRes.length){
+  if(!todayAll.length){
     el.innerHTML=planBanner+`<div style="background:var(--pink-light);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--text-light);text-align:center">📅 本日の予約はありません</div>`;
     return;
   }
-  const totalPax=todayRes.reduce((s,r)=>s+(r.pax||0),0);
+  const totalPax=todayAll.reduce((s,r)=>s+(r.pax||0),0);
   el.innerHTML=planBanner+`<div style="background:linear-gradient(135deg,var(--pink-deep),#e8507a);border-radius:14px;padding:14px;color:white;margin-bottom:4px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div style="font-size:13px;font-weight:700">📅 本日の予約</div>
-      <div style="font-size:11px;opacity:0.85">${todayRes.length}件 / 合計${totalPax}名</div>
+      <div style="font-size:11px;opacity:0.85">${todayAll.length}件 / 合計${totalPax}名</div>
     </div>
-    ${todayRes.map(r=>`<div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:7px 10px;margin-bottom:5px;display:flex;align-items:center;gap:8px">
+    ${todayAll.map(r=>`<div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:7px 10px;margin-bottom:5px;display:flex;align-items:center;gap:8px">
       <div style="font-size:15px;font-weight:900;min-width:44px">${r.time?r.time.slice(0,5):'--:--'}</div>
-      <div style="flex:1"><div style="font-size:12px;font-weight:700">${esc(r.customer_name)}</div><div style="font-size:10px;opacity:0.85">👥 ${r.pax}名${r.phone?' 📞 '+esc(r.phone):''}</div></div>
+      <div style="flex:1"><div style="font-size:12px;font-weight:700">${r._member?'📱 ':''}${esc(r.customer_name)}${r._member&&r.status==='pending'?'（確認中）':''}</div><div style="font-size:10px;opacity:0.85">👥 ${r.pax}名${r.phone?' 📞 '+esc(r.phone):''}</div></div>
     </div>`).join('')}
   </div>`;
 }
@@ -3262,6 +3295,7 @@ function renderResCalendar(){
   const prefix=`${resYear}-${String(resMonth+1).padStart(2,'0')}`;
   const dayMap={};
   resCache.filter(r=>r.date&&r.date.startsWith(prefix)).forEach(r=>{const d=parseInt(r.date.split('-')[2]);if(!dayMap[d])dayMap[d]=[];dayMap[d].push(r);});
+  memberCalItems().filter(p=>p.date&&p.date.startsWith(prefix)).forEach(p=>{const d=parseInt(p.date.split('-')[2]);if(!dayMap[d])dayMap[d]=[];dayMap[d].push(p);});
   const firstDay=new Date(resYear,resMonth,1).getDay(),daysInMonth=new Date(resYear,resMonth+1,0).getDate();
   const todayDate=new Date(),todayNum=todayDate.getFullYear()===resYear&&todayDate.getMonth()===resMonth?todayDate.getDate():-1;
   const grid=document.getElementById('resCalDays');grid.innerHTML='';
@@ -3269,9 +3303,10 @@ function renderResCalendar(){
   for(let d=1;d<=daysInMonth;d++){
     const cell=document.createElement('div');const count=(dayMap[d]||[]).length;
     const dow=new Date(resYear,resMonth,d).getDay();const isFri=dow===5;
-    const hasNight=(dayMap[d]||[]).some(r=>r.res_type==='night');
+    const hasNight=(dayMap[d]||[]).some(r=>r.res_type==='night'||(r._member&&r.kind==='night'));
+    const hasMember=(dayMap[d]||[]).some(r=>r._member);
     cell.className='res-cal-cell'+(count>0?' has-res':'')+(d===todayNum?' today':'')+(d===resSelectedDay?' selected':'');
-    cell.innerHTML=`<div class="res-cal-day" style="${isFri?'color:#6d28d9;font-weight:900':''}">${d}</div>${hasNight?'<div style="font-size:9px;line-height:1">🌙</div>':count>0?`<div class="res-cal-count">${count}</div>`:''}`;
+    cell.innerHTML=`<div class="res-cal-day" style="${isFri?'color:#6d28d9;font-weight:900':''}">${d}</div>${count>0?`<div class="res-cal-count">${count}</div>`:''}${(hasNight||hasMember)?`<div style="font-size:9px;line-height:1.1;margin-top:1px">${hasNight?'🌙':''}${hasMember?'📱':''}</div>`:''}`;
     cell.onclick=()=>{resSelectedDay=d;renderResCalendar();showResDayDetail(d,dayMap[d]||[]);};
     grid.appendChild(cell);
   }
@@ -3284,7 +3319,7 @@ function showResDayDetail(d,list){
   let html=`<div style="background:var(--pink-light);border-radius:14px;padding:14px">
     <div style="font-size:13px;font-weight:700;color:var(--pink-deep);margin-bottom:10px">${resMonth+1}月${d}日の予約（${list.length}件）</div>`;
   if(!sorted.length){html+=`<div style="font-size:12px;color:var(--text-light);text-align:center;padding:10px 0">予約なし</div>`;}
-  else{html+=sorted.map(r=>buildResCard(r)).join('');}
+  else{html+=sorted.map(r=>r._member?buildMemberPlanCard(r):buildResCard(r)).join('');}
   html+=`<button onclick="openResModal('${dateStr}')" style="width:100%;padding:9px;margin-top:8px;background:var(--white);border:2px dashed var(--pink-dark);border-radius:10px;font-family:'Zen Maru Gothic',sans-serif;font-size:12px;color:var(--pink-deep);font-weight:700;cursor:pointer">＋ この日に予約を追加</button></div>`;
   el.innerHTML=html;
 }
@@ -3306,14 +3341,14 @@ function renderResList(){
   const now=new Date();
   const nextMonthEnd=new Date(now.getFullYear(),now.getMonth()+2,0);
   const endStr=`${nextMonthEnd.getFullYear()}-${String(nextMonthEnd.getMonth()+1).padStart(2,'0')}-${String(nextMonthEnd.getDate()).padStart(2,'0')}`;
-  const filtered=resCache.filter(r=>r.date>=todayStr&&r.date<=endStr);
+  const filtered=[...resCache.filter(r=>r.date>=todayStr&&r.date<=endStr),...memberCalItems().filter(p=>p.date>=todayStr&&p.date<=endStr)];
   if(!filtered.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📅</div><p>今後の予約がありません</p></div>';return;}
   const groups={};filtered.forEach(r=>{if(!groups[r.date])groups[r.date]=[];groups[r.date].push(r);});
   let html='';
   Object.keys(groups).sort().forEach(date=>{
     const[y,m,d]=date.split('-');const dow=['日','月','火','水','木','金','土'][new Date(date).getDay()];
     const isToday=date===todayStr;const list=[...groups[date]].sort((a,b)=>(a.time||'').localeCompare(b.time||''));
-    const totalPax=list.reduce((s,r)=>s+(r.pax||0),0);
+    const totalPax=list.reduce((s,r)=>s+(r._member?(+r.people||0):(r.pax||0)),0);
     html+=`<div style="margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <div style="background:${isToday?'var(--pink-deep)':'var(--pink-light)'};color:${isToday?'white':'var(--pink-deep)'};border-radius:10px;padding:5px 12px;font-size:12px;font-weight:700">
@@ -3321,7 +3356,7 @@ function renderResList(){
         </div>
         <div style="font-size:11px;color:var(--text-light)">${list.length}件・${totalPax}名</div>
       </div>
-      ${list.map(r=>buildResCard(r)).join('')}
+      ${list.map(r=>r._member?buildMemberPlanCard(r):buildResCard(r)).join('')}
     </div>`;
   });
   el.innerHTML=html;
@@ -4134,8 +4169,9 @@ async function openArticle(articleId){
     const{data}=await sb.from('manuals').select('attachment').eq('id',articleId).single();
     article.attachment=data?.attachment||null;
   }
+  if(article.type==='checklist')await loadManualChecks(article.id);
   let html=`<div class="article-detail-title">${esc(article.title)}</div>`;
-  if(article.type==='checklist'){const items=(article.content||'').split('\n').filter(s=>s.trim());const ck='check_'+articleId+'_'+today();const state=JSON.parse(localStorage.getItem(ck)||'{}');html+=items.map((item,i)=>`<div class="checklist-item"><div class="checklist-check ${state[i]?'done':''}" onclick="toggleCheck('${ck}',${i},this,'ct-${articleId}-${i}')">${state[i]?'✓':''}</div><div class="checklist-text ${state[i]?'done':''}" id="ct-${articleId}-${i}">${esc(item)}</div></div>`).join('');html+=`<button class="reset-check-btn" onclick="resetChecklist('${ck}','${articleId}')">🔄 チェックをリセット</button>`;}
+  if(article.type==='checklist'){const items=(article.content||'').split('\n').filter(s=>s.trim());const state=manualChecks[articleId]||{};html+=items.map((item,i)=>{const c=state[i];const name=c?c.name:'';return`<div class="checklist-item"><div class="checklist-check ${c?'done':''}" onclick="toggleCheckShared('${articleId}',${i},this,'ct-${articleId}-${i}')">${c?'✓':''}</div><div class="checklist-text ${c?'done':''}" id="ct-${articleId}-${i}">${esc(item)}</div><span id="cw-${articleId}-${i}" style="font-size:10px;color:var(--text-light)">${name?'✓ '+esc(name):''}</span></div>`;}).join('');html+=`<button class="reset-check-btn" onclick="resetChecklistShared('${articleId}')">🔄 チェックをリセット</button>`;}
   else if(article.type==='step_article'){try{const steps=JSON.parse(article.content||'[]');html+=steps.map((step,i)=>{const photos=step.photos||[];const hasText=step.text&&step.text.trim();const photoHtml=photos.map(p=>`<img src="${esc(p)}" class="step-photo" onclick="openViewer(this.src)" alt="">`).join('');const bodyHtml=hasText?`<div class="step-body"><div class="step-num">${i+1}</div><div class="step-text">${esc(step.text)}</div></div>`:`<div class="step-num-float">${i+1}</div>`;return`<div class="step-block${hasText?'':' photo-only'}">${photoHtml}${bodyHtml}</div>`;}).join('');}catch(e){html+=`<div style="font-size:13px">${esc(article.content||'')}</div>`;}}
   else{html+=`<div style="font-size:14px;line-height:1.9;white-space:pre-wrap">${esc(article.content||'')}</div>`;}
   if(article.attachment){
@@ -4143,8 +4179,42 @@ async function openArticle(articleId){
   }
   document.getElementById('articleDetailContent').innerHTML=html;
 }
-function toggleCheck(ck,idx,el,textId){const state=JSON.parse(localStorage.getItem(ck)||'{}');state[idx]=!state[idx];localStorage.setItem(ck,JSON.stringify(state));el.classList.toggle('done',state[idx]);el.textContent=state[idx]?'✓':'';const t=document.getElementById(textId);if(t)t.classList.toggle('done',state[idx]);}
-function resetChecklist(ck,articleId){localStorage.removeItem(ck);openArticle(articleId);showToast('✓ チェックをリセットしました');}
+// マニュアルのチェックリスト：今日のチェックをサーバーで共有（wecats_manual_checks）
+async function loadManualChecks(articleId){
+  const map={};
+  try{
+    const{data,error}=await sb.from('wecats_manual_checks').select('*').eq('article_id',String(articleId)).eq('check_date',today());
+    if(!error)(data||[]).forEach(r=>{map[r.item_index]={id:r.id,name:r.staff_name||''};});
+  }catch(e){}
+  manualChecks[articleId]=map;
+}
+async function toggleCheckShared(articleId,idx,el,textId){
+  if(!manualChecks[articleId])manualChecks[articleId]={};
+  let c=manualChecks[articleId][idx];
+  // 追加直後で行のidがまだ分からないときは読み直す
+  if(c&&!c.id){await loadManualChecks(articleId);c=manualChecks[articleId][idx];}
+  const on=!c;
+  if(c){
+    const r=await sbDelete('wecats_manual_checks',c.id);
+    if(r&&r.error&&!r.offline){showToast('⚠️ チェックを外せませんでした');return;}
+    delete manualChecks[articleId][idx];
+  }else{
+    const r=await sbInsert('wecats_manual_checks',{article_id:String(articleId),item_index:idx,check_date:today(),staff_name:userName});
+    if(r&&r.error&&!r.offline){showToast('⚠️ チェックを保存できませんでした');return;}
+    if(!r||!r.offline)await loadManualChecks(articleId);
+    if(!manualChecks[articleId][idx])manualChecks[articleId][idx]={id:null,name:userName};
+  }
+  el.classList.toggle('done',on);el.textContent=on?'✓':'';
+  const t=document.getElementById(textId);if(t)t.classList.toggle('done',on);
+  const w=document.getElementById('cw-'+articleId+'-'+idx);if(w)w.textContent=on?'✓ '+manualChecks[articleId][idx].name:'';
+}
+async function resetChecklistShared(articleId){
+  if(Object.values(manualChecks[articleId]||{}).some(c=>!c.id))await loadManualChecks(articleId);
+  for(const c of Object.values(manualChecks[articleId]||{})){if(c.id)await sbDelete('wecats_manual_checks',c.id);}
+  manualChecks[articleId]={};
+  await openArticle(articleId);
+  showToast('✓ チェックをリセットしました');
+}
 async function saveFolder(){
   const title=document.getElementById('folderName').value.trim();
   if(!title){showToast('フォルダー名を入力してください');return;}
@@ -4689,6 +4759,14 @@ function todoAllStaff() { return staffCache.map(s => s.name); }
 function todoDaysLeft(due) { if (!due) return null; const t = new Date(today() + 'T00:00:00'), d = new Date(due + 'T00:00:00'); return Math.round((d - t) / 86400000); }
 function todoMD(due) { if (!due) return ''; const [, m, d] = due.split('-'); return `${parseInt(m)}/${parseInt(d)}`; }
 function todoAddDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+// 繰り返しの次回期限（base は 'YYYY-MM-DD'。毎月は月末に丸める）
+function todoNextDue(base, recur) {
+  const [y, m, dd] = base.split('-').map(Number);
+  let d;
+  if (recur === 'monthly') { const last = new Date(y, m + 1, 0).getDate(); d = new Date(y, m, Math.min(dd, last)); }
+  else d = new Date(y, m - 1, dd + (recur === 'weekly' ? 7 : 1));
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 function todoById(id) { return todoItems.find(t => t.id === id); }
 function todoNow() { return new Date().toISOString(); }
 function todoShiftMark(n) { return todoTodayShift.includes(n) ? '（今日シフト）' : ''; }
@@ -4843,6 +4921,12 @@ function todoDueBadge(t) {
 }
 function todoSortByDue(a, b) { const x = a.due || '9999', y = b.due || '9999'; return x < y ? -1 : x > y ? 1 : 0; }
 function todoPub(t) { return t.is_public ? '<span class="td-pill td-p-purple">👥 全員</span>' : ''; }
+const TODO_RECUR_LABEL = { daily: '毎日', weekly: '毎週', monthly: '毎月' };
+function todoRecurPill(t) { return TODO_RECUR_LABEL[t.recur] ? `<span class="td-pill td-p-purple">🔁 ${TODO_RECUR_LABEL[t.recur]}</span>` : ''; }
+function todoRecurHtml() {
+  const opt = (v, l) => `<option value="${v}" ${todoForm.recur === v ? 'selected' : ''}>${l}</option>`;
+  return `<div class="form-group"><label class="form-label">繰り返し（任意）</label><select class="form-input" id="tdF_recur">${opt('', 'しない')}${opt('daily', '毎日')}${opt('weekly', '毎週')}${opt('monthly', '毎月')}</select></div>`;
+}
 function todoDetail(t) { return t.detail ? `<div class="td-meta">${tEsc(t.detail).replace(/\n/g, '<br>')}</div>` : ''; }
 function todoWhoLine(t) {
   const v = t.viewers.length ? `　見せた人：${t.viewers.map(tEsc).join('・')}` : '';
@@ -4875,7 +4959,7 @@ function renderTodos() {
   // 頼まれごと（自分宛て）
   if (askedMe.length) {
     h += '<div class="td-sec">🙋 頼まれごと</div>';
-    h += askedMe.map(t => `<div class="td-card" style="border-color:#a78bfa"><div class="td-row"><span style="flex:1;font-size:14px;font-weight:700">${tEsc(t.title)}</span>${todoDueBadge(t)}</div>
+    h += askedMe.map(t => `<div class="td-card" style="border-color:#a78bfa"><div class="td-row"><span style="flex:1;font-size:14px;font-weight:700">${tEsc(t.title)}</span>${todoRecurPill(t)}${todoDueBadge(t)}</div>
       <div class="td-meta">${tEsc(t.assigned_by || t.proposed_by)}さんからのお願い</div>${todoDetail(t)}
       ${t.steps.length ? `<div class="td-meta">段階：${t.steps.map(s => tEsc(s.name)).join(' → ')}</div>` : ''}
       <div class="td-row" style="margin-top:8px;gap:6px"><button class="td-btn main" onclick="acceptTodo('${t.id}')">引き受ける</button><button class="td-btn" onclick="openTodoConsult('${t.id}')">相談したい</button></div></div>`).join('');
@@ -4903,7 +4987,7 @@ function renderTodos() {
     if (own) btns += `<button class="td-btn" onclick="skipTodo('${t.id}')">やらない</button>`;
     if (own) btns += `<button class="td-btn red" onclick="deleteTodo('${t.id}')">🗑 削除</button>`;
     if (mine && !own) btns += `<button class="td-btn red" onclick="withdrawTodo('${t.id}')">取り下げ</button>`;
-    return `<div class="td-card"><div class="td-row"><span style="flex:1;font-size:13px;font-weight:700">${tEsc(t.title)}</span>${todoPub(t)}${t.due ? todoDueBadge(t) : ''}</div>
+    return `<div class="td-card"><div class="td-row"><span style="flex:1;font-size:13px;font-weight:700">${tEsc(t.title)}</span>${todoPub(t)}${todoRecurPill(t)}${t.due ? todoDueBadge(t) : ''}</div>
       ${todoWhoLine(t)}${todoDetail(t)}
       <div class="td-row" style="margin-top:8px;gap:6px;flex-wrap:wrap">${btns}</div></div>`;
   }).join('') : '<div class="td-empty">担当未定のものはありません</div>';
@@ -4912,7 +4996,7 @@ function renderTodos() {
   h += '<div class="td-sec">📋 TODO（期限が近い順）</div>';
   h += todos.length ? todos.map(t => {
     if (t.status === 'asked') {
-      return `<div class="td-card"><div class="td-row"><span style="flex:1;font-size:14px;font-weight:700">${tEsc(t.title)}</span>${todoDueBadge(t)}</div>
+      return `<div class="td-card"><div class="td-row"><span style="flex:1;font-size:14px;font-weight:700">${tEsc(t.title)}</span>${todoRecurPill(t)}${todoDueBadge(t)}</div>
         <div class="td-row" style="margin-top:6px"><span class="td-pill td-p-yellow">${tEsc(t.assignee)}さんの返事待ち</span><span style="flex:1"></span><button class="td-btn" onclick="openTodoAssign('${t.id}')">担当を変える</button></div></div>`;
     }
     const d = todoDaysLeft(t.due);
@@ -4927,7 +5011,7 @@ function renderTodos() {
         <span style="flex:1;${s.done ? 'text-decoration:line-through;color:var(--text-light)' : ''}">${tEsc(s.name)}</span>
         ${who ? `<span class="td-pill td-p-purple">${tEsc(who)}</span>` : ''}${askBtn}</div>`;
     }).join('');
-    return `<div class="td-card ${cls}"><div class="td-row"><span style="flex:1;font-size:14px;font-weight:700">${tEsc(t.title)}</span>${todoPub(t)}${todoDueBadge(t)}</div>
+    return `<div class="td-card ${cls}"><div class="td-row"><span style="flex:1;font-size:14px;font-weight:700">${tEsc(t.title)}</span>${todoPub(t)}${todoRecurPill(t)}${todoDueBadge(t)}</div>
       <div class="td-meta">担当：${tEsc(t.assignee || '')}さん　出した人：${tEsc(t.proposed_by)}さん</div>${todoDetail(t)}
       ${st.length ? `<div class="td-bar"><i style="width:${Math.round(done / st.length * 100)}%"></i></div><div class="td-meta">${done} / ${st.length} 完了</div><div style="margin-top:4px">${steps}</div>` : ''}
       ${todoProgressHtml(t, allDone)}
@@ -4961,7 +5045,7 @@ function todoSetForm(k, v) {
   todoForm.render();
 }
 function todoCapture() {
-  ['title','detail','due','note','stepsCustom'].forEach(k => { const e = document.getElementById('tdF_' + k); if (e) todoForm[k] = e.value; });
+  ['title','detail','due','recur','note','stepsCustom'].forEach(k => { const e = document.getElementById('tdF_' + k); if (e) todoForm[k] = e.value; });
   const sns = document.getElementById('tdF_sns'); if (sns) todoForm.isSns = sns.checked;
   const pub = document.getElementById('tdF_public'); if (pub) todoForm.isPublic = pub.checked;
 }
@@ -4987,7 +5071,7 @@ function todoBuildSteps(oldSteps) {
 
 // ── やることを出す
 function openTodoCreate() {
-  todoForm = { title: '', detail: '', due: '', viewers: [], assignee: '', tpl: 'none', stepsCustom: '', isSns: false, isPublic: false, render: renderTodoCreate };
+  todoForm = { title: '', detail: '', due: '', recur: '', viewers: [], assignee: '', tpl: 'none', stepsCustom: '', isSns: false, isPublic: false, render: renderTodoCreate };
   renderTodoCreate();
 }
 function renderTodoCreate() {
@@ -4997,6 +5081,7 @@ function renderTodoCreate() {
     <div class="form-group"><label class="form-label">やること</label><input class="form-input" id="tdF_title" value="${tEsc(todoForm.title)}" placeholder="例：猫トイレの砂を全交換"></div>
     <div class="form-group"><label class="form-label">くわしく（任意）</label><textarea class="form-textarea" id="tdF_detail" style="min-height:60px">${tEsc(todoForm.detail)}</textarea></div>
     <div class="form-group"><label class="form-label">期限（任意）</label><input type="date" class="form-input" id="tdF_due" value="${todoForm.due}"></div>
+    ${todoRecurHtml()}
     <div class="form-group"><label class="form-label">見せる人（複数選べます）</label><div class="td-choices">${others.map(n => todoChoice('viewers', n, n + 'さん')).join('')}</div>
       <div class="td-meta">${currentStaffIsOwner ? '選んだ人がこのTODOを見て、誰がやるかを決められます。' : '誰も選ばないと、オーナーと自分だけに表示されます。オーナーへのお願いにも使えます。'}</div></div>
     <div class="form-group"><label class="form-label">担当（今決めるなら）</label><div class="td-choices">${todoChoice('assignee', '', 'あとで決める')}${todoAssignChoicesHtml()}</div></div>`;
@@ -5014,7 +5099,7 @@ async function saveTodoCreate() {
   const me = userName, a = todoForm.assignee;
   const row = { id: wcId('todo'), title: todoForm.title.trim(), detail: todoForm.detail.trim(), due: todoForm.due || null, proposed_by: me,
     viewers: todoForm.viewers, assignee: a || null, assigned_by: a ? me : null, status: !a ? 'proposed' : (a === me ? 'todo' : 'asked'),
-    steps, progress: 'notyet', is_sns: !!todoForm.isSns, is_public: !!todoForm.isPublic, report_unread: false, updated_at: todoNow() };
+    steps, progress: 'notyet', is_sns: !!todoForm.isSns, is_public: !!todoForm.isPublic, recur: todoForm.recur || null, report_unread: false, updated_at: todoNow() };
   const r = await sbInsert('wecats_todos', row);
   if (r && r.error && !r.offline) { showToast('保存できませんでした'); return; }
   todoItems.push(row);
@@ -5055,9 +5140,10 @@ async function withdrawTodo(id) {
 }
 async function todoUpdate(t, upd) {
   upd.updated_at = todoNow();
-  await sbUpdate('wecats_todos', t.id, upd);
+  const r = await sbUpdate('wecats_todos', t.id, upd);
   Object.assign(t, upd);
   renderTodos(); refreshTodoBadge();
+  return r;
 }
 async function skipTodo(id) {
   const t = todoById(id); if (!t) return;
@@ -5070,7 +5156,7 @@ async function skipTodo(id) {
 // ── 担当を決める（見える人なら誰でも）
 function openTodoAssign(id, preset) {
   const t = todoById(id); if (!t) return;
-  todoForm = { id, assignee: t.assignee || '', due: t.due || todoAddDays(7), tpl: t.steps.length ? 'keep' : 'none', stepsCustom: '', isPublic: !!t.is_public, render: renderTodoAssign, ...(preset || {}) };
+  todoForm = { id, assignee: t.assignee || '', due: t.due || todoAddDays(7), tpl: t.steps.length ? 'keep' : 'none', stepsCustom: '', isPublic: !!t.is_public, recur: t.recur || '', render: renderTodoAssign, ...(preset || {}) };
   renderTodoAssign();
 }
 function renderTodoAssign() {
@@ -5081,6 +5167,7 @@ function renderTodoAssign() {
     <div class="form-group"><label class="form-label">誰がやる？</label><div class="td-choices">${todoAssignChoicesHtml()}</div></div>`;
   if (a && a !== userName) h += `<div class="td-hint">🙋 ${tEsc(a)}さんのアプリに「頼まれごと」として届きます。${tEsc(a)}さんが「引き受ける」を押すとTODOに入ります。${todoTodayShift.includes(a) ? '今日シフトに入っているので、ひとこと声もかけてみましょう。' : ''}</div>`;
   h += `<div class="form-group"><label class="form-label">期限</label><input type="date" class="form-input" id="tdF_due" value="${todoForm.due}"></div>`;
+  h += todoRecurHtml();
   h += todoStepsHtml(t.steps.length > 0, t.is_sns && isSnsVisible());
   if (currentStaffIsOwner || t.proposed_by === userName) h += `<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px"><input type="checkbox" id="tdF_public" ${todoForm.isPublic ? 'checked' : ''} style="width:18px;height:18px">👥 全員に見せる（お店全体に関係すること向け）</label>`;
   h += `<button class="modal-submit" style="background:#6d28d9" onclick="saveTodoAssign()">決定する</button>`;
@@ -5095,7 +5182,7 @@ async function saveTodoAssign() {
   if (!steps) { showToast('段階を入力してください'); return; }
   const me = userName;
   const keepTodo = t.status === 'todo' && t.assignee === a;
-  await todoUpdate(t, { assignee: a, assigned_by: me, due: todoForm.due || null, steps, status: keepTodo || a === me ? 'todo' : 'asked', progress: keepTodo ? (t.progress || 'notyet') : 'notyet', is_public: !!todoForm.isPublic, consult_reason: '', consult_note: '', consult_with: '' });
+  await todoUpdate(t, { assignee: a, assigned_by: me, due: todoForm.due || null, steps, status: keepTodo || a === me ? 'todo' : 'asked', progress: keepTodo ? (t.progress || 'notyet') : 'notyet', is_public: !!todoForm.isPublic, recur: todoForm.recur || null, consult_reason: '', consult_note: '', consult_with: '' });
   closeModal('todo');
   showToast(a === me ? '✓ 自分のTODOに入れました' : keepTodo ? '✓ 変更しました' : `✓ ${a}さんにお願いしました`);
 }
@@ -5172,8 +5259,24 @@ async function finishTodo(id) {
 }
 async function reviewTodo(id, ok) {
   const t = todoById(id); if (!t) return;
-  await todoUpdate(t, { status: ok ? 'done' : 'todo', progress: ok ? 'done' : 'doing' });
+  const r = await todoUpdate(t, { status: ok ? 'done' : 'todo', progress: ok ? 'done' : 'doing' });
   showToast(ok ? '✓ 完了にしました' : `TODOに戻しました。${t.assignee || ''}さんに直接伝えてください`);
+  if (ok && t.recur && !(r && r.error && !r.offline)) await todoCreateNext(t);
+}
+// 繰り返しTODO：完了を確定したら次の回を作る
+async function todoCreateNext(t) {
+  const due = todoNextDue(t.due || today(), t.recur);
+  if (todoItems.some(x => x.title === t.title && x.recur === t.recur && x.status !== 'done' && x.status !== 'skipped' && x.due === due)) return;
+  const a = t.assignee, by = t.proposed_by;
+  const row = { id: wcId('todo'), title: t.title, detail: t.detail, due, proposed_by: by,
+    viewers: [...(t.viewers || [])], assignee: a || null, assigned_by: by, status: !a ? 'proposed' : (a === by ? 'todo' : 'asked'),
+    steps: (t.steps || []).map(s => ({ ...s, done: false })), progress: 'notyet', is_sns: !!t.is_sns, is_public: !!t.is_public,
+    recur: t.recur, report_unread: false, updated_at: todoNow() };
+  const r = await sbInsert('wecats_todos', row);
+  if (r && r.error && !r.offline) return;
+  todoItems.push(row);
+  renderTodos(); refreshTodoBadge();
+  showToast(`🔁 次の回を作りました（${todoMD(due)}）`);
 }
 
 document.querySelectorAll('.modal-overlay').forEach(overlay=>{overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open');});});
