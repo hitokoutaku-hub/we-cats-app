@@ -1503,7 +1503,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
 <script>
 const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
-const APP_VERSION='10/31（会員予約をカレンダーにも表示）';
+const APP_VERSION='11/2（点検修正：記録・残高まわり）';
 // ─── ログイン中のトークン（サーバー側で照合する合言葉） ─────────
 let wcToken='';
 try{const s=JSON.parse(sessionStorage.getItem('wecats_session')||'null');if(s&&s.token)wcToken=s.token;}catch(e){}
@@ -1929,7 +1929,7 @@ function switchPage(page){
   if(page==='vaccineoverview')loadVaccineOverview();
   if(page==='careoverview')loadCareOverview();
   if(page==='activecases')loadActiveCasesOverview();
-  if(page==='medtoday')initMedToday();
+  if(page==='medtoday'){medTodayDate=today();initMedToday();}
   if(page==='cats')updateMedTodayButton();
 }
 function goBack(){
@@ -2089,13 +2089,14 @@ async function jumpToCareHistory(catId){
 let currentMedCase=null;
 function openMedCaseModal(){
   const rec=(catRecordsCache[currentCatId]||[]).filter(r=>r.type==='medcase').sort((a,b)=>b.date.localeCompare(a.date))[0];
-  currentMedCase=rec||null;
-  const d=rec?rec.data||{}:{};
+  // 対応が終わったケースは上書きしない。最新のケースが終わっている場合は、新しいケースとして登録する
+  currentMedCase=(rec&&rec.case_active)?rec:null;
+  const d=currentMedCase?rec.data||{}:{};
   document.getElementById('mcSymptom').value=d.symptom||'';
   document.getElementById('mcStatus').value=d.status||'';
   document.getElementById('mcTreatment').value=d.treatment||'';
   document.getElementById('mcNote').value=d.note||'';
-  document.getElementById('mcActive').checked=rec?!!rec.case_active:true;
+  document.getElementById('mcActive').checked=true;
   photoBuf.medcase=d.photos||[];renderPhotoPreview('medcase');
   document.getElementById('modalMedCase').classList.add('open');
 }
@@ -2105,8 +2106,10 @@ async function saveMedCase(){
   const data={symptom,status:document.getElementById('mcStatus').value.trim(),treatment:document.getElementById('mcTreatment').value.trim(),note:document.getElementById('mcNote').value.trim(),photos:[...photoBuf.medcase]};
   const case_active=document.getElementById('mcActive').checked;
   const date=today();
-  if(currentMedCase){await sbUpdate('wecats_records',currentMedCase.id,{data,case_active,date});}
-  else{await sbInsert('wecats_records',{id:wcId('rec'),cat_id:currentCatId,type:'medcase',date,data,case_active});}
+  let r;
+  if(currentMedCase)r=await sbUpdate('wecats_records',currentMedCase.id,{data,case_active,date});
+  else r=await sbInsert('wecats_records',{id:wcId('rec'),cat_id:currentCatId,type:'medcase',date,data,case_active});
+  if(r&&r.failed)return;
   await loadCatDetail(currentCatId);photoBuf.medcase=[];closeModal('medCase');showToast('✓ ケースを保存しました');renderActiveCaseBox();
 }
 function renderActiveCaseBox(){
@@ -2165,6 +2168,8 @@ async function jumpToMedCase(catId){
 }
 async function openCatDetail(catId){
   currentCatId=catId;const cat=catsCache.find(c=>c.id===catId);
+  // 日付指定（カレンダー・✏️）や編集中の状態は、別の猫に持ち越さない
+  calInputDate=null;dailyEditingId=null;const dl=document.getElementById('dailyDateLabel');if(dl)dl.style.display='none';resetDailyForm();
   document.getElementById('detailEmoji').textContent=cat.emoji;
   document.getElementById('detailName').textContent=cat.name;
   document.getElementById('detailSub').textContent='読み込み中...';
@@ -2252,7 +2257,15 @@ async function saveDailyCheck(){
   const stamp={name:userName,at:new Date().toISOString()};
   // サーバーの最新を確認（他の人が先に保存しているかもしれないので）
   let existing=null;
-  if(editingId)existing=(catRecordsCache[currentCatId]||[]).find(r=>r.id===editingId)||null;
+  const openRec=editingId?(catRecordsCache[currentCatId]||[]).find(r=>r.id===editingId)||null:null;
+  if(editingId){
+    existing=openRec;
+    // 開いた後に他の人が足した分を消さないよう、サーバーの最新を取り直す
+    try{
+      const{data,error}=await sb.from('wecats_records').select('*').eq('id',editingId).limit(1);
+      if(!error&&data&&data.length)existing=data[0];
+    }catch(e){}
+  }
   else{
     try{
       const{data,error}=await sb.from('wecats_records').select('*').eq('cat_id',currentCatId).eq('type','daily').eq('date',dateStr).order('id').limit(1);
@@ -2268,8 +2281,16 @@ async function saveDailyCheck(){
     recs.push(stamp);
     let data;
     if(editingId){
-      // ✏️ で開いて直した場合は、直した内容で置きかえる（記録した人の履歴は残す）
+      // ✏️ で開いて直した内容で置きかえる（記録した人の履歴は残す）
       data={...old,...values,recorders:recs};
+      // 開いた後に他の人が足した分は消さない：尿は多い方、写真は合算、
+      // メモは自分が変えていなければサーバーの最新を残す
+      const ou2=typeof old.urine==='number'?old.urine:(old.urine==='あり'?1:0);
+      data.urine=Math.max(ou2,values.urine||0);
+      const openMemo=openRec&&openRec.data?(openRec.data.memo||''):'';
+      if(values.memo===openMemo&&old.memo)data.memo=old.memo;
+      data.photos=[...(old.photos||[])];
+      (values.photos||[]).forEach(p=>{if(!data.photos.includes(p))data.photos.push(p);});
     }else{
       // 新しく入れた場合は、前の人の内容に「足す」（空欄は前の内容を残す）
       merged=true;
@@ -2581,7 +2602,8 @@ function openMoreMenu(){openModal('moreMenu');}
 async function saveHospitalPlan(){
   const date=document.getElementById('hpDate').value,memo=document.getElementById('hpMemo').value.trim();
   if(!date){showToast('日付を入力してください');return;}
-  await sbInsert('wecats_hospital_plans', {id:wcId('hp'),cat_id:currentCatId,date,memo});
+  const r=await sbInsert('wecats_hospital_plans', {id:wcId('hp'),cat_id:currentCatId,date,memo});
+  if(r&&r.failed)return;
   await loadCatDetail(currentCatId);closeModal('hospitalPlan');showToast('✓ 病院予定を追加しました');renderHospPlanList();checkHospitalAlerts();
 }
 function renderHospPlanList(){
@@ -2609,8 +2631,11 @@ async function saveHospital(){
   // 旧バージョンとの互換のため、ワクチンの時だけvaccine_dateにも同じ日付を入れておく
   const vaccine_date=periodicType==='vaccine'?date:null;
   const editId=document.getElementById('modalHospital').dataset.editId;
-  if(editId){await sbUpdate('wecats_records',editId,{data,periodic_type:periodicType,periodic_date,vaccine_date});document.getElementById('modalHospital').dataset.editId='';}
-  else{await sbInsert('wecats_records',{id:wcId('rec'),cat_id:currentCatId,type:'hospital',date,data,periodic_type:periodicType,periodic_date,vaccine_date});}
+  let r;
+  if(editId)r=await sbUpdate('wecats_records',editId,{data,date,periodic_type:periodicType,periodic_date,vaccine_date});
+  else r=await sbInsert('wecats_records',{id:wcId('rec'),cat_id:currentCatId,type:'hospital',date,data,periodic_type:periodicType,periodic_date,vaccine_date});
+  if(r&&r.failed)return;
+  if(editId)document.getElementById('modalHospital').dataset.editId='';
   await loadCatDetail(currentCatId);photoBuf.hospital=[];closeModal('hospital');showToast('✓ 受診記録を保存しました');renderHospitalList();
   if(!editId&&data.medicine)setTimeout(()=>offerMedFromHospital(date,data.medicine,data.diagnosis),300);
 }
@@ -2637,7 +2662,8 @@ function openCareModal(key,label,emoji){
 async function saveCare(){
   const date=document.getElementById('cDate').value;if(!date){showToast('日付を入力してください');return;}
   const data={careType:currentCareType,memo:document.getElementById('cMemo').value.trim()};
-  await sbInsert('wecats_records',{id:wcId('rec'),cat_id:currentCatId,type:'care',date,data});
+  const r=await sbInsert('wecats_records',{id:wcId('rec'),cat_id:currentCatId,type:'care',date,data});
+  if(r&&r.failed)return;
   await loadCatDetail(currentCatId);calInputDate=null;closeModal('care');showToast('✓ ケア記録を保存しました');renderCareGrid();renderCareHistory();
 }
 function renderCareHistory(){
@@ -3150,10 +3176,10 @@ async function initResPage(){
 async function loadMemberPlans(){
   // 関数がまだ無い環境でもトーストを出さないよう、失敗は静かに諦める
   try{
-    const{data:d,error}=await sb.rpc('wecats_plan_list',{p_from:today(),p_to:todoAddDays(90)});
-    if(error||!d||!d.ok){memberPlans=[];}
-    else memberPlans=Array.isArray(d.plans)?d.plans:[];
-  }catch(e){memberPlans=[];}
+    const{data:d,error}=await sb.rpc('wecats_plan_list',{p_from:addDays(today(),-62),p_to:addDays(today(),180)});
+    if(!error&&d&&d.ok)memberPlans=Array.isArray(d.plans)?d.plans:[];
+    // 取得に失敗したときは前回の表示を残す（空にすると「予約なし」に見えてしまうため）
+  }catch(e){}
   renderMemberPlans();
   renderTodaySummary();
   updatePlanBadge();
@@ -3425,17 +3451,24 @@ function selectResChannel(el){
   });
   el.style.background='var(--pink-deep)';el.style.borderColor='var(--pink-deep)';el.style.color='white';
 }
+let resSaving=false;
 async function saveRes(){
+  if(resSaving)return;
   const date=document.getElementById('resDate').value,name=document.getElementById('resName').value.trim();
   if(!date||!name){showToast('日付とお客様名を入力してください');return;}
+  resSaving=true;
   const time=document.getElementById('resTime').value,phone=document.getElementById('resPhone').value.trim(),memo=document.getElementById('resMemo').value.trim();
   const staff=document.getElementById('resStaff').value.trim(),channel=resChannel||null;
   const editId=document.getElementById('resEditId').value;
   const payload={date,time,customer_name:name,pax:resPax,phone,memo,staff,channel,res_type:resType||'normal'};
-  if(editId){await sbUpdate('wecats_reservations',editId,payload);showToast('✓ 予約を更新しました');}
-  else{await sbInsert('wecats_reservations',{id:wcId('res'),...payload});showToast('✓ 予約を追加しました');}
+  let r;
+  if(editId)r=await sbUpdate('wecats_reservations',editId,payload);
+  else r=await sbInsert('wecats_reservations',{id:wcId('res'),...payload});
+  if(r&&r.failed){resSaving=false;return;}
+  showToast(editId?'✓ 予約を更新しました':'✓ 予約を追加しました');
   await loadReservations();closeModal('res');renderTodaySummary();
   if(resTab==='calendar')renderResCalendar();else renderResList();
+  resSaving=false;
 }
 async function deleteRes(){
   if(!confirm('この予約を削除しますか？'))return;
@@ -3447,9 +3480,10 @@ async function deleteRes(){
 
 // ===== ドリンク =====
 async function loadDrinks(){
-  const{data}=await sb.from('drink_items').select('*').order('sort_order').order('created_at');
+  const{data,error}=await sb.from('drink_items').select('*').order('sort_order').order('created_at');
   ['hot','ice','cat','supply','meds'].forEach(cat=>drinkCache[cat]=(data||[]).filter(d=>d.category===cat));
-  if(!data||data.length===0)await initDefaultDrinks();
+  // 読み込みに失敗したときは初期データを入れない（空っぽと誤認して重複登録してしまうため）
+  if(!error&&(!data||data.length===0))await initDefaultDrinks();
   updateStockBadge();if(currentPage==='drinks')renderDrinks();
 }
 function updateStockBadge(){
@@ -3669,6 +3703,8 @@ function toggleComposer(force){
   const c=document.getElementById('composer');
   const open=force===undefined?c.style.display==='none':force;
   c.style.display=open?'block':'none';
+  // 閉じるときは編集状態を解除する（残ると次の新規投稿が既存の投稿を上書きしてしまう）
+  if(!open){const np=document.getElementById('newPostContent');if(np)np.dataset.editId='';}
   document.getElementById('composerToggle').textContent=open?'✕ 閉じる':'✏️ 書く';
   if(open){
     document.getElementById('ptOwnerBtn').style.display=currentStaffIsOwner||currentPostType==='owner'?'':'none';
@@ -3993,21 +4029,16 @@ async function initCashPage(){
   const{data,error}=await sb.from('wecats_cash').select('id,date,type,description,amount,balance,memo').order('date',{ascending:true});
   if(error){console.error('cash load error:',error);showToast('⚠ 読み込みエラー: '+error.message);}
   const rows=data||[];
-  // 一番最後の「reset」レコードを基準点にする
-  let startIdx=-1,balance=0;
-  for(let i=rows.length-1;i>=0;i--){
-    if(rows[i].type==='reset'){startIdx=i;balance=rows[i].amount;break;}
-  }
+  // 残高は保存済みの値ではなく「最後のリセットから全件を再計算」して求める
+  // （過去の日付で入れた記録・削除・2台の同時入力でも、表示残高が実際とずれないように）
+  let startIdx=-1;
+  for(let i=rows.length-1;i>=0;i--){if(rows[i].type==='reset'){startIdx=i;break;}}
+  let balance=0;
   cashCache=rows.map((r,i)=>{
-    if(startIdx===-1){
-      // resetなし：DBのbalanceがあればそれを使い、なければ順番に計算
-      if(r.balance!=null&&r.balance!==undefined)return{...r};
-      balance=r.type==='expense'?balance-r.amount:r.type==='refill'?balance+r.amount:r.type==='reset'?r.amount:balance;
-      return{...r,balance};
-    }
-    if(i<startIdx)return{...r,balance:(r.balance!=null?r.balance:0)};
-    if(i===startIdx){balance=r.amount;return{...r,balance};}
-    balance=r.type==='expense'?balance-r.amount:r.type==='refill'?balance+r.amount:balance;
+    if(startIdx!==-1&&i<startIdx)return{...r,balance:(r.balance!=null?r.balance:0)};
+    if(r.type==='reset')balance=r.amount;
+    else if(r.type==='expense')balance-=r.amount;
+    else if(r.type==='refill')balance+=r.amount;
     return{...r,balance};
   });
   cashCache=cashCache.reverse();
@@ -4040,7 +4071,8 @@ async function saveCashRecord(){
   if(!date||!amount||amount<=0){showToast('日付と金額を入力してください');return;}
   const currentBalance=cashCache.length?cashCache[0].balance:0;const newBalance=currentCashType==='expense'?currentBalance-amount:currentBalance+amount;
   if(newBalance<0){showToast('残金が不足しています');return;}
-  await sbInsert('wecats_cash',{id:wcId('cash'),date,type:currentCashType,description,amount,balance:newBalance,receipt_photo:photoBuf.cash[0]||'',memo:document.getElementById('cashMemo').value.trim()});
+  const r=await sbInsert('wecats_cash',{id:wcId('cash'),date,type:currentCashType,description,amount,balance:newBalance,receipt_photo:photoBuf.cash[0]||'',memo:document.getElementById('cashMemo').value.trim()});
+  if(r&&r.failed)return;
   photoBuf.cash=[];closeModal('cash');showToast('✓ 保存しました');await initCashPage();
 }
 async function viewReceipt(id){
@@ -4080,8 +4112,9 @@ function renderWeightCompare(){
 }
 async function saveAllWeights(){
   const cats=catsCache.filter(c=>!c.archived),dateStr=`${weightYear}-${String(weightMonth).padStart(2,'0')}-01`;let saved=0;
-  for(const cat of cats){const input=document.getElementById('w_'+cat.id);if(!input||!input.value)continue;const weight=parseFloat(input.value);if(isNaN(weight)||weight<=0)continue;const existing=weightCache[cat.id];if(existing){await sbUpdate('wecats_weights',existing.id,{weight});}else{await sbInsert('wecats_weights',{id:`w_${cat.id}_${weightYear}_${weightMonth}`,cat_id:cat.id,weight,date:dateStr});}saved++;}
-  await loadWeights();renderWeightInputList();renderWeightCompare();showToast(`✓ ${saved}匹分を保存しました`);
+  let blocked=0;
+  for(const cat of cats){const input=document.getElementById('w_'+cat.id);if(!input||!input.value)continue;const weight=parseFloat(input.value);if(isNaN(weight)||weight<=0)continue;const existing=weightCache[cat.id];let r;if(existing)r=await sbUpdate('wecats_weights',existing.id,{weight});else r=await sbInsert('wecats_weights',{id:`w_${cat.id}_${weightYear}_${weightMonth}`,cat_id:cat.id,weight,date:dateStr});if(r&&(r.failed||r.dup))blocked++;else saved++;}
+  await loadWeights();renderWeightInputList();renderWeightCompare();showToast(blocked?`✓ ${saved}匹分を保存しました（${blocked}匹は他の人の記録があるか、保存に失敗しました）`:`✓ ${saved}匹分を保存しました`);
 }
 function changeWeightMonth(delta){weightMonth+=delta;if(weightMonth>12){weightMonth=1;weightYear++;}if(weightMonth<1){weightMonth=12;weightYear--;}initWeightPage();}
 
@@ -4092,7 +4125,10 @@ async function saveFloorCheck(){
   const date=document.getElementById('floorDate').value;if(!date){showToast('日付を入力してください');return;}
   const data={toilet:floorOpts.toilet,food:floorOpts.food,concern:document.getElementById('floorConcern').value.trim(),memo:document.getElementById('floorMemo').value.trim()};
   const existing=await sb.from('wecats_records').select('*').eq('cat_id','floor').eq('type','floor_check').eq('date',date).single();
-  if(existing.data){await sbUpdate('wecats_records',existing.data.id,{data});}else{await sbInsert('wecats_records',{id:wcId('floor'),cat_id:'floor',type:'floor_check',date,data});}
+  let r;
+  if(existing.data)r=await sbUpdate('wecats_records',existing.data.id,{data});
+  else r=await sbInsert('wecats_records',{id:wcId('floor'),cat_id:'floor',type:'floor_check',date,data});
+  if(r&&r.failed)return;
   closeModal('floorCheck');showToast('✓ フロアチェックを保存しました');
 }
 async function openFloorHistory(){
@@ -4488,16 +4524,23 @@ function openShiftEditModal() {
 
 async function saveShiftEdit() {
   const dateStr = document.getElementById('shiftEditList').dataset.date;
-  const { data: existing } = await sb.from('wecats_shifts').select('id').eq('date', dateStr);
-  if (existing && existing.length) {
-    for (const row of existing) await sbDelete('wecats_shifts', row.id);
-  }
+  const { data: existing, error: exErr } = await sb.from('wecats_shifts').select('id,staff_name').eq('date', dateStr);
+  if (exErr) { showToast('⚠ 既存シフトの読み込みに失敗しました。保存を中止します'); return; }
+  const names = getStaffNames();
   const inserts = [];
-  getStaffNames().forEach((staff, idx) => {
+  names.forEach((staff, idx) => {
     const sel = document.getElementById(`shiftSel_${idx}`);
     if (sel && sel.value) inserts.push({ id: `shift_${dateStr}_${idx}_${Math.random().toString(36).slice(2,8)}`, staff_name: staff, date: dateStr, shift_type: sel.value });
   });
-  if (inserts.length > 0) await sbInsert('wecats_shifts', inserts);
+  // 先に新しい行を入れてから古い行を消す（途中で失敗しても、その日のシフトが消えないように）
+  if (inserts.length > 0) {
+    const r = await sbInsert('wecats_shifts', inserts);
+    if (r && r.failed) { showToast('⚠ シフトの保存に失敗しました'); return; }
+  }
+  // 今のスタッフ一覧にいない人（改名・削除された人）の行は消さずに残す
+  for (const row of existing || []) {
+    if (names.includes(row.staff_name)) await sbDelete('wecats_shifts', row.id);
+  }
   await loadShifts();
   closeModal('shiftEdit');
   showToast('✓ シフトを保存しました');
@@ -4608,7 +4651,7 @@ async function saveShiftType() {
   renderShiftTypeList();
   closeModal('shiftType');
   // シフト編集モーダルも更新
-  if (document.getElementById('shiftEditList')) renderShiftEditSelects();
+  if (document.getElementById('shiftEditList') && typeof renderShiftEditSelects==='function') renderShiftEditSelects();
 }
 
 async function deleteShiftType() {
@@ -5253,8 +5296,10 @@ async function finishTodo(id) {
   const t = todoById(id); if (!t) return;
   const own = currentStaffIsOwner;
   await todoAutoReport(t, '【進捗】「できた」にしました');
-  await todoUpdate(t, { status: own ? 'done' : 'review', progress: 'done' });
+  const r = await todoUpdate(t, { status: own ? 'done' : 'review', progress: 'done' });
   showToast(own ? '✓ 完了にしました' : '✓ オーナーの確認待ちにしました');
+  // オーナーが直接完了した場合も、繰り返しTODOの次回を作る（確認画面経由と同じ扱いに）
+  if (own && t.recur && !(r && r.error && !r.offline)) await todoCreateNext(t);
   if (!t.steps.length && t.is_sns && isSnsVisible() && confirm('SNS作業日程にも記録しますか？')) todoOpenSnsLog(t.title);
 }
 async function reviewTodo(id, ok) {
