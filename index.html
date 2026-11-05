@@ -696,6 +696,10 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
     <div class="cat-detail-emoji" id="detailEmoji"></div>
     <div><div class="cat-detail-name" id="detailName"></div><div class="cat-detail-sub" id="detailSub"></div></div>
   </div>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <button id="catPrevBtn" onclick="goPrevCat()" style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--pink-dark);background:var(--white);color:var(--pink-deep);font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer">← 前の猫</button>
+    <button id="catNextBtn" onclick="goNextCat()" style="flex:1;padding:9px;border-radius:10px;border:2px solid var(--pink-deep);background:var(--pink-deep);color:white;font-family:'Zen Maru Gothic',sans-serif;font-size:13px;font-weight:700;cursor:pointer">次の猫 →</button>
+  </div>
   <div class="tabs">
     <button class="tab-btn active" onclick="switchCatTab('daily')">📋 毎日</button>
     <button class="tab-btn" onclick="switchCatTab('hospital')">🏥 病院</button>
@@ -730,6 +734,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
           <div class="photo-preview-grid" id="dailyPhotoPreview"></div>
         </div>
         <button class="save-btn" onclick="saveDailyCheck()">✓ 今日の記録を保存</button>
+        <button id="nextCatAfterSave" onclick="nextCatAfterSaveTap()" style="display:none;width:100%;padding:12px;background:var(--white);color:var(--pink-deep);border:2px solid var(--pink-deep);border-radius:12px;font-family:'Zen Maru Gothic',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px">次の猫へ →</button>
       </div>
       <div class="section-title">📆 過去の記録</div>
       <div id="dailyHistory"></div>
@@ -1503,7 +1508,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
 <script>
 const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
-const APP_VERSION='11/2（点検修正：記録・残高まわり）';
+const APP_VERSION='11/5（チェック後に次の猫へ進める改善）';
 // ─── ログイン中のトークン（サーバー側で照合する合言葉） ─────────
 let wcToken='';
 try{const s=JSON.parse(sessionStorage.getItem('wecats_session')||'null');if(s&&s.token)wcToken=s.token;}catch(e){}
@@ -2166,6 +2171,28 @@ async function jumpToMedCase(catId){
   await openCatDetail(catId);
   switchCatTab('hospital');
 }
+// ===== 猫どうしの移動（前の猫・次の猫）：一覧に戻らなくて済むように =====
+// 並び順は猫一覧と同じ（同じ場所＝ケージ／フロアの中で、catsCacheの順）
+function catNavList(){
+  const cur=catsCache.find(c=>c.id===currentCatId);
+  const loc=cur?(cur.location||'cage'):'cage';
+  return catsCache.filter(c=>!c.archived&&(c.location||'cage')===loc);
+}
+function catNavTarget(delta){
+  const list=catNavList();const i=list.findIndex(c=>c.id===currentCatId);
+  if(i<0)return null;
+  const j=i+delta;return(j>=0&&j<list.length)?list[j]:null;
+}
+function updateCatNav(){
+  const prev=catNavTarget(-1),next=catNavTarget(1);
+  const pb=document.getElementById('catPrevBtn'),nb=document.getElementById('catNextBtn');
+  if(pb){pb.textContent=prev?`← ${prev.emoji||'🐱'} ${prev.name}`:'← 前の猫';pb.disabled=!prev;pb.style.opacity=prev?'1':'0.35';}
+  if(nb){nb.textContent=next?`${next.emoji||'🐱'} ${next.name} →`:'次の猫 →';nb.disabled=!next;nb.style.opacity=next?'1':'0.35';}
+  const as=document.getElementById('nextCatAfterSave');if(as)as.style.display='none';
+}
+function goPrevCat(){const p=catNavTarget(-1);if(p)openCatDetail(p.id);}
+function goNextCat(){const n=catNavTarget(1);if(n)openCatDetail(n.id);}
+function nextCatAfterSaveTap(){const n=catNavTarget(1);if(n)openCatDetail(n.id);else goBack();}
 async function openCatDetail(catId){
   currentCatId=catId;const cat=catsCache.find(c=>c.id===catId);
   // 日付指定（カレンダー・✏️）や編集中の状態は、別の猫に持ち越さない
@@ -2181,6 +2208,7 @@ async function openCatDetail(catId){
   await loadCatDetail(catId);
   document.getElementById('detailSub').textContent=`記録 ${(catRecordsCache[catId]||[]).length}件`;
   switchCatTab('daily');
+  updateCatNav();
 }
 function switchCatTab(tab){
   currentCatTab=tab;
@@ -2312,8 +2340,13 @@ async function saveDailyCheck(){
   showToast(others.length?`✓ 保存しました（${others.join('・')}さんの記録に追加）`:'✓ 保存しました');
   photoBuf.daily=[];renderPhotoPreview('daily');resetDailyForm();renderDailyHistory();
   if(typeof refreshVitalOverviewFor==='function'){refreshVitalOverviewFor(currentCatId);renderCatList();}
-  // 「しんどい」を選んだときは、体温もはかるか聞く
+  // 保存できたら「次の猫へ」ボタンを出す（一覧に戻らなくて済むように）
+  const asBtn=document.getElementById('nextCatAfterSave');
+  if(asBtn){const nx=catNavTarget(1);asBtn.textContent=nx?`次の猫 ${nx.emoji||'🐱'} ${nx.name} へ →`:'🐾 この場所は最後の猫です（一覧へ戻る）';asBtn.style.display='block';}
+  // 「しんどい」を選んだときは、体温もはかるか聞く（別の猫へ移動していたら聞かない）
+  const savedCatId=currentCatId;
   if(values.mood==='1')setTimeout(()=>{
+    if(currentCatId!==savedCatId)return;
     if(confirm('しんどそうですね。体温もはかりますか？\n（OKで体調の記録画面を開きます）')){switchCatTab('vital');vitalForm.mood=1;renderVitalTab();}
   },300);
 }
