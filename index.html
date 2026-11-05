@@ -1508,7 +1508,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
 <script>
 const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
-const APP_VERSION='11/5（チェック後に次の猫へ進める改善）';
+const APP_VERSION='11/5（次の猫へ移動・TODO「見た」ボタンの改善）';
 // ─── ログイン中のトークン（サーバー側で照合する合言葉） ─────────
 let wcToken='';
 try{const s=JSON.parse(sessionStorage.getItem('wecats_session')||'null');if(s&&s.token)wcToken=s.token;}catch(e){}
@@ -4851,7 +4851,7 @@ async function loadTodos() {
   try {
     const { data, error } = await sb.from('wecats_todos').select('*').order('created_at');
     if (error) throw error;
-    todoItems = (data || []).map(t => ({ ...t, steps: Array.isArray(t.steps) ? t.steps : [], viewers: Array.isArray(t.viewers) ? t.viewers : [] }));
+    todoItems = (data || []).map(t => ({ ...t, steps: Array.isArray(t.steps) ? t.steps : [], viewers: Array.isArray(t.viewers) ? t.viewers : [], seen_by: Array.isArray(t.seen_by) ? t.seen_by : [] }));
     todoReady = true;
   } catch (e) { todoItems = []; todoReady = false; }
   try {
@@ -4905,12 +4905,14 @@ async function refreshTodoBadge() {
   const asked = mine.filter(t => t.status === 'asked').length;
   const over = mine.filter(todoIsOverdue).length;
   const newRep = currentStaffIsOwner ? todoItems.filter(t => t.report_unread).length : 0;
+  const unseen = todoItems.filter(t => todoVisible(t) && t.proposed_by !== userName && t.status !== 'done' && t.status !== 'skipped' && !(Array.isArray(t.seen_by) ? t.seen_by : []).some(s => s.name === userName) && (t.assignee === userName || (t.viewers || []).includes(userName) || t.is_public));
   const parts = [];
   if (asked) parts.push(`頼まれごと${asked}`);
+  if (unseen.length) parts.push(`未見${unseen.length}`);
   const help = currentStaffIsOwner ? mine.filter(todoNeedsHelp).length : 0;
   if (help) parts.push(`ヘルプ${help}`);
   if (over) parts.push(`期限切れ${over}`);
-  const total = new Set([...mine.map(t => t.id), ...(currentStaffIsOwner ? todoItems.filter(t => t.report_unread).map(t => t.id) : [])]).size;
+  const total = new Set([...mine.map(t => t.id), ...unseen.map(t => t.id), ...(currentStaffIsOwner ? todoItems.filter(t => t.report_unread).map(t => t.id) : [])]).size;
   if (newRep) parts.push(`新しい報告${newRep}`);
   if (total) { badge.style.display = 'inline-block'; badge.textContent = parts.length ? `${total}件（${parts.join('・')}）` : `${total}件`; }
   else badge.style.display = 'none';
@@ -4958,6 +4960,7 @@ async function setTodoProgress(id, key) {
   if (!currentStaffIsOwner) upd.report_unread = true;
   await todoAutoReport(t, `【進捗】「${p.label}」にしました${note ? '\n' + note : ''}`);
   await todoUpdate(t, upd);
+  todoTouchSeen(t);
   showToast(key === 'consult' || key === 'hard' ? 'オーナーに伝わります。直接話せるときは声もかけてみましょう' : `✓「${p.label}」にしました`);
 }
 
@@ -4984,6 +4987,7 @@ async function sendTodoReport(id) {
   if (r && r.error && !r.offline) { showToast('送れませんでした'); return; }
   (todoReports[id] = todoReports[id] || []).push(row);
   if (!currentStaffIsOwner && t) { t.report_unread = true; sbUpdate('wecats_todos', id, { report_unread: true }); }
+  if (t) todoTouchSeen(t);
   renderTodos(); showToast('✓ 報告しました');
 }
 
@@ -5008,6 +5012,41 @@ function todoWhoLine(t) {
   const v = t.viewers.length ? `　見せた人：${t.viewers.map(tEsc).join('・')}` : '';
   return `<div class="td-meta">出した人：${tEsc(t.proposed_by)}さん${v}</div>`;
 }
+
+// ── 既読（「見た」）：誰が見たか・誰がまだかを見えるようにする（seen_by に {name, at} で記録）
+function todoSeenExpected(t) {
+  const set = new Set(t.viewers || []);
+  if (t.assignee) set.add(t.assignee);
+  if (t.is_public) todoAllStaff().forEach(n => set.add(n));
+  set.delete(t.proposed_by);
+  return [...set];
+}
+function todoSeenHtml(t) {
+  const seen = Array.isArray(t.seen_by) ? t.seen_by : [];
+  const seenNames = seen.map(s => s.name);
+  const iSaw = t.proposed_by === userName || seenNames.includes(userName);
+  const missing = todoSeenExpected(t).filter(n => !seenNames.includes(n));
+  const seenLine = seen.length ? `<span>👀 見た：${seen.map(s => `${tEsc(s.name)} ${s.at ? todoMD(String(s.at).slice(0, 10)) : ''}`).join('・')}</span>` : '';
+  const missLine = (currentStaffIsOwner || t.proposed_by === userName) && missing.length ? `<span style="color:#dc2626">まだ見てない：${missing.map(tEsc).join('・')}</span>` : '';
+  const btn = !iSaw ? `<button class="td-btn main" style="padding:6px 14px" onclick="markTodoSeen('${t.id}')">👀 見た</button>` : '';
+  if (!seenLine && !missLine && !btn) return '';
+  return `<div class="td-row" style="margin-top:8px;gap:8px;flex-wrap:wrap;font-size:12px;align-items:center">${seenLine}${missLine}<span style="flex:1"></span>${btn}</div>`;
+}
+async function todoWriteSeen(t) {
+  const seen = Array.isArray(t.seen_by) ? t.seen_by : [];
+  if (t.proposed_by === userName || seen.some(s => s.name === userName)) return true;
+  const next = [...seen, { name: userName, at: todoNow() }];
+  const r = await sbUpdate('wecats_todos', t.id, { seen_by: next });
+  if (r && (r.failed || (r.error && !r.offline))) return false;
+  t.seen_by = next; return true;
+}
+async function markTodoSeen(id) {
+  const t = todoById(id); if (!t) return;
+  if (await todoWriteSeen(t)) { renderTodos(); refreshTodoBadge(); showToast('✓「見た」を伝えました'); }
+  else showToast('⚠️ 保存できませんでした');
+}
+// 報告や進捗変更をした人は、見たことにする
+async function todoTouchSeen(t) { if (t && await todoWriteSeen(t)) renderTodos(); }
 
 function renderTodos() {
   const el = document.getElementById('todoPane');
@@ -5036,7 +5075,7 @@ function renderTodos() {
   if (askedMe.length) {
     h += '<div class="td-sec">🙋 頼まれごと</div>';
     h += askedMe.map(t => `<div class="td-card" style="border-color:#a78bfa"><div class="td-row"><span style="flex:1;font-size:14px;font-weight:700">${tEsc(t.title)}</span>${todoRecurPill(t)}${todoDueBadge(t)}</div>
-      <div class="td-meta">${tEsc(t.assigned_by || t.proposed_by)}さんからのお願い</div>${todoDetail(t)}
+      <div class="td-meta">${tEsc(t.assigned_by || t.proposed_by)}さんからのお願い</div>${todoDetail(t)}${todoSeenHtml(t)}
       ${t.steps.length ? `<div class="td-meta">段階：${t.steps.map(s => tEsc(s.name)).join(' → ')}</div>` : ''}
       <div class="td-row" style="margin-top:8px;gap:6px"><button class="td-btn main" onclick="acceptTodo('${t.id}')">引き受ける</button><button class="td-btn" onclick="openTodoConsult('${t.id}')">相談したい</button></div></div>`).join('');
   }
@@ -5064,7 +5103,7 @@ function renderTodos() {
     if (own) btns += `<button class="td-btn red" onclick="deleteTodo('${t.id}')">🗑 削除</button>`;
     if (mine && !own) btns += `<button class="td-btn red" onclick="withdrawTodo('${t.id}')">取り下げ</button>`;
     return `<div class="td-card"><div class="td-row"><span style="flex:1;font-size:13px;font-weight:700">${tEsc(t.title)}</span>${todoPub(t)}${todoRecurPill(t)}${t.due ? todoDueBadge(t) : ''}</div>
-      ${todoWhoLine(t)}${todoDetail(t)}
+      ${todoWhoLine(t)}${todoDetail(t)}${todoSeenHtml(t)}
       <div class="td-row" style="margin-top:8px;gap:6px;flex-wrap:wrap">${btns}</div></div>`;
   }).join('') : '<div class="td-empty">担当未定のものはありません</div>';
 
@@ -5088,7 +5127,7 @@ function renderTodos() {
         ${who ? `<span class="td-pill td-p-purple">${tEsc(who)}</span>` : ''}${askBtn}</div>`;
     }).join('');
     return `<div class="td-card ${cls}"><div class="td-row"><span style="flex:1;font-size:14px;font-weight:700">${tEsc(t.title)}</span>${todoPub(t)}${todoRecurPill(t)}${todoDueBadge(t)}</div>
-      <div class="td-meta">担当：${tEsc(t.assignee || '')}さん　出した人：${tEsc(t.proposed_by)}さん</div>${todoDetail(t)}
+      <div class="td-meta">担当：${tEsc(t.assignee || '')}さん　出した人：${tEsc(t.proposed_by)}さん</div>${todoDetail(t)}${todoSeenHtml(t)}
       ${st.length ? `<div class="td-bar"><i style="width:${Math.round(done / st.length * 100)}%"></i></div><div class="td-meta">${done} / ${st.length} 完了</div><div style="margin-top:4px">${steps}</div>` : ''}
       ${todoProgressHtml(t, allDone)}
       ${own || t.assignee === me ? `<div class="td-row" style="margin-top:6px;justify-content:flex-end"><button class="td-btn" onclick="openTodoAssign('${t.id}')">担当・期限を変更</button>${todoCanDelete(t) ? `<button class="td-btn red" style="margin-left:6px" onclick="deleteTodo('${t.id}')">🗑 削除</button>` : ''}</div>` : (todoCanDelete(t) ? `<div class="td-row" style="margin-top:6px;justify-content:flex-end"><button class="td-btn red" onclick="deleteTodo('${t.id}')">🗑 削除</button></div>` : '')}
@@ -5099,7 +5138,7 @@ function renderTodos() {
   h += '<div class="td-sec">⏳ 確認待ち</div>';
   h += review.length ? review.map(t => `<div class="td-card"><div class="td-row"><span style="flex:1;font-size:13px;font-weight:700">${tEsc(t.title)}</span>
       ${own ? `<button class="td-btn main" onclick="reviewTodo('${t.id}',true)">OK</button><button class="td-btn" onclick="reviewTodo('${t.id}',false)">やり直し</button>` : '<span class="td-meta" style="margin:0">オーナーのOK待ち</span>'}
-    </div><div class="td-meta">担当：${tEsc(t.assignee || '')}さん</div>${todoReportsHtml(t)}</div>`).join('') : '<div class="td-empty">確認待ちのものはありません</div>';
+    </div><div class="td-meta">担当：${tEsc(t.assignee || '')}さん</div>${todoSeenHtml(t)}${todoReportsHtml(t)}</div>`).join('') : '<div class="td-empty">確認待ちのものはありません</div>';
 
   // 終わったもの
   h += `<div class="td-sec" style="cursor:pointer" onclick="todoDoneOpen=!todoDoneOpen;renderTodos()">📦 終わったもの（${finished.length}件）${todoDoneOpen ? '▲' : '▼'}</div>`;
