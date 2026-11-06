@@ -951,7 +951,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
     </div>
     <div id="stockList"><div style="text-align:center;color:var(--text-light);font-size:13px;padding:20px">読み込み中...</div></div>
     <div id="stockAddArea" style="display:none;background:var(--white);border-radius:14px;box-shadow:var(--shadow);padding:14px 16px;margin-top:14px">
-      <div style="font-size:13px;font-weight:700;color:var(--pink-deep);margin-bottom:8px">➕ 品目を追加（オーナーだけ）</div>
+      <div style="font-size:13px;font-weight:700;color:var(--pink-deep);margin-bottom:8px">➕ 品目を追加</div>
       <input id="stockNewName" type="text" placeholder="品目の名前（例：猫砂）" style="width:100%;padding:12px;border:1.5px solid var(--pink);border-radius:10px;font-family:'Zen Maru Gothic',sans-serif;font-size:15px">
       <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
         <span style="font-size:13px;color:var(--text-light)">今の数</span>
@@ -1538,7 +1538,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
 <script>
 const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
-const APP_VERSION='11/6（倉庫の在庫を追加）';
+const APP_VERSION='11/6（在庫：田染さんも品目追加が可能に）';
 // ─── ログイン中のトークン（サーバー側で照合する合言葉） ─────────
 let wcToken='';
 try{const s=JSON.parse(sessionStorage.getItem('wecats_session')||'null');if(s&&s.token)wcToken=s.token;}catch(e){}
@@ -1668,7 +1668,7 @@ function stockCanUse(){return !!currentStaffIsOwner||STOCK_USERS.includes(userNa
 async function initStockPage(){
   if(!stockCanUse()){showToast('この画面は担当の人だけが見られます');switchPage('cats');return;}
   const addArea=document.getElementById('stockAddArea');
-  if(addArea)addArea.style.display=currentStaffIsOwner?'block':'none';
+  if(addArea)addArea.style.display=stockCanUse()?'block':'none';
   await loadStock();
 }
 async function loadStock(){
@@ -1687,7 +1687,7 @@ function renderStock(){
   const list=document.getElementById('stockList');
   if(!list)return;
   if(!stockItems.length){
-    list.innerHTML='<div style="text-align:center;color:var(--text-light);font-size:13px;padding:20px;line-height:1.8">まだ品目がありません。'+(currentStaffIsOwner?'<br>下の「品目を追加」から入れてください。':'')+'</div>';
+    list.innerHTML='<div style="text-align:center;color:var(--text-light);font-size:13px;padding:20px;line-height:1.8">まだ品目がありません。'+(stockCanUse()?'<br>下の「品目を追加」から入れてください。':'')+'</div>';
     return;
   }
   list.innerHTML=stockItems.map(it=>{
@@ -1741,7 +1741,7 @@ async function stockMove(id,dir){
   showToast(delta<0?`「${itemName}」を使いました（残り${next}${unit}）`:`「${itemName}」を入れました（${next}${unit}）`);
 }
 async function stockAddItem(){
-  if(!currentStaffIsOwner)return;
+  if(!stockCanUse())return;
   const nameEl=document.getElementById('stockNewName');
   const qtyEl=document.getElementById('stockNewQty');
   const name=(nameEl.value||'').trim();
