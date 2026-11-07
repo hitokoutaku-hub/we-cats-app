@@ -1538,7 +1538,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
 <script>
 const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
-const APP_VERSION='11/6（在庫：田染さんも品目追加が可能に）';
+const APP_VERSION='11/7（全頭ケア・定期ケア一覧の修正）';
 // ─── ログイン中のトークン（サーバー側で照合する合言葉） ─────────
 let wcToken='';
 try{const s=JSON.parse(sessionStorage.getItem('wecats_session')||'null');if(s&&s.token)wcToken=s.token;}catch(e){}
@@ -2178,13 +2178,26 @@ function renderCatList(){
   ab.onclick=()=>{renderEmojiPicker('emojiPicker');openModal('addCat');};
   grid.appendChild(ab);
 }
+// 一覧系は「全件」取る必要があるが、Supabaseは1回の取得が最大1000件まで。
+// 1000件ずつページをめくって全件そろえる（これをしないと、古い1000件しか見えず新しい記録が一覧に出てこなくなる）
+async function fetchAllPages(buildQuery){
+  let all=[];let from=0;const PAGE=1000;
+  while(true){
+    const{data,error}=await buildQuery().range(from,from+PAGE-1);
+    if(error)return{data:null,error};
+    all=all.concat(data||[]);
+    if(!data||data.length<PAGE)break;
+    from+=PAGE;
+  }
+  return{data:all,error:null};
+}
 let periodicOverviewData=null;
 async function loadVaccineOverview(){
   const el=document.getElementById('vaccineOverviewList');
   el.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-light)">読み込み中...</div>';
   // 一覧表示に必要なのは日付だけなので、写真等の重いデータは含めず軽量に取得する
   // （or()の書き方でエラーが起きる可能性を避けるため、type='hospital'の分を全部取ってから絞り込む）
-  const{data,error}=await sb.from('wecats_records').select('cat_id,periodic_type,periodic_date,vaccine_date').eq('type','hospital');
+  const{data,error}=await fetchAllPages(()=>sb.from('wecats_records').select('id,cat_id,periodic_type,periodic_date,vaccine_date').eq('type','hospital').order('id',{ascending:true}));
   if(error){console.error('定期ケア一覧の読み込みエラー:',error);el.innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><p>読み込みに失敗しました</p><p style="font-size:11px;color:var(--text-light);margin-top:6px;">${error.message||''}</p></div>`;return;}
   // 旧データ（periodic_typeがなくvaccine_dateだけある記録）もワクチンとして扱えるよう変換しておく
   periodicOverviewData=(data||[]).map(r=>({cat_id:r.cat_id,type:r.periodic_type||(r.vaccine_date?'vaccine':null),date:r.periodic_date||r.vaccine_date})).filter(r=>r.type&&r.date);
@@ -2227,7 +2240,7 @@ let careOverviewData=null;
 async function loadCareOverview(){
   const el=document.getElementById('careOverviewList');
   el.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-light)">読み込み中...</div>';
-  const{data,error}=await sb.from('wecats_records').select('cat_id,date,data').eq('type','care');
+  const{data,error}=await fetchAllPages(()=>sb.from('wecats_records').select('id,cat_id,date,data').eq('type','care').order('id',{ascending:true}));
   if(error){console.error('ケア一覧の読み込みエラー:',error);el.innerHTML=`<div class="empty-state"><div class="empty-icon">⚠️</div><p>読み込みに失敗しました</p><p style="font-size:11px;color:var(--text-light);margin-top:6px;">${error.message||''}</p></div>`;return;}
   careOverviewData=data||[];
   renderCareOverview();
