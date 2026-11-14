@@ -3946,7 +3946,22 @@ function syncPostTypeButtons(){
 // 日報の「新規会員数」欄に、推し猫カード台帳から今日の登録人数を自動で入れる（スタッフが手で直したら上書きしない）
 async function fillNewMembers(){
   const el=document.getElementById('reportMembers');if(!el||el.dataset.manual==='1')return;
-  try{const{data,error}=await sb.rpc('el_new_members_today');if(error||data===null||data===undefined)return;el.value=data;}catch(e){}
+  try{const{data,error}=await sb.rpc('el_new_members_today');if(error||data===null||data===undefined)return;if(el.dataset.manual==='1')return;el.value=data;}catch(e){}
+}
+// 日報の自動行（来客数・口コミ・売上・新規会員）を行頭ブロックとして読み取る。編集時の二重付与を防ぐために使う
+function parseReportHead(content){
+  const lines=String(content||'').split('\n');const vals={};let i=0,matched=false;
+  while(i<lines.length){
+    const L=lines[i];let m;
+    if(m=L.match(/^👥 来客数：(\d+)名$/)){vals.visitors=m[1];matched=true;i++;continue;}
+    if(m=L.match(/^⭐ 口コミ：(\d+)件$/)){vals.reviews=m[1];matched=true;i++;continue;}
+    if(m=L.match(/^💰 売上：¥([\d,]+)$/)){vals.sales=m[1].replace(/,/g,'');matched=true;i++;continue;}
+    if(m=L.match(/^🐾 新規会員：(\d+)名$/)){vals.members=m[1];matched=true;i++;continue;}
+    if(matched&&L.trim()===''){i++;continue;}
+    break;
+  }
+  if(!matched)return null;
+  return{...vals,rest:lines.slice(i).join('\n')};
 }
 function selectPostType(el,type){currentPostType=type;syncPostTypeButtons();}
 async function renderHandoverTarget(){
@@ -3999,6 +4014,7 @@ async function loadOlderPosts(){
 async function submitPost(){
   let content=document.getElementById('newPostContent').value.trim();
   if(currentPostType==='report'){
+    const ph0=parseReportHead(content);if(ph0)content=ph0.rest;
     const visitors=document.getElementById('reportVisitors').value,reviews=document.getElementById('reportReviews').value,sales=document.getElementById('reportSales').value,members=document.getElementById('reportMembers').value;
     let extra='';if(visitors)extra+=`👥 来客数：${visitors}名\n`;if(reviews)extra+=`⭐ 口コミ：${reviews}件\n`;if(sales)extra+=`💰 売上：¥${parseInt(sales).toLocaleString()}\n`;if(members)extra+=`🐾 新規会員：${members}名\n`;
     if(extra)content=extra+(content?'\n'+content:content);
@@ -4022,6 +4038,16 @@ function openEditPost(id){
   if(post.target_date)handoverTarget=post.target_date;
   toggleComposer(true);
   document.getElementById('newPostContent').value=post.content;document.getElementById('newPostContent').dataset.editId=id;
+  if(post.role==='report'){
+    const ph=parseReportHead(post.content);
+    if(ph){
+      document.getElementById('newPostContent').value=ph.rest;
+      if(ph.visitors!==undefined)document.getElementById('reportVisitors').value=ph.visitors;
+      if(ph.reviews!==undefined)document.getElementById('reportReviews').value=ph.reviews;
+      if(ph.sales!==undefined)document.getElementById('reportSales').value=ph.sales;
+      if(ph.members!==undefined){const rm=document.getElementById('reportMembers');rm.value=ph.members;rm.dataset.manual='1';}
+    }
+  }
   photoBuf.board=post.photos?JSON.parse(post.photos||'[]'):[];renderPhotoPreview('board');
   document.getElementById('newPostContent').focus();showToast('内容や写真を直して「投稿する」を押してください');
 }
