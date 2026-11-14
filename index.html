@@ -874,10 +874,11 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
         <div id="hoShiftNames"></div>
       </div>
       <div id="reportFields" style="margin-bottom:10px">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
           <div><label style="font-size:12px;font-weight:700;color:var(--text-light);display:block;margin-bottom:4px">👥 来客数</label><input type="number" id="reportVisitors" placeholder="0" min="0" class="form-input"></div>
           <div><label style="font-size:12px;font-weight:700;color:var(--text-light);display:block;margin-bottom:4px">⭐ 口コミ数</label><input type="number" id="reportReviews" placeholder="0" min="0" class="form-input"></div>
           <div><label style="font-size:12px;font-weight:700;color:var(--text-light);display:block;margin-bottom:4px">💰 売上金</label><input type="number" id="reportSales" placeholder="0" min="0" class="form-input"></div>
+          <div><label style="font-size:12px;font-weight:700;color:var(--text-light);display:block;margin-bottom:4px">🐾 新規会員数</label><input type="number" id="reportMembers" placeholder="0" min="0" class="form-input" oninput="this.dataset.manual='1'"></div>
         </div>
       </div>
       <textarea id="newPostContent" placeholder="内容を入力…（大事なことは最初の1行に）"></textarea>
@@ -1538,7 +1539,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
 <script>
 const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
-const APP_VERSION='11/7';
+const APP_VERSION='11/14';
 // ─── ログイン中のトークン（サーバー側で照合する合言葉） ─────────
 let wcToken='';
 try{const s=JSON.parse(sessionStorage.getItem('wecats_session')||'null');if(s&&s.token)wcToken=s.token;}catch(e){}
@@ -3940,6 +3941,12 @@ function syncPostTypeButtons(){
   document.getElementById('reportFields').style.display=currentPostType==='report'?'block':'none';
   document.getElementById('handoverFields').style.display=currentPostType==='handover'?'block':'none';
   if(currentPostType==='handover'){if(!handoverTarget)handoverTarget=addDays(today(),1);renderHandoverTarget();}
+  if(currentPostType==='report')fillNewMembers();
+}
+// 日報の「新規会員数」欄に、推し猫カード台帳から今日の登録人数を自動で入れる（スタッフが手で直したら上書きしない）
+async function fillNewMembers(){
+  const el=document.getElementById('reportMembers');if(!el||el.dataset.manual==='1')return;
+  try{const{data,error}=await sb.rpc('el_new_members_today');if(error||data===null||data===undefined)return;el.value=data;}catch(e){}
 }
 function selectPostType(el,type){currentPostType=type;syncPostTypeButtons();}
 async function renderHandoverTarget(){
@@ -3992,8 +3999,8 @@ async function loadOlderPosts(){
 async function submitPost(){
   let content=document.getElementById('newPostContent').value.trim();
   if(currentPostType==='report'){
-    const visitors=document.getElementById('reportVisitors').value,reviews=document.getElementById('reportReviews').value,sales=document.getElementById('reportSales').value;
-    let extra='';if(visitors)extra+=`👥 来客数：${visitors}名\n`;if(reviews)extra+=`⭐ 口コミ：${reviews}件\n`;if(sales)extra+=`💰 売上：¥${parseInt(sales).toLocaleString()}\n`;
+    const visitors=document.getElementById('reportVisitors').value,reviews=document.getElementById('reportReviews').value,sales=document.getElementById('reportSales').value,members=document.getElementById('reportMembers').value;
+    let extra='';if(visitors)extra+=`👥 来客数：${visitors}名\n`;if(reviews)extra+=`⭐ 口コミ：${reviews}件\n`;if(sales)extra+=`💰 売上：¥${parseInt(sales).toLocaleString()}\n`;if(members)extra+=`🐾 新規会員：${members}名\n`;
     if(extra)content=extra+(content?'\n'+content:content);
   }
   if(!content&&photoBuf.board.length===0){showToast('内容を入力してください');return;}
@@ -4004,7 +4011,8 @@ async function submitPost(){
   else{r=await sbInsert('board_posts',{author:userName,role:currentPostType,content,pinned:false,target_date,photos:JSON.stringify([...photoBuf.board])});if(!r.failed)showToast(currentPostType==='handover'?`✓ ${relDay(target_date)}の人への申し送りを投稿しました`:'✓ 投稿しました');}
   if(r.failed)return;
   document.getElementById('newPostContent').value='';
-  ['reportVisitors','reportReviews','reportSales'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['reportVisitors','reportReviews','reportSales','reportMembers'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const rmEl=document.getElementById('reportMembers');if(rmEl)delete rmEl.dataset.manual;
   photoBuf.board=[];renderPhotoPreview('board');toggleComposer(false);await loadBoard();
 }
 function openEditPost(id){
