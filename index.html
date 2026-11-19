@@ -1539,7 +1539,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
 <script>
 const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
-const APP_VERSION='11/17';
+const APP_VERSION='11/19';
 // ─── ログイン中のトークン（サーバー側で照合する合言葉） ─────────
 let wcToken='';
 try{const s=JSON.parse(sessionStorage.getItem('wecats_session')||'null');if(s&&s.token)wcToken=s.token;}catch(e){}
@@ -5202,7 +5202,11 @@ function todoReportsHtml(t) {
   const reps = todoReports[t.id] || [];
   const open = todoOpenReports.has(t.id);
   const isNew = todoNewIds.has(t.id);
-  const item = r => `<div class="td-rep"><div class="td-av">${tEsc((r.author || '?').slice(0,1))}</div><div style="flex:1"><div class="td-meta" style="margin:0">${tEsc(r.author)}さん・${todoFmtTime(r.created_at)}</div><div style="font-size:13px;line-height:1.6">${tEsc(r.body).replace(/\n/g,'<br>')}</div></div></div>`;
+  const item = r => {
+    const canDel = r.author === userName || currentStaffIsOwner;
+    const del = canDel ? `<button onclick="deleteTodoReport('${t.id}','${r.id}')" title="この報告を削除" style="background:none;border:none;font-size:13px;color:var(--text-light);cursor:pointer;padding:2px 4px;flex-shrink:0">🗑</button>` : '';
+    return `<div class="td-rep"><div class="td-av">${tEsc((r.author || '?').slice(0,1))}</div><div style="flex:1"><div class="td-meta" style="margin:0">${tEsc(r.author)}さん・${todoFmtTime(r.created_at)}</div><div style="font-size:13px;line-height:1.6">${tEsc(r.body).replace(/\n/g,'<br>')}</div></div>${del}</div>`;
+  };
   let h = `<div onclick="toggleTodoReports('${t.id}')" style="margin-top:10px;font-size:12px;font-weight:700;color:#6d28d9;cursor:pointer;display:flex;align-items:center;gap:6px">💬 経過報告（${reps.length}）${open ? '▲' : '▼'}${isNew ? '<span class="td-pill td-p-red">新しい報告</span>' : ''}</div>`;
   if (!open) { if (reps.length) h += item(reps[reps.length - 1]); return h; }
   h += reps.map(item).join('') || '<div class="td-meta">まだ報告はありません</div>';
@@ -5221,6 +5225,12 @@ async function sendTodoReport(id) {
   if (!currentStaffIsOwner && t) { t.report_unread = true; sbUpdate('wecats_todos', id, { report_unread: true }); }
   if (t) todoTouchSeen(t);
   renderTodos(); showToast('✓ 報告しました');
+}
+async function deleteTodoReport(todoId, reportId) {
+  if (!confirm('この報告を削除しますか？')) return;
+  await sbDelete('wecats_todo_reports', reportId);
+  if (todoReports[todoId]) todoReports[todoId] = todoReports[todoId].filter(r => r.id !== reportId);
+  renderTodos(); showToast('削除しました');
 }
 
 function todoDueBadge(t) {
