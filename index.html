@@ -3438,8 +3438,10 @@ function buildMemberPlanCard(p){
 function renderMemberPlans(){
   const el=document.getElementById('resPlansBox');
   if(!el)return;
-  if(!memberPlans.length){el.innerHTML='';return;}
-  const pending=memberPlans.filter(p=>p.status==='pending').length;
+  // 過ぎた予約は出さない（今日以降だけ。当日の分は時間が過ぎていてもその日は出す）
+  const visiblePlans=memberPlans.filter(p=>!p.date||p.date>=today());
+  if(!visiblePlans.length){el.innerHTML='';return;}
+  const pending=visiblePlans.filter(p=>p.status==='pending').length;
   const WD=['日','月','火','水','木','金','土'];
   const fmtDate=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(s||''));if(!m)return esc(s);const d=new Date(+m[1],+m[2]-1,+m[3]);return`${+m[2]}/${+m[3]}（${WD[d.getDay()]}）`;};
   const chip=st=>st==='ok'?`<span style="background:#e3f5e8;color:#2e8b57;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700">予約OK</span>`
@@ -3451,7 +3453,7 @@ function renderMemberPlans(){
       <div style="font-size:13px;font-weight:700">📱 会員カードからの予約</div>
       ${pending?`<span style="background:#e53935;color:white;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700">確認待ち ${pending}件</span>`:''}
     </div>
-    ${memberPlans.map(p=>{
+    ${visiblePlans.map(p=>{
       const id=Number(p.id);
       const kind=p.kind==='night'?'🌙 夜カフェ':p.kind==='day'?'☀️ 昼':'';
       const actions=p.status==='pending'
@@ -3488,7 +3490,7 @@ function renderTodaySummary(){
   const todayPlans=memberCalItems().filter(p=>p.date===todayStr).map(p=>({_member:true,time:p.time,customer_name:p.member_name||'会員',pax:+p.people||0,phone:'',status:p.status}));
   const todayAll=[...todayRes,...todayPlans].sort((a,b)=>(a.time||'').localeCompare(b.time||''));
   const el=document.getElementById('resTodaySummary');
-  const planPending=memberPlans.filter(p=>p.status==='pending').length;
+  const planPending=memberPlans.filter(p=>p.status==='pending'&&(!p.date||p.date>=todayStr)).length;
   const planBanner=planPending?`<div style="background:#e53935;color:white;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:700;text-align:center;margin-bottom:8px">📱 会員予約の確認待ちが ${planPending}件あります</div>`:'';
   if(!todayAll.length){
     el.innerHTML=planBanner+`<div style="background:var(--pink-light);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--text-light);text-align:center">📅 本日の予約はありません</div>`;
