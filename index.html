@@ -4695,6 +4695,13 @@ function changeShiftMonth(delta) {
   loadShifts().then(() => renderShiftCalendar());
 }
 
+// 国民の祝日・休日（内閣府公表の一覧。振替休日・国民の休日を含む。2026年=18日・2027年=17日）
+const JP_HOLIDAYS = {
+  '2026-01-01':'元日','2026-01-12':'成人の日','2026-02-11':'建国記念の日','2026-02-23':'天皇誕生日','2026-03-20':'春分の日','2026-04-29':'昭和の日','2026-05-03':'憲法記念日','2026-05-04':'みどりの日','2026-05-05':'こどもの日','2026-05-06':'振替休日','2026-07-20':'海の日','2026-08-11':'山の日','2026-09-21':'敬老の日','2026-09-22':'国民の休日','2026-09-23':'秋分の日','2026-10-12':'スポーツの日','2026-11-03':'文化の日','2026-11-23':'勤労感謝の日',
+  '2027-01-01':'元日','2027-01-11':'成人の日','2027-02-11':'建国記念の日','2027-02-23':'天皇誕生日','2027-03-21':'春分の日','2027-03-22':'振替休日','2027-04-29':'昭和の日','2027-05-03':'憲法記念日','2027-05-04':'みどりの日','2027-05-05':'こどもの日','2027-07-19':'海の日','2027-08-11':'山の日','2027-09-20':'敬老の日','2027-09-23':'秋分の日','2027-10-11':'スポーツの日','2027-11-03':'文化の日','2027-11-23':'勤労感謝の日'
+};
+function jpHoliday(y, m, d) { return JP_HOLIDAYS[`${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`] || null; }
+
 function renderShiftCalendar() {
   document.getElementById('shiftMonthLabel').textContent = `${shiftYear}年 ${shiftMonth + 1}月`;
   // 凡例を動的に生成
@@ -4724,14 +4731,16 @@ function renderShiftCalendar() {
     const dow = new Date(shiftYear, shiftMonth, d).getDay();
     const shifts = dayMap[d] || [];
     cell.className = 'shift-cal-cell' + (d === todayNum ? ' today' : '') + (d === shiftSelectedDay ? ' selected' : '');
-    const dayColor = dow === 0 ? 'color:#dc2626' : dow === 6 ? 'color:#2563eb' : '';
-    const shiftTags = shifts.slice(0, 3).map(s => {
+    const holName = jpHoliday(shiftYear, shiftMonth, d);
+    const dayColor = (dow === 0 || holName) ? 'color:#dc2626' : dow === 6 ? 'color:#2563eb' : '';
+    const holTag = holName ? `<div style="font-size:7px;font-weight:700;color:#dc2626;line-height:1.15;margin-bottom:1px;text-align:center;width:100%">${esc(holName)}</div>` : '';
+    const shiftTags = shifts.map(s => {
       const st = shiftTypesCache.find(t => t.name === s.shift_type);
       const bg = st ? st.color : '#E0E0E0';
       const fg = st ? (st.fg_color || '#333') : '#333';
       return `<div style="font-size:8px;font-weight:700;border-radius:4px;padding:1px 3px;margin-bottom:1px;width:100%;text-align:center;background:${bg};color:${fg}">${esc(s.staff_name.slice(0, 2))}</div>`;
     }).join('');
-    cell.innerHTML = `<div class="shift-cal-day" style="${dayColor}">${d}</div>${shiftTags}`;
+    cell.innerHTML = `<div class="shift-cal-day" style="${dayColor}">${d}</div>${holTag}${shiftTags}`;
     cell.onclick = () => { shiftSelectedDay = d; renderShiftCalendar(); showShiftDayDetail(d, shifts); };
     grid.appendChild(cell);
   }
@@ -4741,7 +4750,8 @@ function renderShiftCalendar() {
 function showShiftDayDetail(d, shifts) {
   const el = document.getElementById('shiftDayDetail');
   const dow = ['日', '月', '火', '水', '木', '金', '土'][new Date(shiftYear, shiftMonth, d).getDay()];
-  let html = `<div style="background:var(--pink-light);border-radius:14px;padding:14px"><div style="font-size:13px;font-weight:700;color:var(--pink-deep);margin-bottom:10px">${shiftMonth + 1}月${d}日（${dow}）のシフト</div>`;
+  const holName = jpHoliday(shiftYear, shiftMonth, d);
+  let html = `<div style="background:var(--pink-light);border-radius:14px;padding:14px"><div style="font-size:13px;font-weight:700;color:var(--pink-deep);margin-bottom:10px">${shiftMonth + 1}月${d}日（${dow}）のシフト${holName ? `<span style="color:#dc2626">・${esc(holName)}</span>` : ''}</div>`;
   if (!shifts.length) {
     html += `<div style="font-size:12px;color:var(--text-light);text-align:center;padding:10px 0">シフト未設定</div>`;
   } else {
