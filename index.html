@@ -333,7 +333,7 @@ body { font-family: 'Zen Maru Gothic', sans-serif; background: var(--pink-bg); c
 .shift-tag.早番 { background: #FFD6D6; color: #c0404a; }
 .shift-tag.通常 { background: #D6F0E0; color: #2a7a4a; }
 .shift-tag.遅番 { background: #FFF3C4; color: #a07010; }
-.shift-tag.夜番 { background: #E8D6FF; color: #6030b0; }
+.shift-tag.夜カフェ { background: #E8D6FF; color: #6030b0; }
 .shift-tag.休み { background: #E0E0E0; color: #606060; }
 .shift-tag.定休 { background: #D6EAFF; color: #2050a0; }
 .shift-detail-card { background: var(--white); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 2px 8px rgba(212,112,138,0.12); }
@@ -1506,7 +1506,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
   <button class="modal-close" onclick="closeModal('shiftType')">✕</button>
   <h3 id="shiftTypeModalTitle">📅 シフト種別を追加</h3>
   <input type="hidden" id="shiftTypeEditId">
-  <div class="form-group"><label class="form-label">種別名</label><input type="text" class="form-input" id="shiftTypeName" placeholder="例：早番・夜番・研修"></div>
+  <div class="form-group"><label class="form-label">種別名</label><input type="text" class="form-input" id="shiftTypeName" placeholder="例：早番・夜カフェ・研修"></div>
   <div class="form-group"><label class="form-label">時間帯（任意）</label><input type="text" class="form-input" id="shiftTypeTime" placeholder="例：11:00〜15:00"></div>
   <div class="form-group">
     <label class="form-label">色</label>
@@ -1539,7 +1539,7 @@ mark { background: #ffe58a; color: inherit; padding: 0 1px; border-radius: 3px; 
 <script>
 const SUPABASE_URL='https://kidxeqjovvakcqalblre.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZHhlcWpvdnZha2NxYWxibHJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjcxMjYsImV4cCI6MjA4OTQwMzEyNn0.YHz0cVTpwQi1zBAZyZuFImDJv2gKQo9HUyC8w86tgsI';
-const APP_VERSION='11/19';
+const APP_VERSION='11/21';
 // ─── ログイン中のトークン（サーバー側で照合する合言葉） ─────────
 let wcToken='';
 try{const s=JSON.parse(sessionStorage.getItem('wecats_session')||'null');if(s&&s.token)wcToken=s.token;}catch(e){}
@@ -4757,7 +4757,7 @@ function showShiftDayDetail(d, shifts) {
   if (!shifts.length) {
     html += `<div style="font-size:12px;color:var(--text-light);text-align:center;padding:10px 0">シフト未設定</div>`;
   } else {
-    const typeOrder = ['早番', '通常', '遅番', '夜番', '休み', '定休'];
+    const typeOrder = ['早番', '通常', '遅番', '夜カフェ', '休み', '定休'];
     const sorted = [...shifts].sort((a, b) => typeOrder.indexOf(a.shift_type) - typeOrder.indexOf(b.shift_type));
     const timeMap = {};
   shiftTypesCache.forEach(t => { timeMap[t.name] = (t.time_range && t.time_range !== 'EMPTY') ? t.time_range : ''; });
@@ -4838,7 +4838,7 @@ async function loadShiftTypes() {
       { id: 'st_1', name: '早番', time_range: '11:00〜15:00', color: '#FFD6D6', fg_color: '#c0404a', sort_order: 1 },
       { id: 'st_2', name: '通常', time_range: '11:00〜18:00', color: '#D6F0E0', fg_color: '#2a7a4a', sort_order: 2 },
       { id: 'st_3', name: '遅番', time_range: '15:00〜19:00', color: '#FFF3C4', fg_color: '#a07010', sort_order: 3 },
-      { id: 'st_4', name: '夜番', time_range: '19:00〜22:00', color: '#E8D6FF', fg_color: '#6030b0', sort_order: 4 },
+      { id: 'st_4', name: '夜カフェ', time_range: '19:00〜21:00', color: '#E8D6FF', fg_color: '#6030b0', sort_order: 4 },
       { id: 'st_5', name: '休み',  time_range: '', color: '#E0E0E0', fg_color: '#606060', sort_order: 5 },
       { id: 'st_6', name: '定休',  time_range: '', color: '#D6EAFF', fg_color: '#2050a0', sort_order: 6 },
     ];
