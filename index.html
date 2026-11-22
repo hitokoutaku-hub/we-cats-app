@@ -4709,9 +4709,10 @@ function renderShiftCalendar() {
   // 凡例を動的に生成
   const legend = document.getElementById('shiftLegend');
   if (legend) {
-    legend.innerHTML = shiftTypesCache.filter(t => t.time_range && t.time_range !== 'EMPTY').map(t =>
-      `<span style="background:${t.color};color:${t.fg_color||'#333'};border-radius:4px;padding:2px 8px;font-size:8px;font-weight:700">${esc(t.name)} ${esc(t.time_range)}</span>`
-    ).join('');
+    legend.innerHTML = shiftTypesCache.map(t => {
+      const tr = (t.time_range && t.time_range !== 'EMPTY') ? ' ' + esc(t.time_range) : '';
+      return `<span style="background:${t.color};color:${t.fg_color||'#333'};border-radius:4px;padding:2px 8px;font-size:8px;font-weight:700">${esc(t.name)}${tr}</span>`;
+    }).join('');
   }
   const dayMap = {};
   shiftCache.forEach(s => {
